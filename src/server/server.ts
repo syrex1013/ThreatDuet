@@ -4,6 +4,7 @@ import { closeServer, listen } from './listen.js';
 import { stopRemote, syncRemote } from './remote.js';
 import { cancelSignIn, writeConnectorsConfig } from './connectors.js';
 import { setComputerPort } from './computer/endpoint.js';
+import { dropConnections } from './direct/mcp-client.js';
 import { stopKiloServer } from './kilo-api.js';
 import { stopBrowser } from './mac/browser.js';
 import { startScheduler } from './scheduler.js';
@@ -32,6 +33,7 @@ export async function startServer({ port = PORT }: { port?: number } = {}): Prom
       cron.stop();
       cancelSignIn();
       stopKiloServer();
+      await dropConnections();
       await stopBrowser();
       await stopRemote();
       await closeServer(local.server);

@@ -116,12 +116,13 @@ export function SettingsSheet({ state, onClose, onSave, onUnpair, onOpenApps }: 
         <Field id="model" label="Model" hint="Any Kilo model id. The default costs nothing." value={form.model} onChange={set('model')} />
         <div className="field">
           <label htmlFor="kiloMode">How Duet talks to Kilo</label>
-          <select id="kiloMode" value={form.kiloMode} onChange={(e) => setForm({ ...form, kiloMode: e.target.value as 'api' | 'cli' })} aria-describedby="kiloMode-hint">
+          <select id="kiloMode" value={form.kiloMode} onChange={(e) => setForm({ ...form, kiloMode: e.target.value as 'api' | 'cli' | 'direct' })} aria-describedby="kiloMode-hint">
             <option value="api">Kilo server (HTTP API)</option>
             <option value="cli">Command line (one kilo run per task)</option>
+            <option value="direct">Kilo hosted API (no Kilo program needed)</option>
           </select>
           <p className="hint" id="kiloMode-hint">
-            The server stays running between tasks and has no command-line limits. If it can't start, Duet uses the command line.
+            If the Kilo program isn't installed (common on Windows), Duet uses the hosted API on its own. Otherwise the server stays running between tasks, and the command line is the fallback.
           </p>
         </div>
         <div className="reset">

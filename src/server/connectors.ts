@@ -3,6 +3,8 @@ import { execa, execaSync, type ResultPromise } from 'execa';
 import type { ConnectorInfo, ConnectorsResponse, ConnectorState } from '../shared/types.js';
 import { CONNECTORS_FILE, log, WORKSPACE } from './config.js';
 import { computerEndpoint, macEndpoint } from './computer/endpoint.js';
+import { useDirect } from './direct/available.js';
+import { connectorStatuses, directLogout, directSignIn, dropConnections } from './direct/mcp-client.js';
 import { stateChanged } from './events.js';
 import { db, macOn } from './store.js';
 
@@ -46,6 +48,7 @@ export async function writeConnectorsConfig(): Promise<void> {
   await fs.writeFile(CONNECTORS_FILE, JSON.stringify({ $schema: 'https://app.kilo.ai/config.json', mcp }, null, 2), { mode: 0o600 });
   await fs.chmod(CONNECTORS_FILE, 0o600);
   status = null;
+  void dropConnections();
 }
 
 /**
@@ -78,16 +81,16 @@ let statusRun: Promise<StatusMap> | null = null;
 /** Status of every app, from kilo (which connects to each server). Cached for a minute. */
 async function connectorStatus(force = false): Promise<StatusMap> {
   if (!force && status && Date.now() - statusAt < 60_000) return status;
-  statusRun ??= execa('kilo', ['mcp', 'list'], { cwd: WORKSPACE, env: kiloEnv(), reject: false, timeout: 90_000, stdin: 'ignore' })
-    .then((r) => {
-      const parsed = parseMcpList(r.stdout ?? '');
-      status = parsed;
-      statusAt = Date.now();
-      return parsed;
-    })
-    .finally(() => {
-      statusRun = null;
-    });
+  statusRun ??= (async () => {
+    const parsed = (await useDirect())
+      ? await connectorStatuses()
+      : parseMcpList((await execa('kilo', ['mcp', 'list'], { cwd: WORKSPACE, env: kiloEnv(), reject: false, timeout: 90_000, stdin: 'ignore' })).stdout ?? '');
+    status = parsed;
+    statusAt = Date.now();
+    return parsed;
+  })().finally(() => {
+    statusRun = null;
+  });
   return statusRun;
 }
 
@@ -100,7 +103,7 @@ const site = (c: ConnectorRecord) => {
   }
 };
 
-let signIn: { id: string; url: string | null; proc: ResultPromise; reason: 'cancel' | 'timeout' | null; timer: NodeJS.Timeout } | null = null;
+let signIn: { id: string; url: string | null; proc: ResultPromise; abort?: AbortController; reason: 'cancel' | 'timeout' | null; timer: NodeJS.Timeout } | null = null;
 let lastError: { id: string; message: string } | null = null;
 
 export async function connectorsResponse(force = false): Promise<ConnectorsResponse> {
@@ -190,7 +193,8 @@ export async function updateConnector(id: string, patch: { enabled?: boolean; au
 export async function removeConnector(id: string) {
   if (!db.data.connectors.some((c) => c.id === id)) return false;
   if (signIn?.id === id) cancelSignIn();
-  await execa('kilo', ['mcp', 'logout', id], { cwd: WORKSPACE, env: kiloEnv(), reject: false, timeout: 30_000, stdin: 'ignore' });
+  if (await useDirect()) await directLogout(id);
+  else await execa('kilo', ['mcp', 'logout', id], { cwd: WORKSPACE, env: kiloEnv(), reject: false, timeout: 30_000, stdin: 'ignore' });
   db.data.connectors = db.data.connectors.filter((c) => c.id !== id);
   await db.write();
   await writeConnectorsConfig();
@@ -201,11 +205,33 @@ export async function removeConnector(id: string) {
  * Starts kilo's OAuth flow. Kilo opens the browser itself when it can and prints the page either way;
  * tokens land in kilo's own store, never in OpenDuet's files. One at a time: the callback port is fixed.
  */
-export function startSignIn(id: string): { ok: true } | { error: string } {
+export async function startSignIn(id: string): Promise<{ ok: true } | { error: string }> {
   const c = db.data.connectors.find((x) => x.id === id);
   if (!c) return { error: 'That app is not connected.' };
   if (signIn) return { error: 'Finish or cancel the sign-in that is already open first.' };
   lastError = null;
+  if (await useDirect()) {
+    // No Kilo program: Duet runs the browser sign-in itself.
+    const abort = new AbortController();
+    const timer = setTimeout(() => stopSignIn('timeout'), 5 * 60_000);
+    signIn = { id, url: null, proc: null as unknown as ResultPromise, abort, reason: null, timer };
+    stateChanged();
+    void directSignIn(c, (u) => {
+      if (signIn?.id === id) {
+        signIn.url = u;
+        stateChanged();
+      }
+    }, abort.signal).then((ok) => {
+      const reason = signIn?.id === id ? signIn.reason : 'cancel';
+      clearTimeout(timer);
+      if (signIn?.id === id) signIn = null;
+      status = null;
+      if (!ok && reason !== 'cancel') lastError = { id, message: reason === 'timeout' ? 'Sign-in timed out after 5 minutes.' : `Sign-in to ${c.name} didn't finish. Try again.` };
+      log.info({ app: id, connected: ok }, 'app sign-in ended');
+      stateChanged();
+    });
+    return { ok: true };
+  }
   // Own process group: the kilo launcher starts a child that holds the callback port, and killing
   // only the launcher would leave it running. Cancel and timeout stop the whole group.
   const proc = execa('kilo', ['mcp', 'auth', id], { cwd: WORKSPACE, env: kiloEnv(), stdin: 'ignore', reject: false, detached: process.platform !== 'win32' });
@@ -237,6 +263,11 @@ export function startSignIn(id: string): { ok: true } | { error: string } {
 }
 
 function stopSignIn(reason: 'cancel' | 'timeout'): void {
+  if (signIn?.abort) {
+    signIn.reason = reason;
+    signIn.abort.abort();
+    return;
+  }
   if (!signIn?.proc.pid) return;
   signIn.reason = reason;
   const pid = signIn.proc.pid;
@@ -259,7 +290,7 @@ export function cancelSignIn(): void {
 
 // Never leave the callback port held after OpenDuet quits.
 process.once('exit', () => {
-  if (signIn?.proc.pid)
+  if (signIn?.proc?.pid)
     try {
       if (process.platform === 'win32') execaSync('taskkill', ['/pid', String(signIn.proc.pid), '/T', '/F'], { reject: false });
       else process.kill(-signIn.proc.pid, 'SIGKILL');

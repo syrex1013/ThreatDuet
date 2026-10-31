@@ -39,8 +39,8 @@ export interface Settings {
   focus: string;
   /** Whether Duet may open web pages without asking while apps are connected (an exfiltration path). */
   openWebPages: boolean;
-  /** How Duet reaches Kilo: its local HTTP server, or one `kilo run` per turn. */
-  kiloMode: 'api' | 'cli';
+  /** How Duet reaches Kilo: its local HTTP server, one `kilo run` per turn, or Kilo's hosted API with Duet's own agent. */
+  kiloMode: 'api' | 'cli' | 'direct';
 }
 
 /**

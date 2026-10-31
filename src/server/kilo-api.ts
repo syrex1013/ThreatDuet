@@ -118,7 +118,7 @@ async function syncConfig(s: Server): Promise<void> {
   applied = stamp;
 }
 
-interface Part {
+export interface Part {
   type: string;
   text?: string;
   tool?: string;
@@ -126,7 +126,7 @@ interface Part {
 }
 
 /** Same shape the CLI prints with `--format json`, so one parser serves both. */
-const asEvents = (sessionID: string, parts: Part[], error: unknown): string =>
+export const asEvents = (sessionID: string, parts: Part[], error: unknown): string =>
   [
     ...parts.map((part) => JSON.stringify(part.type === 'step-start' ? { type: 'step_start', sessionID } : { type: part.type, sessionID, part })),
     ...(error ? [JSON.stringify({ type: 'error', sessionID, error })] : []),

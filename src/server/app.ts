@@ -69,8 +69,8 @@ app.post('/api/connectors/remove', json(AppId), async (c) => {
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });
-app.post('/api/connectors/sign-in', json(AppId), (c) => {
-  const r = startSignIn(c.req.valid('json').id);
+app.post('/api/connectors/sign-in', json(AppId), async (c) => {
+  const r = await startSignIn(c.req.valid('json').id);
   return 'error' in r ? c.json(r, 409) : c.json(r);
 });
 app.post('/api/connectors/cancel-sign-in', (c) => {

@@ -3,6 +3,8 @@ import { execa } from 'execa';
 import { RUN_TIMEOUT_MS, WORKSPACE, log } from './config.js';
 import { parseKiloEvents, type KiloResult } from './parse.js';
 import { kiloEnv } from './connectors.js';
+import { useDirect } from './direct/available.js';
+import { runDirect } from './direct/runtime.js';
 import { KiloServerError, runKiloApi } from './kilo-api.js';
 import { db, resetSandbox } from './store.js';
 
@@ -90,9 +92,10 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
   return app ? `using ${app}` : 'working';
 }
 
-/** One turn, through Kilo's HTTP server (default) or the CLI. If the server can't start, the CLI takes over. */
+/** One turn: the Kilo program's HTTP server (default) or CLI, or Duet's own agent on Kilo's hosted API. */
 export async function runKilo(run: KiloRun): Promise<KiloResult> {
   await resetSandbox();
+  if (await useDirect()) return runDirect(run, describeTool);
   if (db.data.settings.kiloMode !== 'cli') {
     try {
       return await runKiloApi(run, describeTool);

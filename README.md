@@ -97,11 +97,13 @@ Pages and files it reads are marked as untrusted data, so text inside a web page
 
 By default OpenDuet starts one headless `kilo serve` (loopback only, random port, random password) and sends each task over its HTTP API: the prompt travels in the request body, progress comes from the event stream, and the server stays warm between tasks. If the server can't start, or you pick "Command line" in Settings > Advanced, it runs `kilo run` per task with the prompt on stdin (Windows rejects line breaks in the arguments of a `.cmd` program, which is why the prompt is never an argument). App sign-in and listing still use the `kilo` CLI.
 
+**No Kilo program (the usual Windows case):** OpenDuet checks for `kilo` once and, if it is missing, runs its own agent loop on Kilo's hosted gateway (`https://api.kilo.ai/api/gateway`, OpenAI-compatible; free models work without an account, about 200 requests an hour per IP; set `KILO_API_KEY` for more). It offers the same tools (workspace files, `webfetch`, skills, your apps over MCP, the Mac/PC tools, the cloud computer) and obeys the same permission file, so approvals work the same. Apps sign in through your browser with OAuth handled by OpenDuet (loopback port 19877); tokens are kept in the private data folder. Not available in this mode: Kilo's built-in `websearch` and `codesearch`. Pick "Kilo hosted API" in Settings to use it even when `kilo` is installed.
+
 ## Windows
 
 `npm run dist:win` builds `release/OpenDuet-Setup-0.1.0.exe` (NSIS, x64) from any machine; `npm run release` also copies it into `builds/`.
 
-- **Needs on the PC:** [git](https://git-scm.com) and the Kilo CLI on `PATH` (the same as on macOS).
+- **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it OpenDuet uses Kilo's hosted API.
 - **Unsigned:** the installer and app are not code-signed, so Windows SmartScreen warns on first run ("More info" > "Run anyway"). The exe has Electron's default icon because icon editing needs Wine or a Windows build machine.
 - **Your PC panel:** files work the same (folders, symlink checks, deny-list for `AppData` credential stores, Brave data, `NTUSER.DAT`). Commands run in PowerShell, and only the exact commands in an approved proposal.
 - **Browsers:** the cookie database is copied with Node's built-in sqlite. Chrome and Brave lock it while they run, so close the browser before the first use or press "Copy my sign-ins again". Newer Chromium builds can bind cookies to the original profile on Windows (app-bound encryption); the copy then opens signed out.
