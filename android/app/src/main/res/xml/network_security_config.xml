@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The app only talks to the user's own computer, at whatever address it is paired with
+  (a Tailscale or LAN IP, which can't be listed ahead of time), over plain HTTP.
+  Tailscale encrypts that traffic itself; on a plain LAN it is only as private as the network.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

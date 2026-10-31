@@ -1,0 +1,96 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import QRCode from 'qrcode';
+import { useState } from 'react';
+import type { RemoteInfo } from '../../../src/shared/types';
+import { getRemote, post } from '../api';
+import { pairLink } from '../connection';
+
+/** Desktop settings: let the phone app reach this computer, and show the code to pair it. */
+export function PhoneAccess() {
+  const qc = useQueryClient();
+  const remote = useQuery({ queryKey: ['remote'], queryFn: getRemote });
+  const [chosen, setChosen] = useState<string | null>(null);
+  const change = useMutation({
+    mutationFn: (body: { enabled?: boolean; rotate?: boolean }) => post<RemoteInfo>('/remote', body),
+    onSuccess: (info) => qc.setQueryData(['remote'], info),
+  });
+
+  const info = remote.data;
+  const address = info?.addresses.find((a) => a.address === chosen) ?? info?.addresses[0];
+  const url = info && address ? `http://${address.address}:${info.port}` : null;
+  const link = info?.enabled && info.token && url ? pairLink(url, info.token) : null;
+  const qr = useQuery({
+    queryKey: ['qr', link],
+    queryFn: () => QRCode.toDataURL(link!, { margin: 1, width: 232, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } }),
+    enabled: Boolean(link),
+  });
+
+  if (!info) return <p className="hint">{remote.error?.message ?? 'Checking phone access…'}</p>;
+
+  if (!info.enabled)
+    return (
+      <>
+        <p className="phone-text">
+          Get briefs, approvals and replies on your phone. This computer still does the work, so leave OpenDuet running.
+        </p>
+        <button type="button" className="btn btn-quiet" onClick={() => change.mutate({ enabled: true })} disabled={change.isPending}>
+          Turn on phone access
+        </button>
+        {change.error && <p className="is-error hint">{change.error.message}</p>}
+      </>
+    );
+
+  return (
+    <>
+      {info.addresses.length === 0 ? (
+        <p className="is-error hint">This computer isn't on a network your phone can reach. Connect to Wi-Fi or start Tailscale.</p>
+      ) : (
+        <>
+          {info.addresses.length > 1 && (
+            <div className="field" role="radiogroup" aria-label="Address your phone uses">
+              <p className="field-label">Address your phone uses</p>
+              {info.addresses.map((a) => (
+                <label key={a.address} className="radio">
+                  <input type="radio" name="phone-address" checked={a.address === address?.address} onChange={() => setChosen(a.address)} />
+                  {a.address} <span className="muted">{a.kind === 'tailscale' ? '(Tailscale, encrypted)' : '(local network)'}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {address?.kind === 'lan' && (
+            <p className="warning">
+              On a local network, anyone on the same Wi-Fi could read the pairing code from the traffic and act as you. Use
+              Tailscale, or pair only on a network you trust.
+            </p>
+          )}
+          <div className="pairing">
+            {qr.data && <img className="qr" src={qr.data} width={232} height={232} alt="Pairing code for the OpenDuet phone app" />}
+            <div>
+              <p className="phone-text">Scan with your phone's camera. It opens the OpenDuet app and pairs it.</p>
+              <p className="hint">Or enter these in the app:</p>
+              <dl className="manual">
+                <dt>Computer address</dt>
+                <dd>
+                  <code>{url}</code>
+                </dd>
+                <dt>Pairing code</dt>
+                <dd>
+                  <code className="token">{info.token}</code>
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </>
+      )}
+      <div className="reset">
+        <button type="button" className="btn btn-quiet" onClick={() => change.mutate({ rotate: true })} disabled={change.isPending}>
+          Unpair all phones
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={() => change.mutate({ enabled: false })} disabled={change.isPending}>
+          Turn off phone access
+        </button>
+      </div>
+      {change.error && <p className="is-error hint">{change.error.message}</p>}
+    </>
+  );
+}
