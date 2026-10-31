@@ -93,6 +93,10 @@ starts Chromium on the machine's desktop and checks that it can load a page. Dis
 Duet's files live in `/data/workspace/openduet` on the machine and it cannot read or write outside it (symlinks resolved).
 Pages and files it reads are marked as untrusted data, so text inside a web page can't give it orders.
 
+## How Duet talks to Kilo
+
+By default OpenDuet starts one headless `kilo serve` (loopback only, random port, random password) and sends each task over its HTTP API: the prompt travels in the request body, progress comes from the event stream, and the server stays warm between tasks. If the server can't start, or you pick "Command line" in Settings > Advanced, it runs `kilo run` per task with the prompt on stdin (Windows rejects line breaks in the arguments of a `.cmd` program, which is why the prompt is never an argument). App sign-in and listing still use the `kilo` CLI.
+
 ## Windows
 
 `npm run dist:win` builds `release/OpenDuet-Setup-0.1.0.exe` (NSIS, x64) from any machine; `npm run release` also copies it into `builds/`.

@@ -7,7 +7,7 @@ let approved: string[] | null = null;
 /** Each fenced block counts as one command; so does any single line inside it. */
 export function commandsIn(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(/```[a-zA-Z]*\n([\s\S]*?)```/g)) {
+  for (const m of text.matchAll(/```(?:[a-zA-Z]+\n|\n)?([\s\S]*?)```/g)) {
     const block = m[1].trim();
     if (!block) continue;
     out.push(block, ...block.split('\n').map((l) => l.trim()).filter(Boolean));

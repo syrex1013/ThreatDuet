@@ -23,6 +23,7 @@ const SettingsPatch = z
     quietEnd: time,
     focus: z.string().max(2000),
     openWebPages: z.boolean(),
+    kiloMode: z.enum(['api', 'cli']),
     memory: z.string().max(200_000),
   })
   .partial();

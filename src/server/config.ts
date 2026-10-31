@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quietEnd: '07:00',
   focus: 'Anything urgent, mistakes or conflicts in my schedule, messages waiting on me, unpaid invoices.',
   openWebPages: false,
+  kiloMode: 'api',
 };
 
 export const log = pino({ level: process.env.LOG_LEVEL ?? 'info' });

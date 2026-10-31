@@ -1,9 +1,10 @@
 import path from 'node:path';
 import { execa } from 'execa';
-import { RUN_TIMEOUT_MS, WORKSPACE } from './config.js';
+import { RUN_TIMEOUT_MS, WORKSPACE, log } from './config.js';
 import { parseKiloEvents, type KiloResult } from './parse.js';
 import { kiloEnv } from './connectors.js';
-import { resetSandbox } from './store.js';
+import { KiloServerError, runKiloApi } from './kilo-api.js';
+import { db, resetSandbox } from './store.js';
 
 export interface KiloRun {
   prompt: string;
@@ -45,6 +46,22 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
     case 'skill':
       return 'loading a skill';
   }
+  if (tool.startsWith('mac_')) {
+    const known: Record<string, string> = {
+      mac_files_list: 'looking in a folder on your computer',
+      mac_files_read: 'reading a file on your computer',
+      mac_files_search: 'searching your files',
+      mac_files_write: 'writing a file on your computer',
+      mac_shell_run: 'running a command on your computer',
+      mac_browser_open: 'opening a page in your browser',
+      mac_browser_read: 'reading the page in your browser',
+      mac_browser_screenshot: 'looking at the page in your browser',
+      mac_browser_click: 'clicking in your browser',
+      mac_browser_type: 'typing in your browser',
+      mac_browser_press: 'typing in your browser',
+    };
+    return known[tool] ?? 'using your computer';
+  }
   if (tool.startsWith('computer_')) {
     const url = typeof input.url === 'string' ? input.url : '';
     switch (tool) {
@@ -73,19 +90,32 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
   return app ? `using ${app}` : 'working';
 }
 
-export async function runKilo({ prompt, model, agent, session, auto, onProgress }: KiloRun): Promise<KiloResult> {
+/** One turn, through Kilo's HTTP server (default) or the CLI. If the server can't start, the CLI takes over. */
+export async function runKilo(run: KiloRun): Promise<KiloResult> {
+  await resetSandbox();
+  if (db.data.settings.kiloMode !== 'cli') {
+    try {
+      return await runKiloApi(run, describeTool);
+    } catch (e) {
+      if (!(e instanceof KiloServerError)) throw e;
+      log.warn({ err: e.message }, 'kilo server unavailable, using the CLI');
+    }
+  }
+  return runKiloCli(run);
+}
+
+async function runKiloCli({ prompt, model, agent, session, auto, onProgress }: KiloRun): Promise<KiloResult> {
+  // The prompt goes in on stdin: Windows refuses line breaks in the arguments of a .cmd program.
   const args = ['run', '--format', 'json', '--dir', WORKSPACE, '-m', model, '--agent', agent];
   if (session) args.push('-s', session);
   if (auto) args.push('--auto');
-  args.push(prompt);
-  await resetSandbox();
 
   const proc = execa('kilo', args, {
     cwd: WORKSPACE,
     // kilo resolves its project from $PWD, not the process cwd; an inherited PWD would load the
     // parent directory's config and skip the workspace sandbox entirely. KILO_CONFIG adds the apps.
     env: kiloEnv(),
-    stdin: 'ignore',
+    input: prompt,
     reject: false,
     timeout: RUN_TIMEOUT_MS,
     forceKillAfterDelay: 5000,
