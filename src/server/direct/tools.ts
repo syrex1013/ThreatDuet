@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises';
-import dns from 'node:dns/promises';
+import dns from 'node:dns';
+import http from 'node:http';
+import https from 'node:https';
 import net from 'node:net';
 import path from 'node:path';
 import { DATA_DIR, WORKSPACE } from '../config.js';
@@ -35,24 +37,63 @@ async function* walk(dir: string, root: string): AsyncGenerator<string> {
   }
 }
 
-/** Loopback, private, link-local and similar addresses: never a public web page. */
+const dnsCb = dns;
+const blocked = new net.BlockList();
+for (const [a, n] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 3]] as const) blocked.addSubnet(a, n, 'ipv4');
+// IPv6: loopback, unspecified, unique-local, link-local, site-local, and every form that carries an IPv4 address inside it. (IPv4-mapped ::ffff: addresses are judged by the IPv4 rules above.)
+for (const [a, n] of [['::', 96], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['2002::', 16], ['100::', 64], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['2001:db8::', 32]] as const) blocked.addSubnet(a, n, 'ipv6');
+
+/** Loopback, private, link-local, reserved: never a public web page. */
 export function privateAddress(ip: string): boolean {
-  const v6 = ip.toLowerCase().replace(/^::ffff:/, '');
-  if (net.isIPv4(v6)) {
-    const [a, b] = v6.split('.').map(Number);
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-  }
-  return v6 === '::' || v6 === '::1' || v6.startsWith('fc') || v6.startsWith('fd') || /^fe[89ab]/.test(v6);
+  const family = net.isIPv4(ip) ? 'ipv4' : net.isIPv6(ip) ? 'ipv6' : null;
+  return family === null || blocked.check(ip, family);
 }
 
-/** Checks the address and, by name lookup, every address it resolves to. shortcut: no pinning, so a rebinding DNS answer could still slip by. */
+/** The lookup the connection itself uses: the address that was checked is the address that is dialled. */
+export function safeLookup(hostname: string, options: dns.LookupOptions | undefined, cb: (err: Error | null, address: any, family?: number) => void): void {
+  dnsCb.lookup(hostname, { all: true, verbatim: true }, (err, addrs) => {
+    if (err) return cb(err, '');
+    if (!addrs.length || addrs.some((a) => privateAddress(a.address))) return cb(new Error("That address is inside this computer's own network, not the public web."), '');
+    if (options?.all) return cb(null, addrs);
+    return cb(null, addrs[0].address, addrs[0].family);
+  });
+}
+
+interface Got {
+  status: number;
+  type: string;
+  location: string | null;
+  body: string;
+}
+
+/** One GET with the guarded lookup, no automatic redirects, and a size cap. */
+function get(raw: string): Promise<Got> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^\[|\]$/g, '');
+    if (net.isIP(host) && privateAddress(host)) return reject(new Error("That address is inside this computer's own network, not the public web."));
+    const req = (u.protocol === 'https:' ? https : http).request(u, { method: 'GET', headers: { 'user-agent': 'Mozilla/5.0 OpenDuet' }, lookup: safeLookup as never, timeout: 20_000 }, (res) => {
+      const chunks: Buffer[] = [];
+      let size = 0;
+      res.on('data', (c: Buffer) => {
+        size += c.length;
+        if (size <= 400_000) chunks.push(c);
+        else res.destroy();
+      });
+      const done = () => resolve({ status: res.statusCode ?? 0, type: String(res.headers['content-type'] ?? ''), location: (res.headers.location as string | undefined) ?? null, body: Buffer.concat(chunks).toString('utf8') });
+      res.on('end', done);
+      res.on('close', done);
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('That page took too long to answer.')));
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function publicUrl(raw: string): Promise<string> {
   const c = checkBrowseUrl(raw);
   if (!c.ok) throw new Error(c.reason);
-  const host = new URL(c.url).hostname.replace(/^\[|\]$/g, '');
-  const addrs = net.isIP(host) ? [host] : (await dns.lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
-  if (!addrs.length) throw new Error("That address can't be found.");
-  if (addrs.some(privateAddress)) throw new Error("That address is inside this computer's own network, not the public web.");
   return c.url;
 }
 
@@ -153,22 +194,20 @@ export function builtinTools(): Tool[] {
       description: 'Fetches a public web page (http or https) and returns its text.',
       schema: obj({ url: str('Address of the page') }, ['url']),
       call: async (a) => {
-        // Redirects are followed by hand, so every hop is checked, not only the first address.
+        // Redirects are followed by hand and every connection uses the checked address.
         let current = await publicUrl(String(a.url));
-        let r: Response | null = null;
+        let r: Got | null = null;
         for (let hop = 0; hop < 5; hop++) {
-          r = await fetch(current, { headers: { 'user-agent': 'Mozilla/5.0 OpenDuet' }, signal: AbortSignal.timeout(20_000), redirect: 'manual' });
-          const next = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null;
-          if (!next) break;
-          current = await publicUrl(new URL(next, current).toString());
+          r = await get(current);
+          if (!(r.status >= 300 && r.status < 400 && r.location)) break;
+          current = await publicUrl(new URL(r.location, current).toString());
           r = null;
         }
         if (!r) throw new Error('Too many redirects.');
         const c = { url: current };
-        const type = r.headers.get('content-type') ?? '';
-        if (!/text|json|xml/.test(type)) throw new Error(`That page is ${type || 'not text'}.`);
-        let body = (await r.text()).slice(0, 400_000);
-        if (/html/.test(type)) body = body.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+        if (!/text|json|xml/.test(r.type)) throw new Error(`That page is ${r.type || 'not text'}.`);
+        let body = r.body;
+        if (/html/.test(r.type)) body = body.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
         return untrusted(`Page ${c.url} (HTTP ${r.status})`, body.slice(0, 30_000));
       },
     },
