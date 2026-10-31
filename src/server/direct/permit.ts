@@ -26,11 +26,18 @@ const EDITING = new Set(['write', 'edit']);
 
 /** The rules written to workspace/kilo.json for this agent: the one source both Kilo and the built-in agent obey. */
 export async function policyFor(agent: 'duet' | 'code', auto: boolean): Promise<Policy> {
-  const cfg = JSON.parse(await fs.readFile(path.join(WORKSPACE, 'kilo.json'), 'utf8').catch(() => '{}'));
+  let cfg: { permission?: Rules; agent?: Record<string, { permission?: Rules }> };
+  try {
+    cfg = JSON.parse(await fs.readFile(path.join(WORKSPACE, 'kilo.json'), 'utf8'));
+  } catch {
+    // No readable rules means no tools: never "allow everything" because a file is missing.
+    return { tool: () => 'deny', edit: () => 'deny' };
+  }
+  if (!cfg.agent?.[agent]?.permission) return { tool: () => 'deny', edit: () => 'deny' };
   const rules: Rules = { ...(cfg.permission ?? {}), ...(cfg.agent?.[agent]?.permission ?? {}) };
   const final = (v: string | null, fallback: 'allow' | 'deny'): 'allow' | 'deny' => (v === 'allow' ? 'allow' : v === 'deny' ? 'deny' : v === 'ask' ? (auto ? 'allow' : 'deny') : fallback);
-  // An agent with a catch-all rule is deny-by-default; the other is allow-by-default, as in Kilo.
-  const dflt: 'allow' | 'deny' = decide(rules, '\u0000') === 'deny' ? 'deny' : 'allow';
+  // Duet itself is deny-by-default. The approved-task agent allows what isn't named, as in Kilo, unless a catch-all denies.
+  const dflt: 'allow' | 'deny' = agent === 'duet' || decide(rules, '\u0000') === 'deny' ? 'deny' : 'allow';
   const editRules = (rules.edit && typeof rules.edit === 'object' ? rules.edit : {}) as Rules;
   return {
     tool: (name) => {
