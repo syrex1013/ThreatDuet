@@ -4,10 +4,13 @@ import { execa } from 'execa';
 /** Commands from the proposal being carried out now. A command that isn't in it never runs. */
 let approved: string[] | null = null;
 
-/** Each fenced block counts as one command; so does any single line inside it. */
+/**
+ * Each fenced block counts as one command; so does any single line inside it. Only fences that start a line
+ * count (as in the markdown the person reads), so text can't smuggle a command in through an odd fence.
+ */
 export function commandsIn(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(/```(?:[a-zA-Z]+\n|\n)?([\s\S]*?)```/g)) {
+  for (const m of text.matchAll(/^ {0,3}```[^\n`]*\n([\s\S]*?)^ {0,3}```[ \t]*$/gm)) {
     const block = m[1].trim();
     if (!block) continue;
     out.push(block, ...block.split('\n').map((l) => l.trim()).filter(Boolean));
@@ -15,7 +18,8 @@ export function commandsIn(text: string): string[] {
   return out;
 }
 
-export const hasCommands = (text: string) => commandsIn(text).length > 0;
+/** Any fence at all counts, so a proposal with something command-like is never approved from a phone. */
+export const hasCommands = (text: string) => text.includes('```') || commandsIn(text).length > 0;
 
 export function allowCommands(text: string): void {
   approved = commandsIn(text);

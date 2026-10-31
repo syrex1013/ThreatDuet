@@ -107,7 +107,14 @@ async function syncConfig(s: Server): Promise<void> {
   const skills = await fs.readdir(path.join(WORKSPACE, '.kilo', 'skills')).catch(() => [] as string[]);
   const stamp = [await read(path.join(WORKSPACE, 'kilo.json')), await read(CONNECTORS_FILE), skills.sort().join(',')].join('\u0000');
   if (stamp === applied) return;
-  if (applied) await fetch(`${s.base}/global/dispose`, { method: 'POST', headers: headers(s) }).catch(() => undefined);
+  if (applied) {
+    // A reload that didn't happen would leave the old permissions in force: restart the server, or use the CLI.
+    const r = await fetch(`${s.base}/global/dispose`, { method: 'POST', headers: headers(s) }).catch(() => null);
+    if (!r?.ok) {
+      stopKiloServer();
+      throw new KiloServerError('kilo server could not reload its settings');
+    }
+  }
   applied = stamp;
 }
 

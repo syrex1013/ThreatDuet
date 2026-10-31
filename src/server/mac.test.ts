@@ -129,7 +129,8 @@ describe('commands', () => {
     await expect(shell.runShell('echo hello')).rejects.toThrow(/not in the proposal/);
     expect(shell.hasCommands('no commands here')).toBe(false);
     expect(shell.hasCommands('```\nls\n```')).toBe(true);
-    expect(shell.commandsIn('run ```echo hi``` now')).toContain('echo hi');
+    expect(shell.commandsIn('run ```echo hi``` now')).toEqual([]);
+    expect(shell.hasCommands('run ```echo hi``` now')).toBe(true);
     expect(shell.commandsIn('```bash\nls -la\n```')).toContain('ls -la');
   });
 
