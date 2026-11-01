@@ -53,7 +53,9 @@ export async function resolveAllowed(raw: string, { forWrite = false } = {}): Pr
   if (blocked.some((s) => inside(resolved!, s))) throw new Error('That location holds passwords or keys, so Duet may not open it.');
   // Same rule as the workspace edit permissions: a protected name at any depth inside the workspace.
   const ws = (await real(WORKSPACE)) ?? WORKSPACE;
-  if (inside(resolved, ws) && path.relative(ws, resolved).split(path.sep).some((part) => PROTECTED.includes(part))) throw new Error('That is one of Duet\'s own configuration files, so Duet may not open it.');
+  // macOS and Windows file systems ignore case: so does this check.
+  const fold = (s: string) => (process.platform === 'linux' ? s : s.toLowerCase());
+  if (inside(resolved, ws) && path.relative(ws, resolved).split(path.sep).some((part) => PROTECTED.map(fold).includes(fold(part)))) throw new Error("That is one of Duet's own configuration files, so Duet may not open it.");
   if (!existing && !forWrite) throw new Error(`${raw} does not exist.`);
   return resolved;
 }

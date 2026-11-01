@@ -125,6 +125,7 @@ describe('everything', () => {
     await expect(files.readText(path.join(home, 'data', 'state.json'))).rejects.toThrow(/passwords or keys/);
     await expect(files.writeText(path.join(home, 'workspace', 'kilo.json'), '{}')).rejects.toThrow(/own configuration/);
     await expect(files.writeText(path.join(home, 'workspace', 'notes', 'AGENTS.md'), 'x')).rejects.toThrow(/own configuration/);
+    if (process.platform !== 'linux') await expect(files.writeText(path.join(home, 'workspace', 'notes', 'KILO.JSON'), '{}')).rejects.toThrow(/own configuration/);
     expect(await files.writeText(path.join(home, 'workspace', 'notes', 'kilo-notes.md'), 'x')).toContain('Wrote');
     await expect(files.listFolder(path.join(os.homedir(), '.ssh'))).rejects.toThrow(/passwords or keys|does not exist/);
     expect(await files.searchFiles('quarterly', docs)).toContain('plan.md');
