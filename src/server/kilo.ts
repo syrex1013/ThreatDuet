@@ -103,7 +103,7 @@ export async function runKilo(run: KiloRun): Promise<KiloResult> {
   const first = await runOnce(run).catch((e: Error) => ({ sessionID: run.session ?? null, text: '', finalText: '', tools: [], errors: [e.message] }) as KiloResult);
   if (first.text || !first.errors.length) return first;
   // The gateway itself failing (unreachable, rate-limited, 5xx) is not something another prompt can fix.
-  if (first.errors.every((e) => /Kilo gateway|rate-limited/i.test(e))) return first;
+  if (first.errors.every((e) => /Kilo gateway|NVIDIA NIM|rate-limited/i.test(e))) return first;
   const session = first.sessionID ?? run.session ?? null;
   if (run.agent === 'code' && !session) throw new Error(first.errors.join('; '));
   log.warn({ errors: first.errors }, 'run stopped without an answer, resuming once');

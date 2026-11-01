@@ -105,7 +105,7 @@ export const PL_THREAD: Record<string, string> = {
   'Duet reads this before every task. Edit or delete anything.': 'Duet czyta to przed każdym zadaniem. Możesz wszystko edytować lub usunąć.',
   Advanced: 'Zaawansowane',
   Model: 'Model',
-  'Any Kilo model id. The default costs nothing.': 'Dowolny identyfikator modelu Kilo. Domyślny jest bezpłatny.',
+  'Any Kilo model id, or nim/<model> for NVIDIA NIM (built-in key). The default costs nothing.': 'Dowolny identyfikator modelu Kilo albo nim/<model> dla NVIDIA NIM (wbudowany klucz). Domyślny jest bezpłatny.',
   'How Duet talks to Kilo': 'Jak Duet łączy się z Kilo',
   'Kilo server (HTTP API)': 'Serwer Kilo (HTTP API)',
   'Command line (one kilo run per task)': 'Wiersz poleceń (jedno kilo run na zadanie)',

@@ -1,7 +1,7 @@
 # OpenDuet
 
 A proactive coworker in the style of Anthropic's Claude Duet. It runs locally and uses
-[Kilo Code](https://kilo.ai)'s free auto model (`kilo/kilo-auto/free`), so it costs nothing to run.
+NVIDIA NIM's free `nvidia/nemotron-3-ultra-550b-a55b` by default (model id `nim/nvidia/nemotron-3-ultra-550b-a55b`, built-in key, about 40 requests a minute), or any [Kilo Code](https://kilo.ai) model such as the free `kilo/kilo-auto/free`, so it costs nothing to run.
 
 Like Claude Duet, it comes to you first:
 - a morning brief, an evening report, and check-ins every few hours that interrupt only when something needs you
