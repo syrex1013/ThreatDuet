@@ -154,7 +154,7 @@ export async function addConnector(input: {
   presetId?: string | null;
   /** The person saw the exact command and agreed to run it. Required for programs on this computer. */
   confirmed?: boolean;
-}): Promise<{ id: string } | { error: string }> {
+}): Promise<{ id: string; warning?: string } | { error: string }> {
   const headers = { ...input.headers, ...(input.header?.name && input.header.value ? { [input.header.name]: input.header.value } : {}) };
   let url = '';
   if (input.command) {
@@ -182,13 +182,16 @@ export async function addConnector(input: {
   db.data.connectors.push(record);
   await db.write();
   await writeConnectorsConfig();
+  let warning: string | undefined;
   const skillUrl = PRESETS.find((x) => x.id === record.presetId)?.skillUrl;
   if (skillUrl) {
     const skill = await (await import('./skills.js')).installSkill({ url: skillUrl }).catch((e) => ({ error: String(e) }));
-    if ('error' in skill) log.warn({ app: record.id, err: skill.error }, 'payment skill not installed');
-    else await (await import('./store.js')).writeWorkspaceConfig().catch(() => undefined);
+    if ('error' in skill) {
+      log.warn({ app: record.id, err: skill.error }, 'payment skill not installed');
+      warning = tr('Connected, but the helper skill did not install: {err}', { err: skill.error });
+    } else await (await import('./store.js')).writeWorkspaceConfig().catch(() => undefined);
   }
-  return { id: record.id };
+  return warning ? { id: record.id, warning } : { id: record.id };
 }
 
 export async function updateConnector(id: string, patch: { enabled?: boolean; autoRead?: boolean }) {

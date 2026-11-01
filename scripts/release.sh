@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the release APK and the macOS app, and collects them in builds/ with the Android installer.
+# Builds the release APK, macOS app, and (when possible) Windows installer into builds/.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -7,11 +7,31 @@ VERSION="$(node -p "require('./package.json').version")"
 OUT="builds"
 [ -f android/keystore.properties ] || { echo "android/keystore.properties is missing: the APK can't be signed." >&2; exit 1; }
 
+# Keep package.json and the Android versionName in lockstep (0.2.8 shipped with 0.2.7 once).
+ANDROID_NAME="$(node -p "const fs=require('fs'); const t=fs.readFileSync('android/app/build.gradle','utf8'); const m=t.match(/versionName\\s+\"([^\"]+)\"/); if(!m) process.exit(2); m[1]")"
+ANDROID_CODE="$(node -p "const fs=require('fs'); const t=fs.readFileSync('android/app/build.gradle','utf8'); const m=t.match(/versionCode\\s+(\\d+)/); if(!m) process.exit(2); m[1]")"
+if [ "$ANDROID_NAME" != "$VERSION" ]; then
+  echo "android/app/build.gradle versionName is $ANDROID_NAME but package.json is $VERSION. Bump both together." >&2
+  exit 1
+fi
+if ! [[ "$ANDROID_CODE" =~ ^[0-9]+$ ]]; then
+  echo "android/app/build.gradle versionCode is missing." >&2
+  exit 1
+fi
+
 npm run build
 npm test
 npx cap sync android
 (cd android && ./gradlew assembleRelease)
-npx electron-builder
+npx electron-builder --mac
+
+# Windows NSIS from macOS: works without Wine when signAndEditExecutable is false (see package.json).
+WIN_OK=0
+if npx electron-builder --win --x64; then
+  WIN_OK=1
+else
+  echo "Windows installer build failed or was skipped; continuing with macOS + Android." >&2
+fi
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -21,11 +41,20 @@ cp "release/OpenDuet-$VERSION-arm64.dmg" "$OUT/"
 cp scripts/install-android.sh "$OUT/"
 chmod +x "$OUT/install-android.sh"
 
+SUMS=("OpenDuet-$VERSION.apk" "OpenDuet-$VERSION-arm64.dmg")
+if [ -f "release/OpenDuet-Setup-$VERSION.exe" ]; then
+  cp "release/OpenDuet-Setup-$VERSION.exe" "$OUT/"
+  SUMS+=("OpenDuet-Setup-$VERSION.exe")
+elif [ "$WIN_OK" = 1 ]; then
+  echo "Windows build reported success but release/OpenDuet-Setup-$VERSION.exe is missing." >&2
+  exit 1
+fi
+
 codesign --verify --deep --strict "$OUT/OpenDuet.app"
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 APKSIGNER="$(ls -d "$SDK"/build-tools/*/ | sort -V | tail -1)apksigner"
 "$APKSIGNER" verify "$OUT/OpenDuet-$VERSION.apk"
-(cd "$OUT" && shasum -a 256 "OpenDuet-$VERSION.apk" "OpenDuet-$VERSION-arm64.dmg" > SHA256SUMS.txt)
+(cd "$OUT" && shasum -a 256 "${SUMS[@]}" > SHA256SUMS.txt)
 
 echo "Release $VERSION in $OUT/:"
 ls -1 "$OUT"
