@@ -218,6 +218,10 @@ function createWindow() {
     if (/^https?:/i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
+  // A file preview (srcdoc frame) must never leave the app either.
+  win.webContents.on('will-frame-navigate', (e) => {
+    if (!e.isMainFrame && e.url !== 'about:srcdoc' && !e.url.startsWith(origin)) e.preventDefault();
+  });
   win.webContents.on('will-navigate', (e, url) => {
     if (url.startsWith(origin)) return;
     e.preventDefault();
