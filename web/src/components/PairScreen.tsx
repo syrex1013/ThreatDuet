@@ -8,7 +8,7 @@ interface PairScreenProps {
   onPair: (c: Connection) => void;
 }
 
-/** First run on the phone: pair with OpenDuet on the computer, by QR code or by hand. */
+/** First run on the phone: pair with ThreatDuet on the computer, by QR code or by hand. */
 export function PairScreen({ error, busy, onPair }: PairScreenProps) {
   const [address, setAddress] = useState('');
   const [code, setCode] = useState('');
@@ -30,7 +30,7 @@ export function PairScreen({ error, busy, onPair }: PairScreenProps) {
         {t('Duet works on your computer. This app shows you its briefs, asks you for approvals and lets you hand it tasks from anywhere.')}
       </p>
       <ol className="pair-steps">
-        <li>{t('On your computer, open OpenDuet, then Settings, then Phone.')}</li>
+        <li>{t('On your computer, open ThreatDuet, then Settings, then Phone.')}</li>
         <li>{t('Turn on phone access.')}</li>
         <li>{t("Scan the code with your phone's camera.")}</li>
       </ol>

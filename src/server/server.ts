@@ -36,7 +36,7 @@ export async function startServer({ port = PORT }: { port?: number } = {}): Prom
   const computerRetry = setInterval(() => void connectComputer(), 30 * 60_000);
   computerRetry.unref();
   await syncRemote().catch((err) => log.warn({ err }, 'phone access could not start'));
-  log.info(`OpenDuet on http://${HOST}:${local.port} (model ${db.data.settings.model})`);
+  log.info(`ThreatDuet on http://${HOST}:${local.port} (model ${db.data.settings.model})`);
   return {
     port: local.port,
     async close() {

@@ -41,7 +41,7 @@ class Auth implements OAuthClientProvider {
     return REDIRECT;
   }
   get clientMetadata() {
-    return { client_name: 'OpenDuet', redirect_uris: [REDIRECT], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' };
+    return { client_name: 'ThreatDuet', redirect_uris: [REDIRECT], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' };
   }
   private file = () => path.join(OAUTH_DIR, `${this.id}.json`);
   private async read(): Promise<Record<string, any>> {
@@ -86,7 +86,7 @@ interface Conn {
   tools: { name: string; description?: string; inputSchema: Record<string, unknown> }[];
 }
 const conns = new Map<string, Conn>();
-/** A slow first connect (npx downloading a package) is shared, not started again by every run and status poll. */
+/** A slow first connect (bunx downloading a package) is shared, not started again by every run and status poll. */
 const pending = new Map<string, Promise<Conn>>();
 
 function transportFor(c: ConnectorRecord, kind: 'http' | 'sse'): Transport {
@@ -125,7 +125,7 @@ async function doConnect(c: ConnectorRecord): Promise<Conn> {
   let lastError: unknown;
   for (const kind of c.command ? (['http'] as const) : (['http', 'sse'] as const)) {
     const transport = transportFor(c, kind);
-    const client = new Client({ name: 'openduet', version: '1.0.0' });
+    const client = new Client({ name: 'threatduet', version: '1.0.0' });
     try {
       await client.connect(transport);
       const listed = await client.listTools();
@@ -170,7 +170,7 @@ export async function openTools(): Promise<Handle> {
   const inMemory = async (prefix: string, build: () => import('@modelcontextprotocol/sdk/server/mcp.js').McpServer) => {
     const [a, b] = InMemoryTransport.createLinkedPair();
     await build().connect(b);
-    const client = new Client({ name: 'openduet', version: '1.0.0' });
+    const client = new Client({ name: 'threatduet', version: '1.0.0' });
     await client.connect(a);
     closers.push(() => client.close());
     tools.push(...toolsOf(prefix, (await client.listTools()).tools as Conn['tools'], client));
@@ -236,7 +236,7 @@ export async function directSignIn(c: ConnectorRecord, onUrl: (url: string) => v
   const auth = authFor(c.id);
   auth.authUrl = null;
   const transport = new StreamableHTTPClientTransport(new URL(c.url), { requestInit: { headers: c.headers ?? {} }, authProvider: auth });
-  const client = new Client({ name: 'openduet', version: '1.0.0' });
+  const client = new Client({ name: 'threatduet', version: '1.0.0' });
   try {
     await client.connect(transport);
     return true; // already signed in
@@ -249,7 +249,7 @@ export async function directSignIn(c: ConnectorRecord, onUrl: (url: string) => v
     const srv = http.createServer((req, res) => {
       const u = new URL(req.url ?? '/', REDIRECT);
       if (u.pathname !== '/callback') return void res.writeHead(404).end();
-      res.writeHead(200, { 'content-type': 'text/html' }).end('<p style="font:16px system-ui;margin:3rem">Signed in. You can close this tab and go back to OpenDuet.</p>');
+      res.writeHead(200, { 'content-type': 'text/html' }).end('<p style="font:16px system-ui;margin:3rem">Signed in. You can close this tab and go back to ThreatDuet.</p>');
       done(u.searchParams.get('code'));
     });
     const done = (v: string | null) => {
@@ -263,7 +263,7 @@ export async function directSignIn(c: ConnectorRecord, onUrl: (url: string) => v
   if (!code) return false;
   try {
     await transport.finishAuth(code);
-    const fresh = new Client({ name: 'openduet', version: '1.0.0' });
+    const fresh = new Client({ name: 'threatduet', version: '1.0.0' });
     await fresh.connect(new StreamableHTTPClientTransport(new URL(c.url), { requestInit: { headers: c.headers ?? {} }, authProvider: auth }));
     await fresh.close();
     return true;

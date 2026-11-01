@@ -19,7 +19,7 @@ const shim = mkdtempSync(path.join(os.tmpdir(), 'cmd-shim-'));
 writeFileSync(path.join(shim, 'cmd.exe'), '#!/bin/sh\nfor a; do last="$a"; done\nlast="${last#\\"}"; last="${last%\\"}"\nexec /bin/sh -c "$last"\n');
 chmodSync(path.join(shim, 'cmd.exe'), 0o755);
 process.env.PATH = `${shim}:${process.env.PATH}`;
-process.env.OPENDUET_HOME ??= mkdtempSync(path.join(os.tmpdir(), 'openduet-win-'));
+process.env.THREATDUET_HOME ??= mkdtempSync(path.join(os.tmpdir(), 'threatduet-win-'));
 
 const store = await import('../src/server/store.js');
 await store.openStore();
@@ -30,7 +30,7 @@ const { osLine, OS_NAME } = await import('../src/server/mac/os.js');
 const { connectedAppsLine } = await import('../src/server/connectors.js');
 const { buildMacServer } = await import('../src/server/mac/mcp.js');
 const { chat } = await import('../src/server/direct/gateway.js');
-const model = process.env.OPENDUET_SMOKE_MODEL ?? store.db.data.settings.model;
+const model = process.env.THREATDUET_SMOKE_MODEL ?? store.db.data.settings.model;
 
 // The real tool descriptions, as the built-in agent would list them.
 const [a, b] = InMemoryTransport.createLinkedPair();

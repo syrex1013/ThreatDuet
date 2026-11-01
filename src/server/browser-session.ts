@@ -41,12 +41,12 @@ export async function askAndFill(opts: {
     : tr('Entered into [{ref}]. Call browser_read to see the result.', { ref: opts.ref });
 }
 
-/** Move the local OpenDuet browser session (cookies) onto Duet's Instabox Chromium. */
+/** Move the local ThreatDuet browser session (cookies) onto Duet's Instabox Chromium. */
 export async function pushSessionToComputer(): Promise<string> {
   if (!db.data.mac.browser) throw new Error(tr('The browser on this computer is turned off. Turn it on in the Your Mac / Your PC panel.'));
   if (!db.data.computer) throw new Error(tr('No computer is connected.'));
   const cookies = await exportCookies();
-  if (!cookies.length) throw new Error(tr('No sign-ins in the local OpenDuet browser yet. Open a page or reload sign-ins first.'));
+  if (!cookies.length) throw new Error(tr('No sign-ins in the local ThreatDuet browser yet. Open a page or reload sign-ins first.'));
   const { count } = await importSessionCookies(cookies);
   return tr("Copied {n} sign-in cookies to Duet's computer. Open the site there to use the session.", { n: count });
 }

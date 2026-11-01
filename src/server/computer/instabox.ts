@@ -50,7 +50,7 @@ export class Instabox {
   private async request<T>(method: string, path: string, o: { body?: unknown; query?: Record<string, string>; idempotent?: boolean; timeoutMs?: number } = {}): Promise<T> {
     const url = new URL(this.base + path);
     for (const [k, v] of Object.entries(o.query ?? {})) url.searchParams.set(k, v);
-    const headers: Record<string, string> = { 'X-API-Key': this.key, Accept: 'application/json', 'User-Agent': 'openduet' };
+    const headers: Record<string, string> = { 'X-API-Key': this.key, Accept: 'application/json', 'User-Agent': 'threatduet' };
     if (o.body !== undefined) headers['Content-Type'] = 'application/json';
     // One key per logical call, so a retry replays instead of acting twice.
     if (o.idempotent) headers['Idempotency-Key'] = randomUUID();

@@ -9,19 +9,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
       - name: Live task on this OS (model, Mac/PC tools, permission file)
-        run: npx tsx scripts/smoke-task.mts
+        run: bunx tsx scripts/smoke-task.mts
       - name: Desktop app starts and draws its window
-        run: npm run build && npx electron . --no-sandbox
+        run: bun run build && bunx electron . --no-sandbox
         env:
-          OPENDUET_SMOKE_SCREENSHOT: ${{ runner.temp }}/window.png
+          THREATDUET_SMOKE_SCREENSHOT: ${{ runner.temp }}/window.png
       - uses: actions/upload-artifact@v4
         with:
           name: window-${{ matrix.os }}

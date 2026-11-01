@@ -8,7 +8,7 @@ let tr: typeof import('./i18n.js')['tr'];
 
 beforeAll(async () => {
   // config.ts reads this at import time, so set it before loading any server module.
-  process.env.OPENDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-test-'));
+  process.env.THREATDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-test-'));
   store = await import('./store.js');
   await store.openStore();
   tr = (await import('./i18n.js')).tr;

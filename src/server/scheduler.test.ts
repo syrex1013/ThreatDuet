@@ -4,7 +4,7 @@ import type { KiloResult } from './parse.js';
 
 await vi.hoisted(async () => {
   const { mkdtempSync } = await import('node:fs');
-  process.env.OPENDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/openduet-sched-`);
+  process.env.THREATDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/threatduet-sched-`);
 });
 vi.mock('./kilo.js', () => ({ runKilo: vi.fn() }));
 vi.mock('./notify.js', () => ({ notify: vi.fn() }));

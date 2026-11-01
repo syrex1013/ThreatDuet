@@ -73,7 +73,7 @@ function get(raw: string): Promise<Got> {
     const u = new URL(raw);
     const host = u.hostname.replace(/^\[|\]$/g, '');
     if (net.isIP(host) && privateAddress(host)) return reject(new Error("That address is inside this computer's own network, not the public web."));
-    const req = (u.protocol === 'https:' ? https : http).request(u, { method: 'GET', headers: { 'user-agent': 'Mozilla/5.0 OpenDuet' }, lookup: safeLookup as never, timeout: 20_000, signal: AbortSignal.timeout(20_000) }, (res) => {
+    const req = (u.protocol === 'https:' ? https : http).request(u, { method: 'GET', headers: { 'user-agent': 'Mozilla/5.0 ThreatDuet' }, lookup: safeLookup as never, timeout: 20_000, signal: AbortSignal.timeout(20_000) }, (res) => {
       const chunks: Buffer[] = [];
       let size = 0;
       res.on('data', (c: Buffer) => {

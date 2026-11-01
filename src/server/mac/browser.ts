@@ -161,7 +161,7 @@ async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
 }
 
 async function profileReady(): Promise<boolean> {
-  // A previous OpenDuet browse left a Chromium profile (or Firefox-cookie inject left Default/).
+  // A previous ThreatDuet browse left a Chromium profile (or Firefox-cookie inject left Default/).
   try {
     const entries = await fs.readdir(PROFILE);
     return entries.length > 0;
@@ -269,7 +269,7 @@ async function locate(p: Page, ref: number) {
 export type BrowseResult = { url: string; title: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
 
 /** One action at a time, so Duet's steps never interleave. */
-/** Cookies from the persisted OpenDuet browser profile (for moving a session to Instabox). Values never go to the model. */
+/** Cookies from the persisted ThreatDuet browser profile (for moving a session to Instabox). Values never go to the model. */
 export type SessionCookie = {
   name: string;
   value: string;

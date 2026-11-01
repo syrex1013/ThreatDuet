@@ -72,7 +72,7 @@ export function App() {
 function Topbar({ children }: { children?: React.ReactNode }) {
   return (
     <header className="topbar">
-      <a className="wordmark" href="/" aria-label={t('OpenDuet home')} onClick={(e) => isPhone && e.preventDefault()}>
+      <a className="wordmark" href="/" aria-label={t('ThreatDuet home')} onClick={(e) => isPhone && e.preventDefault()}>
         <span>Open</span>
         <span className="wordmark-block">Duet</span>
       </a>
@@ -86,7 +86,7 @@ function useCompact() {
   const [compact, setCompact] = useState(false);
   useEffect(
     () =>
-      window.openduet?.onCompact((c) => {
+      window.threatduet?.onCompact((c) => {
         setCompact(c);
         if (c) document.documentElement.dataset.compact = '';
         else delete document.documentElement.dataset.compact;
@@ -232,8 +232,8 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
               </button>
             </>
           )}
-          {window.openduet && (
-            <button type="button" className="icon-btn" onClick={() => window.openduet?.toggleCompact()} aria-label={compact ? t('Full window') : t('Compact window')} title={`${compact ? t('Full window') : t('Compact window')} (${/Mac/i.test(navigator.platform) ? '⌘⇧M' : 'Ctrl+Shift+M'})`}>
+          {window.threatduet && (
+            <button type="button" className="icon-btn" onClick={() => window.threatduet?.toggleCompact()} aria-label={compact ? t('Full window') : t('Compact window')} title={`${compact ? t('Full window') : t('Compact window')} (${/Mac/i.test(navigator.platform) ? '⌘⇧M' : 'Ctrl+Shift+M'})`}>
               {compact ? <Maximize2 size={20} aria-hidden="true" /> : <Minimize2 size={20} aria-hidden="true" />}
             </button>
           )}
@@ -353,7 +353,7 @@ function ConnectionBanner({ status, hasData, error, onRetry, onUnpair }: BannerP
       : (error?.message ?? t("Can't reach your computer."))
     : hasData
       ? t('Reconnecting to Duet…')
-      : t('The OpenDuet server is not running. Start it with npm start, then retry.');
+      : t('The ThreatDuet server is not running. Start it with bun start, then retry.');
   return (
     <AnimatePresence initial={false}>
       {show && (

@@ -6,8 +6,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 const home = await vi.hoisted(async () => {
   const { mkdtempSync, realpathSync } = await import('node:fs');
-  const h = realpathSync(mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/openduet-mac-`));
-  process.env.OPENDUET_HOME = h;
+  const h = realpathSync(mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/threatduet-mac-`));
+  process.env.THREATDUET_HOME = h;
   return h;
 });
 

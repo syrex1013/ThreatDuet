@@ -60,8 +60,8 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                 {t('Let Duet read and search my files')}
                 <span className="hint">
                   {WIN
-                    ? t("Writing a file always waits for approval. Folders with passwords and keys (AppData credential stores, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.")
-                    : t("Writing a file always waits for approval. Folders with passwords and keys (~/.ssh, Keychains, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.")}
+                    ? t("Writing a file always waits for approval. Folders with passwords and keys (AppData credential stores, browser data, ThreatDuet's own data) stay off-limits even inside a folder you add.")
+                    : t("Writing a file always waits for approval. Folders with passwords and keys (~/.ssh, Keychains, browser data, ThreatDuet's own data) stay off-limits even inside a folder you add.")}
                 </span>
               </span>
             </label>
@@ -87,7 +87,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                     <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => act.mutate(['/mac/privacy', {}])}>
                       {t('Open Privacy & Security settings')}
                     </button>
-                    <span className="hint">{t('macOS keeps Mail, Messages, Safari and backups closed until you add OpenDuet under Full Disk Access. Other folders ask the first time Duet opens them.')}</span>
+                    <span className="hint">{t('macOS keeps Mail, Messages, Safari and backups closed until you add ThreatDuet under Full Disk Access. Other folders ask the first time Duet opens them.')}</span>
                   </div>
                 )}
                 {!s.everything && (
@@ -141,7 +141,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                 <span className="hint">
                   {s.browsers.some((b) => b.installed)
                     ? t(
-                        "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in OpenDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.",
+                        "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in ThreatDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.",
                       )
                     : t('Brave, Chrome or Firefox must be installed.')}
                 </span>

@@ -33,12 +33,12 @@ export const authHeaders = (): Record<string, string> => (current ? { authorizat
 
 /** Builds the link the computer shows as a QR code; the phone's camera opens it in the app. */
 export const pairLink = (url: string, token: string) =>
-  `openduet://pair?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
+  `threatduet://pair?url=${encodeURIComponent(url)}&token=${encodeURIComponent(token)}`;
 
 export function parsePairLink(link: string): Connection | null {
   try {
     const u = new URL(link);
-    if (u.protocol !== 'openduet:') return null;
+    if (u.protocol !== 'threatduet:') return null;
     const url = normalizeUrl(u.searchParams.get('url') ?? '');
     const token = u.searchParams.get('token') ?? '';
     return url && token ? { url, token } : null;

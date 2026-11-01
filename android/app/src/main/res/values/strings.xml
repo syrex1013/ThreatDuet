@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">OpenDuet</string>
-    <string name="title_activity_main">OpenDuet</string>
-    <string name="package_name">tech.threatvector.openduet</string>
-    <string name="custom_url_scheme">tech.threatvector.openduet</string>
+    <string name="app_name">ThreatDuet</string>
+    <string name="title_activity_main">ThreatDuet</string>
+    <string name="package_name">tech.threatvector.threatduet</string>
+    <string name="custom_url_scheme">tech.threatvector.threatduet</string>
 </resources>

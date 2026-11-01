@@ -19,15 +19,15 @@ if ! [[ "$ANDROID_CODE" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
-npm run build
-npm test
-npx cap sync android
+bun run build
+bun run test
+bunx --bun cap sync android
 (cd android && ./gradlew assembleRelease)
-npx electron-builder --mac
+bunx electron-builder --mac --publish never
 
 # Windows NSIS from macOS: works without Wine when signAndEditExecutable is false (see package.json).
 WIN_OK=0
-if npx electron-builder --win --x64; then
+if bunx electron-builder --win --x64 --publish never; then
   WIN_OK=1
 else
   echo "Windows installer build failed or was skipped; continuing with macOS + Android." >&2
@@ -35,25 +35,25 @@ fi
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
-cp android/app/build/outputs/apk/release/app-release.apk "$OUT/OpenDuet-$VERSION.apk"
-ditto release/mac-arm64/OpenDuet.app "$OUT/OpenDuet.app" # ditto keeps the bundle's signature intact
-cp "release/OpenDuet-$VERSION-arm64.dmg" "$OUT/"
+cp android/app/build/outputs/apk/release/app-release.apk "$OUT/ThreatDuet-$VERSION.apk"
+ditto release/mac-arm64/ThreatDuet.app "$OUT/ThreatDuet.app" # ditto keeps the bundle's signature intact
+cp "release/ThreatDuet-$VERSION-arm64.dmg" "$OUT/"
 cp scripts/install-android.sh "$OUT/"
 chmod +x "$OUT/install-android.sh"
 
-SUMS=("OpenDuet-$VERSION.apk" "OpenDuet-$VERSION-arm64.dmg")
-if [ -f "release/OpenDuet-Setup-$VERSION.exe" ]; then
-  cp "release/OpenDuet-Setup-$VERSION.exe" "$OUT/"
-  SUMS+=("OpenDuet-Setup-$VERSION.exe")
+SUMS=("ThreatDuet-$VERSION.apk" "ThreatDuet-$VERSION-arm64.dmg")
+if [ -f "release/ThreatDuet-Setup-$VERSION.exe" ]; then
+  cp "release/ThreatDuet-Setup-$VERSION.exe" "$OUT/"
+  SUMS+=("ThreatDuet-Setup-$VERSION.exe")
 elif [ "$WIN_OK" = 1 ]; then
-  echo "Windows build reported success but release/OpenDuet-Setup-$VERSION.exe is missing." >&2
+  echo "Windows build reported success but release/ThreatDuet-Setup-$VERSION.exe is missing." >&2
   exit 1
 fi
 
-codesign --verify --deep --strict "$OUT/OpenDuet.app"
+codesign --verify --deep --strict "$OUT/ThreatDuet.app"
 SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 APKSIGNER="$(ls -d "$SDK"/build-tools/*/ | sort -V | tail -1)apksigner"
-"$APKSIGNER" verify "$OUT/OpenDuet-$VERSION.apk"
+"$APKSIGNER" verify "$OUT/ThreatDuet-$VERSION.apk"
 (cd "$OUT" && shasum -a 256 "${SUMS[@]}" > SHA256SUMS.txt)
 
 echo "Release $VERSION in $OUT/:"

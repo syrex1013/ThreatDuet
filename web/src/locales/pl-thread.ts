@@ -97,7 +97,7 @@ export const PL_THREAD: Record<string, string> = {
   'Paired with {url}.': 'Sparowano z {url}.',
   'Unpair this phone': 'Rozłącz ten telefon',
   Apps: 'Aplikacje',
-  'Connect apps from OpenDuet on your computer, in Apps.': 'Aplikacje połączysz w OpenDuet na komputerze, w sekcji Aplikacje.',
+  'Connect apps from ThreatDuet on your computer, in Apps.': 'Aplikacje połączysz w ThreatDuet na komputerze, w sekcji Aplikacje.',
   'Manage connected apps': 'Zarządzaj połączonymi aplikacjami',
   Memory: 'Pamięć',
   'What Duet remembers about you': 'Co Duet o Tobie pamięta',
@@ -119,8 +119,8 @@ export const PL_THREAD: Record<string, string> = {
 
   // Phone access
   'Checking phone access…': 'Sprawdzanie dostępu z telefonu…',
-  'Get briefs, approvals and replies on your phone. This computer still does the work, so leave OpenDuet running.':
-    'Odbieraj podsumowania, prośby o zgodę i odpowiedzi na telefonie. Pracę nadal wykonuje ten komputer, więc nie zamykaj OpenDuet.',
+  'Get briefs, approvals and replies on your phone. This computer still does the work, so leave ThreatDuet running.':
+    'Odbieraj podsumowania, prośby o zgodę i odpowiedzi na telefonie. Pracę nadal wykonuje ten komputer, więc nie zamykaj ThreatDuet.',
   'Turn on phone access': 'Włącz dostęp z telefonu',
   "This computer isn't on a network your phone can reach. Connect to Wi-Fi or start Tailscale.":
     'Ten komputer nie jest w sieci, do której dotrze Twój telefon. Połącz się z Wi-Fi lub uruchom Tailscale.',
@@ -129,8 +129,8 @@ export const PL_THREAD: Record<string, string> = {
   '(local network)': '(sieć lokalna)',
   'On a local network, anyone on the same Wi-Fi could read the pairing code from the traffic and act as you. Use Tailscale, or pair only on a network you trust.':
     'W sieci lokalnej każdy w tym samym Wi-Fi może odczytać kod parowania z ruchu i działać jako Ty. Użyj Tailscale albo paruj tylko w zaufanej sieci.',
-  'Pairing code for the OpenDuet phone app': 'Kod parowania dla aplikacji OpenDuet na telefon',
-  "Scan with your phone's camera. It opens the OpenDuet app and pairs it.": 'Zeskanuj aparatem telefonu. Otworzy się aplikacja OpenDuet i zostanie sparowana.',
+  'Pairing code for the ThreatDuet phone app': 'Kod parowania dla aplikacji ThreatDuet na telefon',
+  "Scan with your phone's camera. It opens the ThreatDuet app and pairs it.": 'Zeskanuj aparatem telefonu. Otworzy się aplikacja ThreatDuet i zostanie sparowana.',
   'Or enter these in the app:': 'Albo wpisz te dane w aplikacji:',
   'Computer address': 'Adres komputera',
   'Pairing code': 'Kod parowania',
@@ -157,7 +157,7 @@ export const PL_THREAD: Record<string, string> = {
 
   'Use fully from phone': 'Używaj w pełni z telefonu',
 
-  'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave OpenDuet running here. Anyone with a paired phone can act as you.': 'Zatwierdzaj polecenia na tym komputerze, oglądaj jego przeglądarkę i loguj się do stron z telefonu. OpenDuet musi tu działać. Każdy sparowany telefon może działać w Twoim imieniu.',
+  'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave ThreatDuet running here. Anyone with a paired phone can act as you.': 'Zatwierdzaj polecenia na tym komputerze, oglądaj jego przeglądarkę i loguj się do stron z telefonu. ThreatDuet musi tu działać. Każdy sparowany telefon może działać w Twoim imieniu.',
 
   'This runs commands on your computer. Turn on “Use fully from phone” under Settings → Phone, or approve it on this computer.': 'To uruchamia polecenia na Twoim komputerze. Włącz „Używaj w pełni z telefonu” w Ustawienia → Telefon albo zatwierdź to na tym komputerze.',
 };

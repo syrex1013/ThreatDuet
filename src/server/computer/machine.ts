@@ -106,7 +106,7 @@ async function vmExec(o: Parameters<Instabox['exec']>[1]) {
   }
 }
 
-/** Version of the driver on the machine: its content hash, so a new OpenDuet updates it by itself. */
+/** Version of the driver on the machine: its content hash, so a new ThreatDuet updates it by itself. */
 async function driverSource() {
   const source = await fs.readFile(DRIVER_SOURCE, 'utf8');
   return { source, version: createHash('sha256').update(source).digest('hex').slice(0, 12) };
@@ -126,7 +126,7 @@ export async function installDriver(): Promise<void> {
   const r = await vmExec({
     cmd:
       'set -e; mkdir -p "$D" "$W"; cd "$D"; ' +
-      '[ -f package.json ] || echo \'{"name":"openduet-vm","private":true,"type":"module"}\' > package.json; ' +
+      '[ -f package.json ] || echo \'{"name":"threatduet-vm","private":true,"type":"module"}\' > package.json; ' +
       '[ -d node_modules/playwright-core ] || npm i playwright-core --no-audit --no-fund --loglevel=error',
     envs: { D: VM_DRIVER_DIR, W: VM_WORK_DIR },
     timeoutSeconds: 280,
@@ -199,7 +199,7 @@ export async function runVmCommand(cmd: string, timeoutSeconds = 120): Promise<s
   return [r.stdout && `stdout:\n${cap(r.stdout)}`, r.stderr && `stderr:\n${cap(r.stderr)}`, `exit code ${r.exitCode}${r.timedOut ? ' (timed out)' : ''}`].filter(Boolean).join('\n');
 }
 
-/** Brings a file Duet made on its computer into this computer's OpenDuet workspace. */
+/** Brings a file Duet made on its computer into this computer's ThreatDuet workspace. */
 export async function copyToWorkspace(vmPath: string, name?: string): Promise<string> {
   const real = await safeVmPath(vmPath);
   const target = path.basename(name || real);
@@ -212,7 +212,7 @@ export async function copyToWorkspace(vmPath: string, name?: string): Promise<st
 }
 
 
-/** Copies sign-in cookies from this computer's OpenDuet browser into the cloud Chromium profile. */
+/** Copies sign-in cookies from this computer's ThreatDuet browser into the cloud Chromium profile. */
 export async function importSessionCookies(cookies: unknown[]): Promise<{ count: number }> {
   if (!db.data.computer) throw new Error(tr('No computer is connected.'));
   const r = await browser('cookies', { cookies });

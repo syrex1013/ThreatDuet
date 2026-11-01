@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Installs the OpenDuet APK on an Android device you pick from `adb devices`.
+# Installs the ThreatDuet APK on an Android device you pick from `adb devices`.
 #
-#   ./install-android.sh                 # uses OpenDuet-*.apk next to this script
+#   ./install-android.sh                 # uses ThreatDuet-*.apk next to this script
 #   ./install-android.sh path/to/app.apk
 #
 # Works with the macOS system bash (3.2): no mapfile, no associative arrays.
 set -euo pipefail
 
-PACKAGE="tech.threatvector.openduet"
+PACKAGE="tech.threatvector.threatduet"
 ACTIVITY="$PACKAGE/.MainActivity"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -58,10 +58,10 @@ find_apk() {
     printf '%s\n' "$1"; return
   fi
   local apk
-  for apk in "$HERE"/OpenDuet-*.apk "$HERE"/OpenDuet.apk "$HERE/../android/app/build/outputs/apk/release/app-release.apk"; do
+  for apk in "$HERE"/ThreatDuet-*.apk "$HERE"/ThreatDuet.apk "$HERE/../android/app/build/outputs/apk/release/app-release.apk"; do
     if [ -f "$apk" ]; then printf '%s\n' "$apk"; return; fi
   done
-  die "Couldn't find the OpenDuet APK. Pass its path: $0 path/to/OpenDuet.apk"
+  die "Couldn't find the ThreatDuet APK. Pass its path: $0 path/to/ThreatDuet.apk"
 }
 
 ADB="$(find_adb)" || die "adb not found. Install Android platform-tools (brew install android-platform-tools) or set ANDROID_HOME."
@@ -69,7 +69,7 @@ ADB="$(find_adb)" || die "adb not found. Install Android platform-tools (brew in
 ADB_HINT="adb"; [ "$(command -v adb 2>/dev/null || true)" = "$ADB" ] || ADB_HINT="$ADB"
 APK="$(find_apk "$@")"
 
-say "${BOLD}OpenDuet Android installer${RESET}"
+say "${BOLD}ThreatDuet Android installer${RESET}"
 say "${DIM}APK: $APK${RESET}"
 "$ADB" start-server </dev/null >/dev/null 2>&1 || die "adb could not start its server."
 
@@ -141,11 +141,11 @@ done
 explain() {
   case "$1" in
     *NO_MATCHING_ABIS*) say "This device's processor type isn't supported by the APK." ;;
-    *OLDER_SDK*) say "This device runs an Android version older than 7.0, which OpenDuet needs." ;;
+    *OLDER_SDK*) say "This device runs an Android version older than 7.0, which ThreatDuet needs." ;;
     *USER_RESTRICTED*) say "The phone blocked the install. On Xiaomi/Redmi/POCO, turn on \"Install via USB\" in Developer options." ;;
     *INSUFFICIENT_STORAGE*) say "The device is out of storage." ;;
     *VERIFICATION_FAILURE*) say "Google Play Protect stopped the install. Check the phone for a prompt and choose to install anyway." ;;
-    *VERSION_DOWNGRADE*) say "A newer OpenDuet is already installed. Uninstall it first to go back to this version." ;;
+    *VERSION_DOWNGRADE*) say "A newer ThreatDuet is already installed. Uninstall it first to go back to this version." ;;
     *) say "adb said: $1" ;;
   esac
 }
@@ -158,7 +158,7 @@ install_on() {
   if printf '%s' "$out" | grep -q "^Success"; then
     say "${GREEN}Installed.${RESET}"
   elif printf '%s' "$out" | grep -qE "INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match"; then
-    warn "A copy of OpenDuet signed with a different key is already on this device (for example a debug build)."
+    warn "A copy of ThreatDuet signed with a different key is already on this device (for example a debug build)."
     if confirm "Uninstall it and install this one? This deletes its data, including the pairing with your computer." n; then
       "$ADB" -s "$serial" uninstall "$PACKAGE" </dev/null >/dev/null 2>&1 || true
       out="$("$ADB" -s "$serial" install "$APK" </dev/null 2>&1 || true)"
@@ -171,8 +171,8 @@ install_on() {
     return 1
   fi
 
-  if confirm "Open OpenDuet on $serial now?" n; then
-    "$ADB" -s "$serial" shell am start -n "$ACTIVITY" </dev/null >/dev/null 2>&1 || warn "Couldn't open it; find OpenDuet in the app drawer."
+  if confirm "Open ThreatDuet on $serial now?" n; then
+    "$ADB" -s "$serial" shell am start -n "$ACTIVITY" </dev/null >/dev/null 2>&1 || warn "Couldn't open it; find ThreatDuet in the app drawer."
   fi
 }
 
@@ -183,7 +183,7 @@ done
 
 say ""
 if [ "$failed" -eq 0 ]; then
-  say "${GREEN}Done.${RESET} On your computer, open OpenDuet, then Settings, then Phone, and scan the code to pair."
+  say "${GREEN}Done.${RESET} On your computer, open ThreatDuet, then Settings, then Phone, and scan the code to pair."
 else
   die "$failed of ${#TARGETS[@]} installs did not finish."
 fi

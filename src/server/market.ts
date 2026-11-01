@@ -108,7 +108,7 @@ const listing = (s: RegistryServer): McpListing | null => {
 };
 
 async function registry(url: string): Promise<any> {
-  const r = await fetch(url, { headers: { 'user-agent': 'OpenDuet' }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  const r = await fetch(url, { headers: { 'user-agent': 'ThreatDuet' }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
   if (!r) throw new Error(tr("Can't reach the MCP Registry. Check your connection."));
   if (!r.ok) throw new Error(tr('The MCP Registry answered {status}.', { status: r.status }));
   return r.json();

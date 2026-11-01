@@ -70,7 +70,7 @@ export function parseGithubUrl(raw: string): GithubSource | { error: string } {
 const sourceText = (g: GithubSource) => `github.com/${g.repo}${g.path ? `/${g.path}` : ''}`;
 
 async function fetchOk(url: string, timeout = 20_000): Promise<Response | { error: string }> {
-  const r = await fetch(url, { headers: { 'user-agent': 'OpenDuet' }, signal: AbortSignal.timeout(timeout) }).catch(() => null);
+  const r = await fetch(url, { headers: { 'user-agent': 'ThreatDuet' }, signal: AbortSignal.timeout(timeout) }).catch(() => null);
   if (!r) return { error: tr("Can't reach GitHub. Check your connection.") };
   if (r.status === 404) return { error: tr('No SKILL.md found there. Is the repository public?') };
   if (!r.ok) return { error: tr('GitHub answered {status}.', { status: r.status }) };

@@ -7,14 +7,14 @@ def keystore = new Properties()
 if (keystoreFile.exists()) keystoreFile.withInputStream { keystore.load(it) }
 
 android {
-    namespace = "tech.threatvector.openduet"
+    namespace = "tech.threatvector.threatduet"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "tech.threatvector.openduet"
+        applicationId "tech.threatvector.threatduet"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13
-        versionName "0.2.11"
+        versionCode 14
+        versionName "0.2.12"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

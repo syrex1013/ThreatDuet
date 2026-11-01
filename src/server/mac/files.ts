@@ -11,7 +11,7 @@ const HOME = () => os.homedir();
 const sensitive = (): string[] => {
   const h = HOME();
   return [
-    DATA_DIR, // OpenDuet's own keys, app credentials and the copied browser profile
+    DATA_DIR, // ThreatDuet's own keys, app credentials and the copied browser profile
     ...['.ssh', '.gnupg', '.aws', '.kube', '.azure', '.config/gcloud', '.config/gh', '.docker', '.claude', '.claude.json', '.codex', '.netrc', '.npmrc', '.git-credentials', '.config/kilo', '.local/share/kilo', '.config/opencode', '.local/share/opencode'].map((p) => path.join(h, p)),
     ...(process.platform === 'win32' ? ['C:\\Windows\\System32\\config'] : ['/Library/Keychains', '/private/var/db', '/private/var/root', '/private/etc/sudoers', '/private/etc/master.passwd']),
     ...(process.platform === 'win32'

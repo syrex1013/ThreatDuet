@@ -3,7 +3,7 @@ import type { KiloResult } from './parse.js';
 
 await vi.hoisted(async () => {
   const { mkdtempSync } = await import('node:fs');
-  process.env.OPENDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/openduet-kilo-`);
+  process.env.THREATDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/threatduet-kilo-`);
 });
 
 vi.mock('./direct/available.js', () => ({ useDirect: async () => true, kiloInstalled: async () => false }));

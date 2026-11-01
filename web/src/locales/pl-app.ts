@@ -32,7 +32,7 @@ export const PL_APP: Record<string, string> = {
   Nine: 'Dziewięć',
 
   // App.tsx
-  'OpenDuet home': 'Strona główna OpenDuet',
+  'ThreatDuet home': 'Strona główna ThreatDuet',
   "Couldn't send that. {error}": 'Nie udało się wysłać. {error}',
   'Run now': 'Uruchom teraz',
   'Brief me': 'Podsumuj',
@@ -52,8 +52,8 @@ export const PL_APP: Record<string, string> = {
     'Nie można teraz połączyć się z komputerem. Pokazuję to, co Duet wysłał ostatnio.',
   "Can't reach your computer.": 'Nie można połączyć się z komputerem.',
   'Reconnecting to Duet…': 'Ponowne łączenie z Duet…',
-  'The OpenDuet server is not running. Start it with npm start, then retry.':
-    'Serwer OpenDuet nie działa. Uruchom go poleceniem npm start i spróbuj ponownie.',
+  'The ThreatDuet server is not running. Start it with bun start, then retry.':
+    'Serwer ThreatDuet nie działa. Uruchom go poleceniem bun start i spróbuj ponownie.',
   Retry: 'Ponów',
   'Pair again': 'Sparuj ponownie',
 
@@ -105,7 +105,7 @@ export const PL_APP: Record<string, string> = {
   'Pair with your computer.': 'Sparuj z komputerem.',
   'Duet works on your computer. This app shows you its briefs, asks you for approvals and lets you hand it tasks from anywhere.':
     'Duet pracuje na Twoim komputerze. Ta aplikacja pokazuje jego przeglądy, prosi Cię o zatwierdzenia i pozwala zlecać mu zadania z dowolnego miejsca.',
-  'On your computer, open OpenDuet, then Settings, then Phone.': 'Na komputerze otwórz OpenDuet, potem Ustawienia, a następnie Telefon.',
+  'On your computer, open ThreatDuet, then Settings, then Phone.': 'Na komputerze otwórz ThreatDuet, potem Ustawienia, a następnie Telefon.',
   'Turn on phone access.': 'Włącz dostęp z telefonu.',
   "Scan the code with your phone's camera.": 'Zeskanuj kod aparatem telefonu.',
   'Or enter it by hand': 'Albo wpisz ręcznie',
@@ -115,14 +115,14 @@ export const PL_APP: Record<string, string> = {
   'Pair phone': 'Sparuj telefon',
 
   // phone.ts
-  "Can't reach {url}. Check that OpenDuet is running on your computer and that both devices are on Tailscale or the same network.":
-    'Nie można połączyć się z {url}. Sprawdź, czy OpenDuet działa na komputerze i czy oba urządzenia są w Tailscale lub w tej samej sieci.',
+  "Can't reach {url}. Check that ThreatDuet is running on your computer and that both devices are on Tailscale or the same network.":
+    'Nie można połączyć się z {url}. Sprawdź, czy ThreatDuet działa na komputerze i czy oba urządzenia są w Tailscale lub w tej samej sieci.',
   "The pairing code doesn't match. On your computer, open Settings, then Phone, and scan the code again.":
     'Kod parowania się nie zgadza. Na komputerze otwórz Ustawienia, potem Telefon, i zeskanuj kod ponownie.',
   'Your computer answered with an error ({status}). Try again in a moment.':
     'Komputer odpowiedział błędem ({status}). Spróbuj ponownie za chwilę.',
   // Setup.tsx
-  'Welcome to OpenDuet': 'Witaj w OpenDuet',
+  'Welcome to ThreatDuet': 'Witaj w ThreatDuet',
   'About you': 'O Tobie',
   'Your day': 'Twój dzień',
   'Connect your things': 'Połącz swoje rzeczy',

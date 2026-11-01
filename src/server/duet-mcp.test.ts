@@ -7,7 +7,7 @@ let buildDuetServer: typeof import('./duet-mcp.js')['buildDuetServer'];
 let db: typeof import('./store.js')['db'];
 
 beforeAll(async () => {
-  process.env.OPENDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-duetmcp-'));
+  process.env.THREATDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-duetmcp-'));
   await (await import('./store.js')).openStore();
   db = (await import('./store.js')).db;
   buildDuetServer = (await import('./duet-mcp.js')).buildDuetServer;

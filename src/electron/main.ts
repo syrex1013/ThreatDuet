@@ -67,9 +67,29 @@ let trayMenu: (() => Menu) | null = null;
 // Swapped for the server's translator once its modules load in boot().
 let tr = (en: string, _vars?: Record<string, string | number>) => en;
 
+function appIconPath() {
+  return path.join(app.getAppPath(), 'build', 'icon.png');
+}
+
+/** Keep existing settings after the OpenDuet → ThreatDuet rename. */
+function migrateUserDataFromOpenDuet() {
+  const dest = app.getPath('userData');
+  const src = path.join(app.getPath('appData'), 'OpenDuet');
+  try {
+    if (!fs.existsSync(src)) return;
+    const destState = path.join(dest, 'data', 'state.json');
+    const srcState = path.join(src, 'data', 'state.json');
+    if (fs.existsSync(destState) || !fs.existsSync(srcState)) return;
+    fs.cpSync(src, dest, { recursive: true, force: false });
+  } catch (err) {
+    console.error('ThreatDuet could not migrate OpenDuet data:', err);
+  }
+}
+
+
 // Windows shows toasts only for an app with an AppUserModelID; it must match the installer's Start-menu
 // shortcut, which electron-builder tags with build.appId.
-if (process.platform === 'win32') app.setAppUserModelId('tech.threatvector.openduet');
+if (process.platform === 'win32') app.setAppUserModelId('tech.threatvector.threatduet');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -82,9 +102,13 @@ else {
 }
 
 async function boot() {
+  migrateUserDataFromOpenDuet();
+  // Process / Dock icon (packaged .app also gets this from electron-builder's build/icon.png).
+  const processIcon = nativeImage.createFromPath(appIconPath());
+  if (!processIcon.isEmpty() && isMac) app.dock?.setIcon(processIcon);
   // config.ts reads these at import time, so they must be set before the server modules load.
-  process.env.OPENDUET_HOME ??= app.getPath('userData');
-  process.env.OPENDUET_WEB_DIST ??= path.join(app.getAppPath(), 'web', 'dist');
+  process.env.THREATDUET_HOME ??= app.getPath('userData');
+  process.env.THREATDUET_WEB_DIST ??= path.join(app.getAppPath(), 'web', 'dist');
   const { startServer } = await import('../server/server.js');
   const { setNotifier } = await import('../server/notify.js');
   const { routines } = await import('../server/duet.js');
@@ -114,7 +138,7 @@ async function boot() {
     n.on('close', () => toasts.delete(n));
     n.on('failed', (_e, error) => {
       toasts.delete(n);
-      console.error(`OpenDuet notification failed: ${error}`);
+      console.error(`ThreatDuet notification failed: ${error}`);
     });
     n.show();
   });
@@ -157,7 +181,7 @@ async function boot() {
     Menu.buildFromTemplate([
       { label: pending() ? tr('{n} waiting for your approval', { n: pending() }) : tr('Nothing needs you right now'), enabled: false },
       { type: 'separator' },
-      { label: tr('Open OpenDuet'), click: showWindow },
+      { label: tr('Open ThreatDuet'), click: showWindow },
       {
         label: tr('Compact window'),
         type: 'checkbox',
@@ -178,13 +202,13 @@ async function boot() {
       },
       { label: tr('Show workspace folder'), click: () => void shell.openPath(WORKSPACE) },
       { type: 'separator' },
-      { label: tr('Quit OpenDuet'), click: () => app.quit() },
+      { label: tr('Quit ThreatDuet'), click: () => app.quit() },
     ]);
   trayMenu = menu;
 
   const icon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', isMac ? 'trayTemplate.png' : 'icon.png'));
   tray = new Tray(isMac ? icon : icon.resize({ width: 16, height: 16 }));
-  tray.setToolTip('OpenDuet');
+  tray.setToolTip('ThreatDuet');
   tray.setContextMenu(menu());
 
   // Approvals waiting: Dock badge, menu-bar count and tray menu stay in step with the thread.
@@ -211,7 +235,8 @@ function createWindow() {
     minHeight: 480,
     resizable: true,
     movable: true,
-    title: 'OpenDuet',
+    title: 'ThreatDuet',
+    icon: appIconPath(),
     backgroundColor: '#f4f4f4',
     show: false,
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 20, y: 24 } } : {}),
@@ -245,9 +270,9 @@ function createWindow() {
   });
 
   win.webContents.on('did-fail-load', (_e, code, description, url) =>
-    console.error(`OpenDuet window failed to load ${url}: ${description} (${code})`),
+    console.error(`ThreatDuet window failed to load ${url}: ${description} (${code})`),
   );
-  win.webContents.on('render-process-gone', (_e, details) => console.error(`OpenDuet window crashed: ${details.reason}`));
+  win.webContents.on('render-process-gone', (_e, details) => console.error(`ThreatDuet window crashed: ${details.reason}`));
 
   // Closing the window hides it; Duet keeps working in the background.
   win.on('close', (e) => {
@@ -257,7 +282,7 @@ function createWindow() {
     win?.hide();
   });
 
-  const shot = process.env.OPENDUET_SMOKE_SCREENSHOT;
+  const shot = process.env.THREATDUET_SMOKE_SCREENSHOT;
   if (shot)
     win.webContents.once('did-finish-load', () => {
       console.log('smoke: window loaded');
@@ -287,7 +312,7 @@ function showWindow() {
 }
 
 function fatal(err: unknown) {
-  console.error('OpenDuet could not start:', err);
-  if (!process.env.OPENDUET_SMOKE_SCREENSHOT) dialog.showErrorBox('OpenDuet could not start', err instanceof Error ? err.message : String(err));
+  console.error('ThreatDuet could not start:', err);
+  if (!process.env.THREATDUET_SMOKE_SCREENSHOT) dialog.showErrorBox('ThreatDuet could not start', err instanceof Error ? err.message : String(err));
   app.exit(1);
 }

@@ -1,4 +1,4 @@
-package tech.threatvector.openduet;
+package tech.threatvector.threatduet;
 
 import com.getcapacitor.BridgeActivity;
 

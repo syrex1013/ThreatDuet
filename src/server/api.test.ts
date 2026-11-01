@@ -8,7 +8,7 @@ let workspace: string;
 
 beforeAll(async () => {
   // config.ts reads this at import time, so set it before loading any server module.
-  process.env.OPENDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-test-'));
+  process.env.THREATDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-test-'));
   await (await import('./store.js')).openStore();
   workspace = (await import('./config.js')).WORKSPACE;
   api = (await import('./api.js')).api;
