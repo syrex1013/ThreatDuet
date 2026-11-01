@@ -251,4 +251,21 @@ describe("Duet's computer by default", () => {
     await settled();
     expect(await machine.autoConnectComputer()).toBe(false);
   });
+
+  it('never overrides a disconnect that lands while it is looking for a machine', async () => {
+    await machine.disconnectComputer();
+    store.db.data.computerOptOut = false;
+    const listMachines = fake.listMachines;
+    fake.listMachines = async () => {
+      await machine.disconnectComputer();
+      return listMachines();
+    };
+    try {
+      expect(await machine.autoConnectComputer()).toBe(false);
+    } finally {
+      fake.listMachines = listMachines;
+    }
+    expect(store.db.data.computer).toBeNull();
+    expect(store.db.data.computerOptOut).toBe(true);
+  });
 });

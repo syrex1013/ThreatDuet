@@ -228,7 +228,7 @@ const step = (text: string) => {
 };
 
 /** Connects (or re-checks) the computer in the background; progress shows in computerStatus().setup. */
-export async function connectComputer(input: { apiKey?: string; machineId: string }): Promise<{ ok: true } | { error: string }> {
+export async function connectComputer(input: { apiKey?: string; machineId: string }, auto = false): Promise<{ ok: true } | { error: string }> {
   if (setup?.running) return { error: tr('Setup is already running.') };
   const apiKey = input.apiKey ?? DEFAULT_API_KEY;
   let machine;
@@ -239,8 +239,10 @@ export async function connectComputer(input: { apiKey?: string; machineId: strin
   } catch (e) {
     return { error: errText(e) };
   }
+  // An automatic connect re-checks after its awaits: the user may have connected or disconnected meanwhile.
+  if (auto && (db.data.computer || db.data.computerOptOut)) return { error: 'skipped: the user chose meanwhile' };
   db.data.computer = { apiKey, machineId: machine.id, name: machine.name, connectedAt: Date.now(), vault: Boolean(machine.vault) };
-  db.data.computerOptOut = false;
+  if (!auto) db.data.computerOptOut = false;
   client = null;
   driverReady = false;
   awakeUntil = 0;
@@ -294,7 +296,7 @@ export async function autoConnectComputer(): Promise<boolean> {
       log.info('no Instabox machine with a browser to connect');
       return false;
     }
-    const r = await connectComputer({ machineId: pick.id });
+    const r = await connectComputer({ machineId: pick.id }, true);
     if ('error' in r) throw new Error(r.error);
     log.info({ machine: pick.name }, "connected Duet's computer");
     return true;
