@@ -176,7 +176,7 @@ export async function openTools(): Promise<Handle> {
     tools.push(...toolsOf(prefix, (await client.listTools()).tools as Conn['tools'], client));
   };
   const { macOn } = await import('../store.js');
-  if (macOn()) await inMemory('mac', (await import('../mac/mcp.js')).buildMacServer).catch((e) => log.warn({ err: String(e) }, 'mac tools unavailable'));
+  if (macOn()) await inMemory('local', (await import('../mac/mcp.js')).buildMacServer).catch((e) => log.warn({ err: String(e) }, 'mac tools unavailable'));
   if (db.data.computer) await inMemory('computer', (await import('../computer/mcp.js')).buildComputerServer).catch((e) => log.warn({ err: String(e) }, 'computer tools unavailable'));
   await Promise.all(
     db.data.connectors

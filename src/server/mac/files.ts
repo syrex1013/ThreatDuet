@@ -17,6 +17,9 @@ const sensitive = (): string[] => {
     ...(process.platform === 'win32'
       ? ['AppData/Local/BraveSoftware', 'AppData/Local/Google/Chrome', 'AppData/Local/Microsoft/Edge', 'AppData/Local/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Protect', 'AppData/Roaming/Mozilla/Firefox', 'AppData/Roaming/1Password', 'NTUSER.DAT'].map((p) => path.join(h, p))
       : []),
+    ...(process.platform === 'linux'
+      ? [...['.config/google-chrome', '.config/chromium', '.config/BraveSoftware', '.mozilla', '.local/share/keyrings', '.password-store', '.config/1Password'].map((p) => path.join(h, p)), '/etc/shadow', '/etc/gshadow', '/etc/sudoers', '/root']
+      : []),
     ...['Library/Keychains', 'Library/Cookies', 'Library/Application Support/BraveSoftware', 'Library/Application Support/Google/Chrome', 'Library/Application Support/Firefox', 'Library/Application Support/com.apple.TCC', 'Library/Application Support/1Password', 'Library/Group Containers'].map((p) => path.join(h, p)),
   ];
 };

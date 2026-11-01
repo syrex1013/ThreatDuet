@@ -19,7 +19,7 @@ export const osLine = () => {
       ? "The user's own computer runs Windows. Commands there run in Windows PowerShell; use Windows apps and tools (File Explorer, Outlook, winget). Never suggest macOS or Linux tools (Finder, Spotlight, Homebrew, zsh, AppleScript, apt)."
       : process.platform === 'darwin'
         ? "The user's own computer is a Mac (macOS). Commands there run in zsh. Never suggest Windows tools (PowerShell, File Explorer, winget)."
-        : "The user's own computer runs Linux. Commands there run in sh.";
+        : "The user's own computer runs Linux. Commands there run in sh. Never suggest Windows or macOS tools (PowerShell, File Explorer, winget, Finder, Homebrew, AppleScript).";
   const shell = process.platform === 'win32' ? 'powershell.exe' : process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh';
   const facts = [
     `OS: ${OS_NAME}, ${os.type()} ${os.release()} (${os.arch()})`,

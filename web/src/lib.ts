@@ -83,7 +83,8 @@ export function summarizeTools(tools: ToolUse[] = []): { files: string[]; notes:
   if (count('websearch')) notes.push(t('searched the web'));
   if (count('webfetch')) notes.push(tn(count('webfetch'), 'opened {n} web page', 'opened {n} web pages'));
   const apps = new Set(done.filter((t) => !BUILT_IN.has(t.tool) && t.tool.includes('_') && !t.tool.startsWith('kilo_')).map((t) => t.tool.split('_')[0]));
-  for (const app of apps) notes.push(app === 'computer' ? t('used its computer') : t('used {app}', { app }));
+  // 'mac' is the old name of the user's own computer, in messages from before 0.2.8.
+  for (const app of apps) notes.push(app === 'computer' ? t('used its computer') : app === 'local' || app === 'mac' ? t('used your computer') : t('used {app}', { app }));
   if (notes.length) notes[0] = notes[0][0].toUpperCase() + notes[0].slice(1);
   return { files, notes };
 }

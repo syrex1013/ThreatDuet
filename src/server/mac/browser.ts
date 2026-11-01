@@ -4,11 +4,14 @@ import path from 'node:path';
 import PQueue from 'p-queue';
 import { chromium, type BrowserContext, type Cookie, type Page } from 'playwright-core';
 import type { BrowserChoice, BrowserId } from '../../shared/types.js';
-import { DATA_DIR } from '../config.js';
+import { DATA_DIR, log } from '../config.js';
 import { db } from '../store.js';
 
 const WIN = process.platform === 'win32';
 const HOME = os.homedir();
+/** Picks the Windows, macOS or Linux value. */
+const byOs = <T>(win: T, mac: T, linux: T): T => (WIN ? win : process.platform === 'darwin' ? mac : linux);
+const CONFIG = process.env.XDG_CONFIG_HOME ?? path.join(HOME, '.config');
 const LOCAL = process.env.LOCALAPPDATA ?? path.join(HOME, 'AppData', 'Local');
 const ROAMING = process.env.APPDATA ?? path.join(HOME, 'AppData', 'Roaming');
 const MAC_SUPPORT = path.join(HOME, 'Library', 'Application Support');
@@ -28,22 +31,22 @@ const DEFS: BrowserDef[] = [
     id: 'brave',
     name: 'Brave',
     family: 'chromium',
-    exes: WIN ? programs('BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe') : ['/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'],
-    dataDir: WIN ? path.join(LOCAL, 'BraveSoftware', 'Brave-Browser', 'User Data') : path.join(MAC_SUPPORT, 'BraveSoftware', 'Brave-Browser'),
+    exes: byOs(programs('BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'), ['/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'], ['/usr/bin/brave-browser', '/usr/bin/brave', '/opt/brave.com/brave/brave']),
+    dataDir: byOs(path.join(LOCAL, 'BraveSoftware', 'Brave-Browser', 'User Data'), path.join(MAC_SUPPORT, 'BraveSoftware', 'Brave-Browser'), path.join(CONFIG, 'BraveSoftware', 'Brave-Browser')),
   },
   {
     id: 'chrome',
     name: 'Chrome',
     family: 'chromium',
-    exes: WIN ? programs('Google', 'Chrome', 'Application', 'chrome.exe') : ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'],
-    dataDir: WIN ? path.join(LOCAL, 'Google', 'Chrome', 'User Data') : path.join(MAC_SUPPORT, 'Google', 'Chrome'),
+    exes: byOs(programs('Google', 'Chrome', 'Application', 'chrome.exe'), ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'], ['/usr/bin/google-chrome-stable', '/usr/bin/google-chrome', '/opt/google/chrome/chrome']),
+    dataDir: byOs(path.join(LOCAL, 'Google', 'Chrome', 'User Data'), path.join(MAC_SUPPORT, 'Google', 'Chrome'), path.join(CONFIG, 'google-chrome')),
   },
   {
     id: 'firefox',
     name: 'Firefox',
     family: 'firefox',
-    exes: WIN ? programs('Mozilla Firefox', 'firefox.exe') : ['/Applications/Firefox.app/Contents/MacOS/firefox'],
-    dataDir: WIN ? path.join(ROAMING, 'Mozilla', 'Firefox') : path.join(MAC_SUPPORT, 'Firefox'),
+    exes: byOs(programs('Mozilla Firefox', 'firefox.exe'), ['/Applications/Firefox.app/Contents/MacOS/firefox'], ['/usr/bin/firefox', '/usr/lib/firefox/firefox', '/snap/bin/firefox']),
+    dataDir: byOs(path.join(ROAMING, 'Mozilla', 'Firefox'), path.join(MAC_SUPPORT, 'Firefox'), path.join(HOME, '.mozilla', 'firefox')),
   },
 ];
 const def = (id: BrowserId) => DEFS.find((d) => d.id === id) as BrowserDef;
@@ -168,14 +171,14 @@ async function context(): Promise<BrowserContext> {
     await fs.rm(PROFILE, { recursive: true, force: true });
     await fs.mkdir(PROFILE, { recursive: true, mode: 0o700 });
     await fs.chmod(PROFILE, 0o700);
-    const cookies = src.family === 'firefox' ? await firefoxCookies(src) : (await copyChromiumCookies(src), []);
+    const cookies: Cookie[] = src.family === 'firefox' ? await firefoxCookies(src) : (await copyChromiumCookies(src), []);
     // Talks to the browser over a pipe, not a network port, so no other program can attach and read the cookies.
-    // The real Keychain is kept (Playwright's default mock keychain would make every cookie unreadable).
-    const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: true, ignoreDefaultArgs: ['--use-mock-keychain'] });
+    // The real Keychain / keyring is kept (Playwright's mock keychain and basic password store would make every cookie unreadable).
+    const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: true, ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
     for (let i = 0; i < cookies.length; i += 200) await c.addCookies(cookies.slice(i, i + 200)).catch(() => undefined);
     c.on('page', (p) => p.on('dialog', (d) => void d.dismiss().catch(() => undefined)));
     c.on('close', () => {
-      ctx = null;
+      if (ctx === c) ctx = null;
     });
     usingName = src.family === 'firefox' ? `${src.name} sign-ins in ${engine.name}` : src.name;
     ctx = c;
@@ -186,7 +189,7 @@ async function context(): Promise<BrowserContext> {
   return starting;
 }
 
-/** Stops the browser and deletes the copy of the sign-ins. The next use copies them afresh. */
+/** Stops the browser and deletes the copied sign-ins. The next use copies them afresh. */
 export async function stopBrowser(): Promise<void> {
   const c = ctx;
   ctx = null;
@@ -248,7 +251,11 @@ export type BrowseResult = { url: string; title: string; text?: string; elements
 export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins', args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string; pixels?: number } = {}): Promise<BrowseResult> {
   return queue.add(async () => {
     // The user just signed in somewhere in their own browser: copy the sign-ins again before going on.
-    if (action === 'signins') await stopBrowser();
+    if (action === 'signins') {
+      const c = ctx;
+      ctx = null;
+      await c?.close().catch(() => undefined);
+    }
     const p = await page();
     switch (action) {
       case 'open':
@@ -264,7 +271,7 @@ export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type'
       case 'click':
         await (await locate(p, Number(args.ref))).click({ timeout: 10_000 });
         await p.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => undefined);
-        return where((await context()).pages().at(-1) ?? p);
+        return (await context()).pages().at(-1) ? where((await context()).pages().at(-1) as Page) : where(p);
       case 'type':
         await (await locate(p, Number(args.ref))).fill(String(args.text), { timeout: 10_000 });
         if (args.submit) await p.keyboard.press('Enter');

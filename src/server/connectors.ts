@@ -46,7 +46,7 @@ export async function writeConnectorsConfig(): Promise<void> {
   const computer = computerEndpoint();
   if (db.data.computer && computer) Object.assign(mcp, { computer: { type: 'remote', url: computer.url, headers: computer.headers, enabled: true } });
   const mac = macEndpoint();
-  if (macOn() && mac) Object.assign(mcp, { mac: { type: 'remote', url: mac.url, headers: mac.headers, enabled: true } });
+  if (macOn() && mac) Object.assign(mcp, { local: { type: 'remote', url: mac.url, headers: mac.headers, enabled: true } });
   await fs.writeFile(CONNECTORS_FILE, JSON.stringify({ $schema: 'https://app.kilo.ai/config.json', mcp }, null, 2), { mode: 0o600 });
   await fs.chmod(CONNECTORS_FILE, 0o600);
   status = null;
@@ -123,7 +123,7 @@ export function connectorId(name: string): string {
   const base = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24) || 'app';
   let id = base;
   // "computer" and "mac" belong to Duet's own tools.
-  for (let n = 2; id === 'computer' || id === 'mac' || db.data.connectors.some((c) => c.id === id); n++) id = `${base}${n}`;
+  for (let n = 2; id === 'computer' || id === 'mac' || id === 'local' || db.data.connectors.some((c) => c.id === id); n++) id = `${base}${n}`;
   return id;
 }
 
@@ -312,7 +312,7 @@ export function connectedAppsLine(): string {
   // Both places are attached at once; Duet picks per task.
   const where =
     db.data.computer && macOn()
-      ? `You can work in two places; pick the one that fits each step and say which you used. The user's own ${OS_NAME} (mac_ tools): their files, their signed-in browser and accounts, their local apps. Your cloud computer (computer_ tools): installing software, long, heavy or risky jobs, trying untrusted code or downloads, and browsing that must not happen as the user.`
+      ? `You can work in two places; pick the one that fits each step and say which you used. The user's own ${OS_NAME} (local_ tools): their files, their signed-in browser and accounts, their local apps. Your cloud computer (computer_ tools): installing software, long, heavy or risky jobs, trying untrusted code or downloads, and browsing that must not happen as the user.`
       : '';
   const m = db.data.mac;
   const mac = macOn()
@@ -321,13 +321,17 @@ export function connectedAppsLine(): string {
         m.auto ? `AUTO MODE: the user chose to let you act on the ${OS_NAME} without asking. The ${OS_NAME} tools below (writing files, running commands, browsing, clicking, typing) work on your own: use them directly instead of proposing them as ACTIONS. Still never delete, send or pay without being told to.` : '',
         m.files
           ? m.everything
-            ? `Files: mac_files_list, mac_files_read and mac_files_search work on your own anywhere on the ${OS_NAME} (folders holding passwords and keys are refused). ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file is an ACTION.'}`
-            : `Files: mac_files_list, mac_files_read and mac_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file there is an ACTION.'}`
+            ? `Files: local_files_list, local_files_read and local_files_search work on your own anywhere on the ${OS_NAME} (folders holding passwords and keys are refused). ${m.auto ? 'local_files_write works on your own too.' : 'Writing a file is an ACTION.'}`
+            : `Files: local_files_list, local_files_read and local_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. ${m.auto ? 'local_files_write works on your own too.' : 'Writing a file there is an ACTION.'}`
           : '',
-        m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read and scroll what is open (mac_browser_read, mac_browser_screenshot, mac_browser_scroll); after the user signs in somewhere, mac_browser_reload_signins picks it up" + (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
+        m.browser
+          ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read and scroll what is open (local_browser_read, local_browser_screenshot, local_browser_scroll)" +
+            (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (local_browser_open)' : '; opening pages, clicking and typing are ACTIONS') +
+            ". Actions there happen as the user. If a site asks to sign in, ask the user to sign in in their own browser, then call local_browser_reload_signins and open the page again."
+          : '',
         m.shell
           ? m.auto
-            ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): mac_shell_run works on your own. Prefer commands that only read; say what you ran.`
+            ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): local_shell_run works on your own. Prefer commands that only read; say what you ran.`
             : `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): running one on the ${OS_NAME} is an ACTION. Put every command in the ACTIONS block exactly as it must run, each in its own \`\`\` fenced block: only those exact commands will be allowed to run.`
           : '',
         `Never copy what you read on the ${OS_NAME} into web addresses, searches or messages unless the user approved exactly that.`,

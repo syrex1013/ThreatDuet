@@ -44,8 +44,8 @@ beforeAll(async () => {
 });
 
 describe('what Duet may do on its own with the Mac tools', () => {
-  const read = ['mac_files_list', 'mac_files_read', 'mac_files_search', 'mac_browser_read', 'mac_browser_screenshot'];
-  const ask = ['mac_files_write', 'mac_shell_run', 'mac_browser_click', 'mac_browser_type', 'mac_browser_press'];
+  const read = ['local_files_list', 'local_files_read', 'local_files_search', 'local_browser_read', 'local_browser_screenshot'];
+  const ask = ['local_files_write', 'local_shell_run', 'local_browser_click', 'local_browser_type', 'local_browser_press'];
 
   it('reads freely, and everything that changes something is denied, with an app connected too', async () => {
     await settings.setMac({ files: true, shell: true, browser: true });
@@ -54,12 +54,12 @@ describe('what Duet may do on its own with the Mac tools', () => {
     const rules = cfg.agent.duet.permission;
     for (const t of read) expect(decide(rules, t), t).toBe('allow');
     for (const t of ask) expect(decide(rules, t), t).toBe('deny');
-    expect(decide(rules, 'mac_browser_open')).toBe('deny');
+    expect(decide(rules, 'local_browser_open')).toBe('deny');
     expect(rules.webfetch).toBe('deny');
     store.db.data.settings.openWebPages = true;
     await store.writeWorkspaceConfig();
     const open = JSON.parse(await fs.readFile(path.join(home, 'workspace', 'kilo.json'), 'utf8')).agent.duet.permission;
-    expect(decide(open, 'mac_browser_open')).toBe('allow');
+    expect(decide(open, 'local_browser_open')).toBe('allow');
     store.db.data.settings.openWebPages = false;
     await settings.setMac({ files: false, shell: false, browser: false });
   });
@@ -150,7 +150,7 @@ describe('auto mode', () => {
     await settings.setMac({ files: true, shell: true, browser: true, auto: true });
     await store.writeWorkspaceConfig();
     const rules = JSON.parse(await fs.readFile(path.join(home, 'workspace', 'kilo.json'), 'utf8')).agent.duet.permission;
-    for (const t of ['mac_files_write', 'mac_shell_run', 'mac_browser_open', 'mac_browser_click', 'mac_browser_type', 'mac_browser_press']) expect(decide(rules, t), t).toBe('allow');
+    for (const t of ['local_files_write', 'local_shell_run', 'local_browser_open', 'local_browser_click', 'local_browser_type', 'local_browser_press']) expect(decide(rules, t), t).toBe('allow');
     shell.clearCommands();
     expect(await shell.runShell('echo auto')).toContain('auto');
     expect((await import('./connectors.js')).connectedAppsLine()).toMatch(/AUTO MODE/);

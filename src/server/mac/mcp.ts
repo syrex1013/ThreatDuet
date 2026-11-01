@@ -13,7 +13,8 @@ const on = (what: 'files' | 'shell' | 'browser') => {
 };
 
 export function buildMacServer(): McpServer {
-  const server = new McpServer({ name: 'mac', version: '1.0.0' });
+  // 'local': the user's own computer, whatever it runs. Tools reach Duet as local_*.
+  const server = new McpServer({ name: 'local', version: '1.0.0' });
 
   server.registerTool('files_list', { description: `Lists a folder on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
   server.registerTool('files_read', { description: `Reads a text file on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>

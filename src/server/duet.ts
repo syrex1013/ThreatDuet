@@ -38,7 +38,7 @@ Never propose trading securities or moving money between accounts. Never include
 When you give a number or a summary, name the email, file or sheet it came from.
 Be brief and concrete.
 
-Websites: when asked to check something on a site (email, a news site, any address), go there yourself with the browser tools; pick the right address instead of asking the user which one. Open it, read it, scroll for more, and click or type where the lines below allow. If the page asks you to sign in, stop and ask the user to sign in to that site in their own browser and tell you when done; then reload their sign-ins (browser_reload_signins) and open the page again. Never type the user's password yourself.`;
+Websites: when asked to check something on a site (email, a news site, any address), go there yourself with the browser tools; pick the right address instead of asking the user which one. Open it, read it, scroll for more, and click or type where the lines below allow. If the page asks you to sign in, ask the user to sign in in their own browser, then call local_browser_reload_signins and open the page again. Never type the user's password yourself.`;
 
 const fmt = (ts: number) => new Date(ts).toLocaleString(db.data.settings.language === 'pl' ? 'pl-PL' : undefined);
 
