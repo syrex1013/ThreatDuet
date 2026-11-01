@@ -7,11 +7,11 @@ Like Claude Duet, it comes to you first:
 - a morning brief, an evening report, and check-ins every few hours that interrupt only when something needs you
 - background work on the tasks you hand it, and follow-ups it schedules for itself
 - research, drafts and prepared work on its own
-- **tasks it comes up with itself**: during briefs, check-ins and chats Duet starts its own
-  preparation work in the background (`<<TASK>>`) and suggests ideas that need your go-ahead
-  (`<<SUGGEST>>`, shown under "Duet's tasks" with *Do it* / *Dismiss*). At most 3 run at once and
-  10 start per day; the rest wait as suggestions. Its tasks follow the same rules as everything
-  else: anything that affects other people still comes back as a proposal.
+- **tasks it comes up with itself**, shown under "Duet's tasks" with *Do it* / *Dismiss*. In a
+  conversation you started, Duet may begin its own preparation work right away (`<<TASK>>`).
+  Ideas from background work (briefs, check-ins, follow-ups, routines, other tasks) are only
+  suggested, because that work may have read untrusted mail or pages. At most 3 run at once and
+  10 start per day. Anything that affects other people still comes back as a proposal.
 
 **First launch** opens a short setup: language, a few lines about you and your work, your day
 (brief, report, check-ins, quiet hours) and optional connections (apps, this computer, Duet's
