@@ -1,7 +1,7 @@
 # ThreatDuet
 
 A proactive coworker in the style of Anthropic's Claude Duet. It runs locally and uses
-NVIDIA NIM's free `nvidia/nemotron-3-ultra-550b-a55b` by default (model id `nim/nvidia/nemotron-3-ultra-550b-a55b`, built-in key, about 40 requests a minute), or any [Kilo Code](https://kilo.ai) model such as the free `kilo/kilo-auto/free`, so it costs nothing to run.
+the `kilo/kilo-auto/free` model by default. You can select another [Kilo Code](https://kilo.ai) model, NVIDIA NIM with your own `NVIDIA_API_KEY` or `NIM_API_KEY`, or an OpenAI-compatible endpoint (including a local model). Provider pricing and availability apply.
 
 Like Claude Duet, it comes to you first:
 - a morning brief, an evening report, and check-ins every few hours that interrupt only when something needs you
@@ -338,3 +338,16 @@ web/          React + TanStack Query + Motion UI (Vite): live.ts (SSE/polling), 
 data/         state.json, memory.md       (created at runtime, git-ignored)
 workspace/    the agent's working dir + kilo.json sandbox config (created at runtime)
 ```
+
+## Persistent daily work
+
+Open **Work** in the top bar to manage projects, objectives, milestones, decisions, task controls,
+searchable knowledge, event watches, workflows, action receipts, exact permissions, provider settings,
+and conversation history. **Made by Duet** accepts document and screenshot uploads; open a file to
+compare or restore revisions and download its contents.
+
+Tasks wait for approvals and explicit outcome verification. Restarted runs require review before
+resuming. External writes receive an exact-argument approval before dispatch; uncertain receipts
+block replay until reconciled. Existing channels, messages, and settings are preserved.
+
+See [daily work and deployment](docs/daily-work.md) for behavior, setup, API routes, and limits.

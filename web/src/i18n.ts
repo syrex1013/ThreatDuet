@@ -1,11 +1,12 @@
 import type { Language } from '../../src/shared/types';
+import { PL_WORK } from './locales/pl-work';
 import { PL_APP } from './locales/pl-app';
 import { PL_APPS } from './locales/pl-apps';
 import { PL_COMPUTER } from './locales/pl-computer';
 import { PL_THREAD } from './locales/pl-thread';
 
 /** English text is the key; a missing translation shows the English. */
-const PL: Record<string, string> = { ...PL_APP, ...PL_THREAD, ...PL_APPS, ...PL_COMPUTER };
+const PL: Record<string, string> = { ...PL_APP, ...PL_THREAD, ...PL_APPS, ...PL_COMPUTER, ...PL_WORK };
 
 // Until the settings arrive (pairing screen, first paint), follow the system language.
 let lang: Language = typeof navigator !== 'undefined' && /^pl\b/i.test(navigator.language) ? 'pl' : 'en';

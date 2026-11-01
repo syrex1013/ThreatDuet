@@ -3,6 +3,7 @@ import { execa } from 'execa';
 import { RUN_TIMEOUT_MS, WORKSPACE, log } from './config.js';
 import { parseKiloEvents, type KiloResult } from './parse.js';
 import { kiloEnv } from './connectors.js';
+import { isNim } from './direct/gateway.js';
 import { useDirect } from './direct/available.js';
 import { runDirect } from './direct/runtime.js';
 import { KiloServerError, runKiloApi } from './kilo-api.js';
@@ -10,6 +11,10 @@ import { db, resetSandbox } from './store.js';
 import { tr } from './i18n.js';
 
 export interface KiloRun {
+  signal?: AbortSignal;
+  taskId?: string;
+  approvedCalls?: import('../shared/types.js').ExactCall[];
+  proposalId?: string;
   prompt: string;
   model: string;
   agent: 'duet' | 'code';
@@ -17,6 +22,7 @@ export interface KiloRun {
   /** Auto-approve tool permissions. Only for user-approved execution. */
   auto?: boolean;
   /** Called as tools start, with a short phrase for the UI: "reading acme-brief.md". */
+  onText?: (text: string) => void;
   onProgress?: (detail: string) => void;
 }
 
@@ -111,11 +117,11 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
  */
 export async function runKilo(run: KiloRun): Promise<KiloResult> {
   const first = await runOnce(run).catch((e: Error) => ({ sessionID: run.session ?? null, text: '', finalText: '', tools: [], errors: [e.message] }) as KiloResult);
-  if (first.text || !first.errors.length) return first;
+  if (run.agent === 'code' && !first.text && first.errors.length && !first.sessionID) throw new Error(first.errors.join('; '));
+  if (run.signal?.aborted || run.agent === 'code' || first.text || !first.errors.length) return first;
   // The gateway itself failing (unreachable, rate-limited, 5xx) is not something another prompt can fix.
-  if (first.errors.every((e) => /Kilo gateway|NVIDIA NIM|rate-limited/i.test(e))) return first;
+  if (first.errors.every((e) => /Kilo gateway|NVIDIA NIM|configured provider|rate-limited/i.test(e))) return first;
   const session = first.sessionID ?? run.session ?? null;
-  if (run.agent === 'code' && !session) throw new Error(first.errors.join('; '));
   log.warn({ errors: first.errors }, 'run stopped without an answer, resuming once');
   const prompt = `Your previous attempt stopped before answering (${first.errors.join('; ')}). Continue from where you were${session ? '' : `. The task was:\n${run.prompt}`}. If the same problem blocks you, say in one or two sentences what it is and what you need, then stop.`;
   const second = await runOnce({ ...run, prompt, session });
@@ -127,7 +133,7 @@ export async function runKilo(run: KiloRun): Promise<KiloResult> {
 
 async function runOnce(run: KiloRun): Promise<KiloResult> {
   await resetSandbox();
-  if (await useDirect()) return runDirect(run, describeTool);
+  if (isNim(run.model) || run.agent === 'code' || db.data.provider.baseUrl || db.data.permissions.length || await useDirect()) return runDirect(run, describeTool);
   if (db.data.settings.kiloMode !== 'cli') {
     try {
       return await runKiloApi(run, describeTool);
@@ -139,7 +145,7 @@ async function runOnce(run: KiloRun): Promise<KiloResult> {
   return runKiloCli(run);
 }
 
-async function runKiloCli({ prompt, model, agent, session, auto, onProgress }: KiloRun): Promise<KiloResult> {
+async function runKiloCli({ prompt, model, agent, session, auto, onProgress, signal }: KiloRun): Promise<KiloResult> {
   // The prompt goes in on stdin: Windows refuses line breaks in the arguments of a .cmd program.
   const args = ['run', '--format', 'json', '--dir', WORKSPACE, '-m', model, '--agent', agent];
   if (session) args.push('-s', session);
@@ -153,6 +159,7 @@ async function runKiloCli({ prompt, model, agent, session, auto, onProgress }: K
     input: prompt,
     reject: false,
     timeout: RUN_TIMEOUT_MS,
+    cancelSignal: signal,
     forceKillAfterDelay: 5000,
     buffer: { stdout: false, stderr: true },
   });

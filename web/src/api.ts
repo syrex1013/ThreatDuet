@@ -26,3 +26,18 @@ export const getComputer = () => request<ComputerStatus>('/computer');
 export const getScreen = (wake = false) => request<ComputerScreen>(`/computer/screen${wake ? '?wake=1' : ''}`);
 
 export const getLocalScreen = () => request<ComputerScreen>('/mac/screen');
+
+export async function fileBlob(path: string): Promise<Blob> {
+  const response = await fetch(apiUrl(`/artifacts/download?path=${encodeURIComponent(path)}`), { headers: authHeaders() });
+  if (!response.ok) throw new Error(`Download failed (${response.status}).`);
+  return response.blob();
+}
+
+export async function downloadFile(path: string): Promise<void> {
+  const url = URL.createObjectURL(await fileBlob(path));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = path.split('/').at(-1) || 'download';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

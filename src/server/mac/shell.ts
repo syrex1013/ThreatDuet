@@ -12,6 +12,10 @@ export function allowCommands(text: string): void {
   approved = commandsIn(normalizeActions(text));
 }
 
+export function allowExactCommand(command: string): void {
+  approved = [command];
+}
+
 export function clearCommands(): void {
   approved = null;
 }

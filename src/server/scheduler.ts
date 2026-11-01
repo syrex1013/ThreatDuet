@@ -1,3 +1,4 @@
+import { queueWatches } from './watches.js';
 import { Cron } from 'croner';
 import { currentWork, queuedTasks, routines, runTask } from './duet.js';
 import { notify } from './notify.js';
@@ -44,6 +45,7 @@ export async function tick(): Promise<void> {
   if (!d.setupDone) return;
   const s = d.settings;
   const t = hhmm(new Date());
+  queueWatches();
   for (const id of queuedTasks()) runTask(id);
   daily('brief', s.briefAt, t);
   daily('report', s.reportAt, t);

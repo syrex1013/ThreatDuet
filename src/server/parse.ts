@@ -87,6 +87,8 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
 }
 
 export interface KiloResult {
+  pendingCalls?: import('../shared/types.js').ExactCall[];
+  usage?: import('../shared/types.js').Usage[];
   sessionID: string | null;
   /** Text of every step. */
   text: string;

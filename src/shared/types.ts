@@ -1,6 +1,6 @@
 export type Role = 'user' | 'duet' | 'system';
 export type Kind = 'chat' | 'brief' | 'check' | 'report' | 'followup' | 'task' | 'done' | 'error' | 'info';
-export type ProposalStatus = 'pending' | 'approved' | 'done' | 'failed' | 'rejected' | 'blocked' | 'interrupted';
+export type ProposalStatus = 'pending' | 'approved' | 'waiting' | 'done' | 'failed' | 'rejected' | 'blocked' | 'interrupted';
 
 export interface ToolUse {
   tool: string;
@@ -13,6 +13,9 @@ export interface Proposal {
   status: ProposalStatus;
   reason?: string | null;
   remindedAt?: number;
+  calls?: ExactCall[];
+  filePreviews?: { path: string; before: string; hash: string }[];
+  receiptId?: string;
   /** Sensitive topics (health, finances) the user shares by approving. */
   flags?: string[];
 }
@@ -29,6 +32,7 @@ export interface Message {
   replyTo?: string;
   /** Channel id; absent means the main thread. */
   channel?: string;
+  taskId?: string;
   /** Client-only: sent, not yet confirmed by the server. */
   pending?: boolean;
 }
@@ -100,7 +104,7 @@ export interface RoutineItem {
  * Work Duet came up with itself. 'queued' ones it starts on its own (workspace-only work; anything that
  * affects others still becomes a proposal); 'suggested' ones wait for the user to start, mark done, or dismiss them.
  */
-export type TaskStatus = 'suggested' | 'queued' | 'running' | 'done' | 'failed' | 'dismissed';
+export type TaskStatus = 'suggested' | 'queued' | 'running' | 'waiting' | 'verification' | 'paused' | 'interrupted' | 'cancelled' | 'done' | 'failed' | 'dismissed';
 export interface TaskItem {
   id: string;
   title: string;
@@ -110,6 +114,106 @@ export interface TaskItem {
   startedAt: number | null;
   doneAt: number | null;
   channel?: string;
+  projectId?: string;
+  criteria?: string;
+  reason?: string;
+  session?: string | null;
+  step?: number;
+  deliverables?: string[];
+  runId?: string;
+  workflowId?: string;
+  device?: 'coordinator' | 'desktop';
+}
+
+export interface Project {
+  id: string;
+  channel: string;
+  name: string;
+  objective: string;
+  criteria: string;
+  status: 'active' | 'paused' | 'done' | 'cancelled';
+  milestones: { title: string; done: boolean }[];
+  decisions: string[];
+  files: string[];
+  createdAt: number;
+}
+export interface TaskRun {
+  id: string;
+  taskId: string;
+  startedAt: number;
+  endedAt: number | null;
+  status: TaskStatus;
+  summary: string;
+}
+export interface Knowledge {
+  id: string;
+  text: string;
+  kind: 'fact' | 'preference' | 'commitment' | 'decision' | 'claim' | 'summary';
+  source: string;
+  scope: string;
+  pinned: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+export interface ExactCall { tool: string; arguments: Record<string, unknown> }
+export interface PermissionRule extends ExactCall { id: string; expiresAt: number }
+export interface Receipt extends ExactCall {
+  id: string;
+  proposalId?: string;
+  taskId?: string;
+  startedAt: number;
+  endedAt: number | null;
+  status: 'running' | 'confirmed' | 'failed' | 'uncertain';
+  result: string;
+}
+export interface Watch {
+  id: string;
+  projectId?: string;
+  title: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  match: string;
+  workflow: string;
+  everyMinutes: number;
+  enabled: boolean;
+  lastCheck: number | null;
+  lastSuccess: number | null;
+  cursor: string[];
+  initialized?: boolean;
+  error: string | null;
+}
+export interface Workflow {
+  id: string;
+  name: string;
+  instructions: string;
+  criteria: string;
+  connections: string[];
+  createdAt: number;
+}
+export interface ArtifactRevision {
+  id: string;
+  path: string;
+  hash: string;
+  size: number;
+  createdAt: number;
+  taskId?: string;
+  projectId?: string;
+  source: string;
+}
+export interface ProviderSettings {
+  baseUrl: string;
+  keyEnv: string;
+  chatModel: string;
+  taskModel: string;
+  maxRequests: number;
+  maxTokens: number;
+}
+export interface Usage {
+  at: number;
+  model: string;
+  requests: number;
+  promptTokens: number | null;
+  completionTokens: number | null;
 }
 
 export interface UpcomingRoutine {
@@ -178,6 +282,13 @@ export interface PendingInput {
 }
 
 export interface StateResponse {
+  projects?: Project[];
+  runs?: TaskRun[];
+  receipts?: Receipt[];
+  watches?: Watch[];
+  workflows?: Workflow[];
+  provider?: ProviderSettings;
+  usage?: Usage[];
   settings: Settings;
   messages: Message[];
   followups: FollowUpItem[];
@@ -187,6 +298,7 @@ export interface StateResponse {
   busy: string | null;
   /** What Duet is doing this moment, e.g. "reading acme-brief.md". */
   busyDetail: string | null;
+  busyText?: string | null;
   /** Duet's cloud computer, if one is connected. */
   computer: { name: string; state: string | null } | null;
   /** Bumps on every change; the live feed sends it so clients know when to refetch. */

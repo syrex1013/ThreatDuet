@@ -1,3 +1,4 @@
+import { revisionDiff } from '../revisionDiff';
 import { AlertTriangle, Check, Clock, FileText } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef } from 'react';
@@ -12,6 +13,7 @@ interface TimelineProps {
   messages: Message[];
   busy: string | null;
   busyDetail: string | null;
+  busyText?: string | null;
   briefAt: string;
   acting: string | null;
   onApprove: (id: string) => void;
@@ -26,7 +28,7 @@ const SUGGESTIONS = [
   'Check back with me on Monday at 09:00 about the Acme proposal.',
 ];
 
-export function Timeline({ messages, busy, busyDetail, briefAt, acting, onApprove, onReject, onOpenFile, onSuggest }: TimelineProps) {
+export function Timeline({ messages, busy, busyDetail, busyText, briefAt, acting, onApprove, onReject, onOpenFile, onSuggest }: TimelineProps) {
   const reduce = useReducedMotion();
   // Entries that arrive after the page opened animate in; the backlog appears at once.
   const openedAt = useRef(Date.now());
@@ -50,6 +52,7 @@ export function Timeline({ messages, busy, busyDetail, briefAt, acting, onApprov
           ))}
         </div>
         <NowLine busy={busy} detail={busyDetail} />
+      {busy && busyText && <p className="stream-draft">{busyText}</p>}
       </section>
     );
   }
@@ -77,6 +80,7 @@ export function Timeline({ messages, busy, busyDetail, briefAt, acting, onApprov
         </div>
       ))}
       <NowLine busy={busy} detail={busyDetail} />
+      {busy && busyText && <p className="stream-draft">{busyText}</p>}
     </section>
   );
 }
@@ -123,6 +127,8 @@ function Entry({ m, acting, onApprove, onReject, onOpenFile }: EntryProps) {
             {notes.length > 0 && <span className="work-notes">{notes.join(', ')}.</span>}
           </div>
         )}
+        {m.proposal?.filePreviews?.map((preview) => <details key={preview.path}><summary>{t('File changes')}: {preview.path}</summary><pre className="revision-diff">{revisionDiff(preview.before, String(m.proposal?.calls?.find((call) => call.tool === 'local_files_write' && call.arguments.path === preview.path)?.arguments.content ?? ''))}</pre></details>)}
+        {m.proposal?.calls && <details><summary>{t('Exact tool arguments')}</summary><pre className="file-raw">{JSON.stringify(m.proposal.calls, null, 2)}</pre></details>}
         {m.proposal && (
           <ProposalBlock p={m.proposal} busy={acting === m.id} onApprove={() => onApprove(m.id)} onReject={() => onReject(m.id)} />
         )}
@@ -132,6 +138,7 @@ function Entry({ m, acting, onApprove, onReject, onOpenFile }: EntryProps) {
 }
 
 const RESOLVED: Record<Exclude<Proposal['status'], 'pending'>, string> = {
+  waiting: 'Waiting for approval of exact tool arguments.',
   approved: 'Approved. Duet is doing it now.',
   done: 'Approved and done.',
   failed: "Approved, but it didn't finish. The error is below.",
