@@ -189,3 +189,14 @@ describe('commands', () => {
     await duet.reject(id);
   });
 });
+
+describe('the OS line', () => {
+  it('tells Duet the system, user, home, shell and PATH it will run on', async () => {
+    const { osLine } = await import('./mac/os.js');
+    const line = osLine();
+    expect(line).toContain(`user: ${os.userInfo().username}`);
+    expect(line).toContain(`home: ${os.homedir()}`);
+    expect(line).toContain(`PATH: ${process.env.PATH}`);
+    expect(line).toMatch(process.platform === 'win32' ? /PowerShell/ : process.platform === 'darwin' ? /zsh/ : /sh/);
+  });
+});
