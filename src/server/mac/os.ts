@@ -13,12 +13,25 @@ export const OS_NAME = process.platform === 'win32' ? 'Windows PC' : process.pla
 export const OS_PANEL = process.platform === 'darwin' ? 'Your Mac' : 'Your PC';
 
 /** Told to Duet on every turn, so it never proposes another system's tools, paths or commands. */
-export const osLine = () =>
-  process.platform === 'win32'
-    ? "The user's own computer runs Windows. Commands there run in Windows PowerShell; paths look like C:\\Users\\<name>\\Documents; use Windows apps and tools (File Explorer, Outlook, winget). Never suggest macOS or Linux tools (Finder, Spotlight, Homebrew, zsh, AppleScript, apt)."
-    : process.platform === 'darwin'
-      ? "The user's own computer is a Mac (macOS). Commands there run in zsh; paths look like /Users/<name>/Documents. Never suggest Windows tools (PowerShell, File Explorer, winget)."
-      : "The user's own computer runs Linux. Commands there run in sh; paths look like /home/<name>/Documents.";
+export const osLine = () => {
+  const rule =
+    process.platform === 'win32'
+      ? "The user's own computer runs Windows. Commands there run in Windows PowerShell; use Windows apps and tools (File Explorer, Outlook, winget). Never suggest macOS or Linux tools (Finder, Spotlight, Homebrew, zsh, AppleScript, apt)."
+      : process.platform === 'darwin'
+        ? "The user's own computer is a Mac (macOS). Commands there run in zsh. Never suggest Windows tools (PowerShell, File Explorer, winget)."
+        : "The user's own computer runs Linux. Commands there run in sh.";
+  const shell = process.platform === 'win32' ? 'powershell.exe' : process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh';
+  const facts = [
+    `OS: ${OS_NAME}, ${os.type()} ${os.release()} (${os.arch()})`,
+    `user: ${os.userInfo().username}`,
+    `home: ${os.homedir()}`,
+    `shell: ${shell}`,
+    `path separator: ${path.sep}`,
+    `PATH: ${process.env.PATH ?? process.env.Path ?? ''}`,
+    `locale/time zone: ${Intl.DateTimeFormat().resolvedOptions().locale}, ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
+  ];
+  return `${rule} Facts about it (use these exact paths and tools): ${facts.join('; ')}.`;
+};
 
 /**
  * macOS only: whether this app has Full Disk Access. Without it, macOS keeps Mail, Messages, Safari and
