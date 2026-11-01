@@ -220,10 +220,10 @@ function createWindow() {
   });
   // A file preview (srcdoc frame) must never leave the app either.
   win.webContents.on('will-frame-navigate', (e) => {
-    if (!e.isMainFrame && e.url !== 'about:srcdoc' && !e.url.startsWith(origin)) e.preventDefault();
+    if (!e.isMainFrame && e.url !== 'about:srcdoc' && !sameOrigin(e.url)) e.preventDefault();
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (url.startsWith(origin)) return;
+    if (sameOrigin(url)) return;
     e.preventDefault();
     if (/^https?:/i.test(url)) void shell.openExternal(url);
   });
@@ -252,6 +252,15 @@ function createWindow() {
         app.quit();
       }, 2500);
     });
+}
+
+// Exact origin, not a prefix: http://127.0.0.1:<port>@evil.example/ starts with the origin too.
+function sameOrigin(url: string): boolean {
+  try {
+    return new URL(url).origin === origin;
+  } catch {
+    return false;
+  }
 }
 
 function showWindow() {
