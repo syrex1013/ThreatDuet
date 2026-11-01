@@ -1,4 +1,4 @@
-# OpenDuet
+# ThreatDuet
 
 A proactive coworker in the style of Anthropic's Claude Duet. It runs locally and uses
 NVIDIA NIM's free `nvidia/nemotron-3-ultra-550b-a55b` by default (model id `nim/nvidia/nemotron-3-ultra-550b-a55b`, built-in key, about 40 requests a minute), or any [Kilo Code](https://kilo.ai) model such as the free `kilo/kilo-auto/free`, so it costs nothing to run.
@@ -33,11 +33,11 @@ its step limit. The proposal waits in "Needs you" until you approve or reject it
 Requires Node 22+ and the Kilo CLI (`npm i -g @kilocode/cli`, then `kilo auth`).
 
 ```bash
-npm install
-npm run build
-npm start            # http://127.0.0.1:4317
+bun install
+bun run build
+bun start            # http://127.0.0.1:4317
 # or, while developing:
-npm run dev          # API on :4317, UI on Vite's port with /api proxied
+bun run dev          # API on :4317, UI on Vite's port with /api proxied
 ```
 
 To connect apps (email, calendar, Slack, and so on), add MCP servers with `kilo mcp add`. Duet
@@ -47,13 +47,13 @@ Settings → Disconnected apps.
 | Command | What it does |
 |---|---|
 | `npm test` | Unit tests (vitest): reply parsing, policy guard, quiet hours, kilo event parser, phone-access auth |
-| `npm run typecheck` | Type-checks the server and the web app |
+| `bun run typecheck` | Type-checks the server and the web app |
 
 ## Desktop app (Electron)
 
 ```bash
-npm run app            # build and run the desktop app
-npm run dist:desktop   # package it: release/OpenDuet-<version>-arm64.dmg and .zip (unsigned)
+bun run app            # build and run the desktop app
+bun run dist:desktop   # package it: release/ThreatDuet-<version>-arm64.dmg and .zip (unsigned)
 ```
 
 The desktop app runs the same server inside Electron and keeps Duet working in the background:
@@ -61,7 +61,7 @@ The desktop app runs the same server inside Electron and keeps Duet working in t
 - The window can be resized and moved, and it remembers its size and position. **Compact window** (the arrows button in the top bar, View → Compact window, the tray menu, or Cmd/Ctrl+Shift+M) shrinks it to a small window that floats above the others; toggle again to get the full window back.
 - The tray menu has Brief me now, Check in now, Open at login, Show workspace folder and Quit.
 - Notifications are native, and clicking one opens the window. Approvals waiting also show as a Dock badge.
-- Data lives in the OS app-data folder (`~/Library/Application Support/OpenDuet` on macOS) instead of the repo.
+- Data lives in the OS app-data folder (`~/Library/Application Support/ThreatDuet` on macOS) instead of the repo.
 - At startup the app recovers your shell `PATH` (fix-path), so it finds `kilo` even when opened from Finder. If Kilo is missing, it says how to install it.
 
 The build is ad-hoc signed but not notarized, so on other Macs Gatekeeper asks you to confirm the first launch (right-click the app, then Open). Notarizing needs an Apple Developer ID.
@@ -71,13 +71,13 @@ The build is ad-hoc signed but not notarized, so on other Macs Gatekeeper asks y
 Kilo runs on your computer, so the phone app is a remote control for your desktop Duet: the thread, approvals, follow-ups, files, settings and notifications.
 
 ```bash
-npm run android:apk    # android/app/build/outputs/apk/debug/app-debug.apk
+bun run android:apk    # android/app/build/outputs/apk/debug/app-debug.apk
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 **Pairing:**
 1. On the computer, open Settings, then Phone, and turn on phone access. This opens a second listener on port 4320 that only answers requests carrying a 256-bit pairing token.
-2. Scan the QR code with the phone camera. It is an `openduet://pair?...` link that opens the app and pairs it. You can also type the address and code by hand.
+2. Scan the QR code with the phone camera. It is an `threatduet://pair?...` link that opens the app and pairs it. You can also type the address and code by hand.
 3. "Unpair all phones" issues a new token. "Turn off phone access" closes the port.
 
 **Notifications:** a background check (`@capacitor/background-runner`) asks your computer for news while the app is closed. Android runs it about every 15 minutes, not instantly. Instant push would need Firebase Cloud Messaging.
@@ -96,8 +96,8 @@ Like Claude Duet's virtual machine, Duet gets its own computer in the cloud with
 and work while your laptop and phone are off. It uses an [Instabox](https://instabox.sh) machine made from the
 `agent-browser` template (Debian, Chromium, a desktop).
 
-**Connect it:** click the monitor icon in the top bar, paste an Instabox API key, pick a machine, and connect. OpenDuet wakes
-the machine, installs a small browser driver under `/data/home/openduet/` on it (Playwright over the DevTools protocol),
+**Connect it:** click the monitor icon in the top bar, paste an Instabox API key, pick a machine, and connect. ThreatDuet wakes
+the machine, installs a small browser driver under `/data/home/threatduet/` on it (Playwright over the DevTools protocol),
 starts Chromium on the machine's desktop and checks that it can load a page. Disconnecting never changes or deletes the machine.
 
 **What Duet can do there:**
@@ -108,31 +108,31 @@ starts Chromium on the machine's desktop and checks that it can load a page. Dis
 | `computer_browser_open` | on its own only if "Let Duet open web pages on its own" is on (Apps sheet) | Public http(s) pages only; never `file:`, `localhost` or addresses inside the machine's network |
 | `computer_browser_click`, `_type`, `_press`, `computer_run`, `computer_write_file`, `computer_copy_to_workspace` | after you approve a proposal | Approved work runs in a fresh session. The cloud computer's commands never run on this Mac |
 
-Duet's files live in `/data/workspace/openduet` on the machine and it cannot read or write outside it (symlinks resolved).
+Duet's files live in `/data/workspace/threatduet` on the machine and it cannot read or write outside it (symlinks resolved).
 Pages and files it reads are marked as untrusted data, so text inside a web page can't give it orders.
 
 ## How Duet talks to Kilo
 
-By default OpenDuet starts one headless `kilo serve` (loopback only, random port, random password) and sends each task over its HTTP API: the prompt travels in the request body, progress comes from the event stream, and the server stays warm between tasks. If the server can't start, or you pick "Command line" in Settings > Advanced, it runs `kilo run` per task with the prompt on stdin (Windows rejects line breaks in the arguments of a `.cmd` program, which is why the prompt is never an argument). App sign-in and listing still use the `kilo` CLI.
+By default ThreatDuet starts one headless `kilo serve` (loopback only, random port, random password) and sends each task over its HTTP API: the prompt travels in the request body, progress comes from the event stream, and the server stays warm between tasks. If the server can't start, or you pick "Command line" in Settings > Advanced, it runs `kilo run` per task with the prompt on stdin (Windows rejects line breaks in the arguments of a `.cmd` program, which is why the prompt is never an argument). App sign-in and listing still use the `kilo` CLI.
 
-**No Kilo program (the usual Windows case):** OpenDuet checks for `kilo` once and, if it is missing, runs its own agent loop on Kilo's hosted gateway (`https://api.kilo.ai/api/gateway`, OpenAI-compatible; free models work without an account, about 200 requests an hour per IP; set `KILO_API_KEY` for more). It offers the same tools (workspace files, `webfetch`, skills, your apps over MCP, the Mac/PC tools, the cloud computer) and obeys the same permission file, so approvals work the same. Apps sign in through your browser with OAuth handled by OpenDuet (loopback port 19877); tokens are kept in the private data folder. Not available in this mode: Kilo's built-in `websearch` and `codesearch`. Pick "Kilo hosted API" in Settings to use it even when `kilo` is installed.
+**No Kilo program (the usual Windows case):** ThreatDuet checks for `kilo` once and, if it is missing, runs its own agent loop on Kilo's hosted gateway (`https://api.kilo.ai/api/gateway`, OpenAI-compatible; free models work without an account, about 200 requests an hour per IP; set `KILO_API_KEY` for more). It offers the same tools (workspace files, `webfetch`, skills, your apps over MCP, the Mac/PC tools, the cloud computer) and obeys the same permission file, so approvals work the same. Apps sign in through your browser with OAuth handled by ThreatDuet (loopback port 19877); tokens are kept in the private data folder. Not available in this mode: Kilo's built-in `websearch` and `codesearch`. Pick "Kilo hosted API" in Settings to use it even when `kilo` is installed.
 
 **Self-correction:** every run is a reason-act-observe loop: Duet sees each tool's result or error and decides the next step. In the built-in loop, the same call failing the same way is nudged once ("change the arguments or the approach") and stopped the third time, and an empty reply is nudged once. In every mode, a run that dies without an answer (crash, timeout, gateway down, a stuck step) is resumed once in its session, told what stopped it and asked to continue or say what blocks it. Approved actions are resumed only when the session survived, so nothing already done runs twice.
 
 ## Windows
 
 Notifications are native Windows toasts. They need the Start-menu shortcut the installer creates
-(it carries the app's ID, `tech.threatvector.openduet`), so a portable copy or `npm run app` may not show them.
+(it carries the app's ID, `tech.threatvector.threatduet`), so a portable copy or `bun run app` may not show them.
 
-`npm run dist:win` builds `release/OpenDuet-Setup-<version>.exe` (NSIS, x64; works from macOS when Wine is not needed for icon editing). `npm run release` builds macOS + Android always, then tries Windows and copies the `.exe` into `builds/` when that step succeeds.
+`bun run dist:win` builds `release/ThreatDuet-Setup-<version>.exe` (NSIS, x64; works from macOS when Wine is not needed for icon editing). `bun run release` builds macOS + Android always, then tries Windows and copies the `.exe` into `builds/` when that step succeeds.
 
-- **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it OpenDuet uses Kilo's hosted API, and the app no longer shows a "needs the Kilo CLI" dialog at launch.
+- **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it ThreatDuet uses Kilo's hosted API, and the app no longer shows a "needs the Kilo CLI" dialog at launch.
 - **Unsigned:** the installer and app are not code-signed, so Windows SmartScreen warns on first run ("More info" > "Run anyway"). The exe has Electron's default icon because icon editing needs Wine or a Windows build machine.
 - **Your PC panel:** files work the same (folders, symlink checks, deny-list for `AppData` credential stores, Brave data, `NTUSER.DAT`). Commands run in PowerShell, and only the exact commands in an approved proposal.
 - **Browsers:** the cookie database is copied with Node's built-in sqlite. Chrome and Brave lock it while they run, so close the browser before the first use or press "Copy my sign-ins again". Newer Chromium builds can bind cookies to the original profile on Windows (app-bound encryption); the copy then opens signed out.
 
-- **Live browser / sign-in:** same as macOS — Your PC shows a live view of OpenDuet's headless browser for any site; the credential prompt embeds that view so you can click fields and enter passwords/OTP without putting them in chat. Instabox Watch works the same from Windows.
-- **Testing on Windows:** `npm run smoke:task` runs a real task on the computer it is started on (the live model, `local_shell_run`, `local_files_list`, the real permission file) and fails if a tool errors or the answer is wrong; `.github/workflows/check.yml` runs the type check, the tests, that task and an Electron window screenshot on `windows-latest` and `macos-latest`. `npm run emulate:windows` runs on any computer: the process is made to believe it is Windows (platform, user, home, PATH), the app's own Windows prompt, brief and tool descriptions go to the live model, tools answer like a Windows PC, and it fails if the model sends a Unix command, a Unix path or a macOS tool. The installers were built on a Mac; the workflow is the Windows test, and it only runs while the GitHub account's Actions billing is in order (a private repo bills every minute).
+- **Live browser / sign-in:** same as macOS — Your PC shows a live view of ThreatDuet's headless browser for any site; the credential prompt embeds that view so you can click fields and enter passwords/OTP without putting them in chat. Instabox Watch works the same from Windows.
+- **Testing on Windows:** `bun run smoke:task` runs a real task on the computer it is started on (the live model, `local_shell_run`, `local_files_list`, the real permission file) and fails if a tool errors or the answer is wrong; `.github/workflows/check.yml` runs the type check, the tests, that task and an Electron window screenshot on `windows-latest` and `macos-latest`. `bun run emulate:windows` runs on any computer: the process is made to believe it is Windows (platform, user, home, PATH), the app's own Windows prompt, brief and tool descriptions go to the live model, tools answer like a Windows PC, and it fails if the model sends a Unix command, a Unix path or a macOS tool. The installers were built on a Mac; the workflow is the Windows test, and it only runs while the GitHub account's Actions billing is in order (a private repo bills every minute).
 
 ## Your Mac (off by default)
 
@@ -144,10 +144,10 @@ The **Your Mac** panel lets Duet use this computer. Each part is a separate swit
 | **Browser** (`local_browser_*`) | read, scroll and screenshot the open page; open a page only if "Let Duet open web pages on its own" is on | click, type, press keys, submit, all as you |
 | **Commands** (`local_shell_run`) | nothing | run a command, and only the exact commands shown in the approved proposal |
 
-- **Sign-ins (Brave, Chrome or Firefox):** pick whose sign-ins Duet browses with in the panel. For Brave and Chrome, OpenDuet copies the cookie database (a safe SQLite copy; the real profile is only read) into its private data folder and starts that browser out of sight on the copy. The browser opens the cookies with its own Keychain/DPAPI key, so Duet never sees a cookie value, only pages. Firefox keeps cookies unencrypted, so OpenDuet reads them (default profile, no container tabs) and loads them into Chrome or Brave, which it drives. The link to the browser is a pipe, not a network port. The copy is deleted when you turn the browser off, switch browser, press "Copy my sign-ins again", or quit.
+- **Sign-ins (Brave, Chrome or Firefox):** pick whose sign-ins Duet browses with in the panel. For Brave and Chrome, ThreatDuet copies the cookie database (a safe SQLite copy; the real profile is only read) into its private data folder and starts that browser out of sight on the copy. The browser opens the cookies with its own Keychain/DPAPI key, so Duet never sees a cookie value, only pages. Firefox keeps cookies unencrypted, so ThreatDuet reads them (default profile, no container tabs) and loads them into Chrome or Brave, which it drives. The link to the browser is a pipe, not a network port. The copy is deleted when you turn the browser off, switch browser, press "Copy my sign-ins again", or quit.
 - **Known limit:** some sites tie a session to the original browser. Google rejects a copied Chrome session (Brave's copy is accepted), and newer Chromium on Windows can bind cookies to the profile (app-bound encryption). Those sites open signed out.
-- **Files:** paths are resolved through symlinks and must be inside an added folder. `~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, browser data, Claude/Codex/Kilo credentials and OpenDuet's own data folder stay off-limits even when a parent folder (such as your home) is added.
-- **Everything on this Mac/PC:** a second mode under Files. Any folder (and on Windows any drive) your account can open is allowed; the deny-list above still holds, and a search without a folder starts in your home folder. On macOS, Documents, Desktop and Downloads trigger the system's own "allow access" prompt the first time, and Mail, Messages, Safari and Time Machine data stay closed until you add OpenDuet under System Settings > Privacy & Security > Full Disk Access; the panel shows a button that opens that page while access is missing. Windows and Linux need no grant.
+- **Files:** paths are resolved through symlinks and must be inside an added folder. `~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, browser data, Claude/Codex/Kilo credentials and ThreatDuet's own data folder stay off-limits even when a parent folder (such as your home) is added.
+- **Everything on this Mac/PC:** a second mode under Files. Any folder (and on Windows any drive) your account can open is allowed; the deny-list above still holds, and a search without a folder starts in your home folder. On macOS, Documents, Desktop and Downloads trigger the system's own "allow access" prompt the first time, and Mail, Messages, Safari and Time Machine data stay closed until you add ThreatDuet under System Settings > Privacy & Security > Full Disk Access; the panel shows a button that opens that page while access is missing. Windows and Linux need no grant.
 - **Signing in:** Duet browses with a copy of your browser's sign-ins (Brave, Chrome or Firefox on macOS, Windows and Linux), always headless. The copy persists across launches (passwords typed into the secure prompt stay signed in). When a site asks to sign in, Duet opens an interactive prompt (`local_browser_ask_input`) so you can enter a password or code without putting it in chat; you can also sign in in your own browser and call `local_browser_reload_signins`. To continue on Duet's Instabox machine, use **Copy sign-ins to Duet's computer** (or `browser_push_session`). On Windows, Chrome locks its cookie database while it is running; close Chrome before the first cookie copy or press "Copy my sign-ins again".
 - **Auto mode (allow all):** a switch at the bottom of the panel. Everything turned on above then runs without a proposal: `local_files_write`, `local_shell_run` (any command), `local_browser_open`, `_click`, `_type`, `_press`. Duet is told to act directly and still not to delete, send or pay unasked, but only the prompt says so. Off by default.
 - **Commands:** while a proposal runs, the shell tool refuses any command that is not in one of its ``` blocks. A paired phone cannot approve a proposal that contains commands; that needs this computer.
@@ -157,7 +157,7 @@ The **Your Mac** panel lets Duet use this computer. Each part is a separate swit
 **Watch it:** the Computer sheet (Instabox) and the Your Mac / Your PC panel both show a live browser view every few seconds for any site. Clicking the picture clicks there, and you can type and press keys — that is you acting, so it needs no approval. When Duet asks for a password/OTP, the same live view appears in the prompt. On Instabox, looking at a sleeping machine asks first, because waking it spends Instabox time.
 
 
-**Test it for real:** `npm run build && INSTABOX_API_KEY=ibk_... npm run smoke:computer` runs OpenDuet in a throwaway folder
+**Test it for real:** `bun run build && INSTABOX_API_KEY=ibk_... bun run smoke:computer` runs ThreatDuet in a throwaway folder
 against your actual Instabox machine (default name `dev`, or set `INSTABOX_MACHINE`) and checks: key, machine, setup, screenshot,
 take-over, a real Duet turn that opens and reads a page, and that clicking waits for approval.
 
@@ -167,23 +167,23 @@ read your Vault secrets, so the app warns about it. Instabox charges apply while
 ## Release builds
 
 ```bash
-npm run release   # tests, signed APK, macOS app, Windows installer when the win build succeeds; all in builds/
+bun run release   # tests, signed APK, macOS app, Windows installer when the win build succeeds; all in builds/
 ```
 
 `builds/` then holds:
 
 | File | What it is |
 |---|---|
-| `OpenDuet.app` | The desktop app (Apple silicon), ready to drag into Applications |
-| `OpenDuet-<version>-arm64.dmg` | The same app as a disk image |
-| `OpenDuet-Setup-<version>.exe` | Windows x64 installer (included when the win build succeeds) |
-| `OpenDuet-<version>.apk` | The phone app, release-signed |
+| `ThreatDuet.app` | The desktop app (Apple silicon), ready to drag into Applications |
+| `ThreatDuet-<version>-arm64.dmg` | The same app as a disk image |
+| `ThreatDuet-Setup-<version>.exe` | Windows x64 installer (included when the win build succeeds) |
+| `ThreatDuet-<version>.apk` | The phone app, release-signed |
 | `install-android.sh` | Lists `adb` devices, lets you pick one (or all), and installs the APK |
 | `SHA256SUMS.txt` | Checksums for the shipped installers |
 
 **Installing on Android:** run `./builds/install-android.sh`. It finds `adb` (PATH, `$ANDROID_HOME`, or the default SDK folders), shows every device with what to do about unauthorized or offline ones, and installs on the one you choose. If an older build signed with a different key is on the phone, it asks before uninstalling it, because that deletes the app's data and pairing.
 
-**Android signing:** release builds are signed with `android/keystore/openduet-release.jks`, configured by `android/keystore.properties`. Both are git-ignored. Back them up somewhere safe: without them, no update will ever install over a phone that has this release, and users would have to uninstall and pair again.
+**Android signing:** release builds are signed with `android/keystore/threatduet-release.jks`, configured by `android/keystore.properties`. Both are git-ignored. Back them up somewhere safe: without them, no update will ever install over a phone that has this release, and users would have to uninstall and pair again.
 
 **macOS signing:** the app is ad-hoc signed and hardened with Electron fuses: no `ELECTRON_RUN_AS_NODE`, no `NODE_OPTIONS`, no inspector flags, and code loads only from the integrity-checked `app.asar`. It isn't notarized; that needs an Apple Developer ID. On another Mac, open it the first time with right-click, then Open.
 
@@ -273,7 +273,7 @@ outside world.
    propose them again) and its scheduled follow-ups. The agent adds to memory with
    `<<REMEMBER: …>>`. Chat continues one Kilo session; Settings → New thread starts fresh.
 
-| Claude Duet feature | OpenDuet |
+| Claude Duet feature | ThreatDuet |
 |---|---|
 | Comes to you first: notices problems, prepares before you ask | Brief and check-in prompts plus autonomous `duet` agent; prep work lands in `workspace/` |
 | Hand it tasks; it works out the steps in the background | Autonomous steps with `<<CONTINUE>>`, background queue |
@@ -291,7 +291,7 @@ outside world.
 | Purchases via Link / Shop Pay | Apps → Payments: Link (`@stripe/link-cli` MCP) and Shop Pay (`https://mcp.shop.com/`); each purchase still needs your approval here and again in Link/Shop |
 | 1Password sign-in | Not yet (also "coming soon" in Claude Duet) |
 | Search past chats | `duet_search_chats` tool |
-| Password stays out of chat | Watch panel password field never enters chat (still goes OpenDuet → Instabox → cloud browser) |
+| Password stays out of chat | Watch panel password field never enters chat (still goes ThreatDuet → Instabox → cloud browser) |
 | iOS app | Android + desktop + web; no iOS build yet |
 
 ## Security notes

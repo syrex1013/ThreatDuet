@@ -116,7 +116,7 @@ const PL: Record<string, string> = {
   'The user cancelled or the prompt timed out.': 'Anulowano albo monit wygasł.',
   'The browser on this computer is turned off. Turn it on in the Your Mac / Your PC panel.': 'Przeglądarka na tym komputerze jest wyłączona. Włącz ją w panelu Twój Mac / Twój PC.',
   'No computer is connected.': 'Nie połączono komputera.',
-  'No sign-ins in the local OpenDuet browser yet. Open a page or reload sign-ins first.': 'W lokalnej przeglądarce OpenDuet nie ma jeszcze logowań. Najpierw otwórz stronę albo odśwież logowania.',
+  'No sign-ins in the local ThreatDuet browser yet. Open a page or reload sign-ins first.': 'W lokalnej przeglądarce ThreatDuet nie ma jeszcze logowań. Najpierw otwórz stronę albo odśwież logowania.',
   'Copied {n} sign-in cookies to Duet\'s computer. Open the site there to use the session.': 'Skopiowano {n} ciasteczek logowania na komputer Dueta. Otwórz tam stronę, żeby użyć sesji.',
   'Password entered into [{ref}]. Call browser_read to see the result.': 'Hasło wpisane w [{ref}]. Wywołaj browser_read, żeby zobaczyć wynik.',
   'Entered into [{ref}]. Call browser_read to see the result.': 'Wpisano w [{ref}]. Wywołaj browser_read, żeby zobaczyć wynik.',
@@ -156,7 +156,7 @@ const PL: Record<string, string> = {
   'Checking that it can browse': 'Sprawdzanie, czy przeglądarka działa',
   "The browser started but couldn't load a test page. Does the computer have internet access?":
     'Przeglądarka działa, ale nie wczytała strony testowej. Czy komputer ma dostęp do internetu?',
-  'This phone is not paired. Pair it again from OpenDuet on your computer.': 'Ten telefon nie jest sparowany. Sparuj go ponownie w OpenDuet na komputerze.',
+  'This phone is not paired. Pair it again from ThreatDuet on your computer.': 'Ten telefon nie jest sparowany. Sparuj go ponownie w ThreatDuet na komputerze.',
   "Couldn't open port {port} for your phone: {error}": 'Nie udało się otworzyć portu {port} dla telefonu: {error}',
 
   // Desktop app menus and dialogs
@@ -164,12 +164,12 @@ const PL: Record<string, string> = {
   'Compact window': 'Kompaktowe okno',
   '{n} waiting for your approval': 'Do zatwierdzenia: {n}',
   'Nothing needs you right now': 'Nic teraz na Ciebie nie czeka',
-  'Open OpenDuet': 'Otwórz OpenDuet',
+  'Open ThreatDuet': 'Otwórz ThreatDuet',
   'Brief me now': 'Podsumuj teraz',
   'Check in now': 'Sprawdź teraz',
   'Open at login': 'Otwieraj po zalogowaniu',
   'Show workspace folder': 'Pokaż folder obszaru roboczego',
-  'Quit OpenDuet': 'Zakończ OpenDuet',
+  'Quit ThreatDuet': 'Zakończ ThreatDuet',
 };
 
 /** Translates server text into the user's language; English text is the key, {name} marks a placeholder. */

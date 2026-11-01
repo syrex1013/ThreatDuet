@@ -20,12 +20,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Pairing: the QR code on the computer is an openduet://pair link the camera opens here. -->
+            <!-- Pairing: the QR code on the computer is an threatduet://pair link the camera opens here. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="openduet" android:host="pair" />
+                <data android:scheme="threatduet" android:host="pair" />
             </intent-filter>
         </activity>
 

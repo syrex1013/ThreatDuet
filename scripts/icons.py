@@ -1,4 +1,4 @@
-"""Draws OpenDuet's icons: the ThreatVector reticle (four corner brackets around a square) in signal red.
+"""Draws ThreatDuet's icons: the ThreatVector reticle (four corner brackets around a square) in signal red.
 
 Run: python3 scripts/icons.py   (needs Pillow). Writes build/ (desktop) and assets/ (Android, for @capacitor/assets).
 """

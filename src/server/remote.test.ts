@@ -7,8 +7,8 @@ let remote: typeof import('./remote.js');
 
 beforeAll(async () => {
   // config.ts reads these at import time, so set them before loading any server module.
-  process.env.OPENDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-test-'));
-  process.env.OPENDUET_REMOTE_PORT = '0';
+  process.env.THREATDUET_HOME = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-test-'));
+  process.env.THREATDUET_REMOTE_PORT = '0';
   await (await import('./store.js')).openStore();
   remote = await import('./remote.js');
 });

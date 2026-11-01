@@ -59,8 +59,8 @@ export const PL_COMPUTER: Record<string, string> = {
     'Pozwól Duetowi korzystać z tego komputera. Wszystko jest wyłączone, dopóki tego nie włączysz. Duet sam przegląda; wszystko, co coś zmienia, czeka na Twoją zgodę.',
   Files: 'Pliki',
   'Let Duet read and search my files': 'Pozwól Duetowi czytać i przeszukiwać moje pliki',
-  "Writing a file always waits for approval. Folders with passwords and keys (AppData credential stores, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.":
-    'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (magazyny poświadczeń w AppData, dane przeglądarek, dane samego OpenDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
+  "Writing a file always waits for approval. Folders with passwords and keys (AppData credential stores, browser data, ThreatDuet's own data) stay off-limits even inside a folder you add.":
+    'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (magazyny poświadczeń w AppData, dane przeglądarek, dane samego ThreatDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
   Where: 'Gdzie',
   'Folders I choose': 'Wybrane foldery',
   'Everything on this Mac': 'Wszystko na tym Macu',
@@ -70,8 +70,8 @@ export const PL_COMPUTER: Record<string, string> = {
   'Duet can open any folder and drive on this PC that you can, except the credential stores above. Searches without a folder start in your user folder.':
     'Duet może otworzyć każdy folder i dysk na tym komputerze, do którego Ty masz dostęp, poza wymienionymi wyżej magazynami poświadczeń. Wyszukiwanie bez podanego folderu zaczyna się w Twoim folderze użytkownika.',
   'Open Privacy & Security settings': 'Otwórz ustawienia Prywatność i ochrona',
-  'macOS keeps Mail, Messages, Safari and backups closed until you add OpenDuet under Full Disk Access. Other folders ask the first time Duet opens them.':
-    'macOS nie udostępnia Poczty, Wiadomości, Safari ani kopii zapasowych, dopóki nie dodasz OpenDuet w sekcji Pełny dostęp do dysku. Inne foldery pytają o zgodę, gdy Duet otwiera je po raz pierwszy.',
+  'macOS keeps Mail, Messages, Safari and backups closed until you add ThreatDuet under Full Disk Access. Other folders ask the first time Duet opens them.':
+    'macOS nie udostępnia Poczty, Wiadomości, Safari ani kopii zapasowych, dopóki nie dodasz ThreatDuet w sekcji Pełny dostęp do dysku. Inne foldery pytają o zgodę, gdy Duet otwiera je po raz pierwszy.',
   'The first time Duet opens Documents, Desktop or Downloads, macOS asks you to allow it.':
     'Gdy Duet po raz pierwszy otwiera Dokumenty, Biurko lub Pobrane, macOS prosi Cię o zgodę.',
   'Let Duet propose PowerShell commands': 'Pozwól Duetowi proponować polecenia PowerShell',
@@ -80,16 +80,16 @@ export const PL_COMPUTER: Record<string, string> = {
   'Let Duet act on this PC without asking (allow all)': 'Pozwól Duetowi działać na tym komputerze bez pytania (zezwól na wszystko)',
   'Everything turned on above runs on its own: writing files, running commands, opening pages, clicking and typing as you. No proposal, no approval. Duet is still told not to delete, send or pay unasked, but nothing enforces it.':
     'Wszystko włączone powyżej działa samo: zapis plików, uruchamianie poleceń, otwieranie stron, klikanie i pisanie jako Ty. Bez propozycji, bez zatwierdzania. Duet nadal ma polecenie, by nie usuwać, nie wysyłać i nie płacić bez prośby, ale nic tego nie wymusza.',
-  "Writing a file always waits for approval. Folders with passwords and keys (~/.ssh, Keychains, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.":
-    'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (~/.ssh, pęki kluczy, dane przeglądarek, dane samego OpenDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
+  "Writing a file always waits for approval. Folders with passwords and keys (~/.ssh, Keychains, browser data, ThreatDuet's own data) stay off-limits even inside a folder you add.":
+    'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (~/.ssh, pęki kluczy, dane przeglądarek, dane samego ThreatDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
   Remove: 'Usuń',
   "No folders yet. Duet can't see any file until you add one.": 'Brak folderów. Duet nie widzi żadnego pliku, dopóki nie dodasz folderu.',
   'Folder to add': 'Folder do dodania',
   'Add folder': 'Dodaj folder',
   Browser: 'Przeglądarka',
   'Let Duet browse signed in as me': 'Pozwól Duetowi przeglądać strony zalogowany jako ja',
-  "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in OpenDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.":
-    'Duet otwiera w tle przeglądarkę z kopią Twoich zalogowań (plików cookie), więc może korzystać z Gmaila, kalendarzy i paneli. Kopia leży w prywatnym folderze OpenDuet i jest usuwana, gdy to wyłączysz, zmienisz przeglądarkę lub zamkniesz aplikację. Duet nigdy nie widzi samych plików cookie, tylko strony. Czytanie strony odbywa się automatycznie; klikanie, pisanie i wysyłanie czeka na zgodę i dzieje się w Twoim imieniu.',
+  "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in ThreatDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.":
+    'Duet otwiera w tle przeglądarkę z kopią Twoich zalogowań (plików cookie), więc może korzystać z Gmaila, kalendarzy i paneli. Kopia leży w prywatnym folderze ThreatDuet i jest usuwana, gdy to wyłączysz, zmienisz przeglądarkę lub zamkniesz aplikację. Duet nigdy nie widzi samych plików cookie, tylko strony. Czytanie strony odbywa się automatycznie; klikanie, pisanie i wysyłanie czeka na zgodę i dzieje się w Twoim imieniu.',
   'Brave, Chrome or Firefox must be installed.': 'Musisz mieć zainstalowaną przeglądarkę Brave, Chrome lub Firefox.',
   'Take sign-ins from': 'Źródło zalogowań',
   'Whichever is installed': 'Dowolna zainstalowana',
@@ -112,7 +112,7 @@ export const PL_COMPUTER: Record<string, string> = {
   'Click the password field in the picture, then type here': 'Kliknij pole hasła na obrazku, potem wpisz je tutaj',
   'Password (sent only to the page, never to chat)': 'Hasło (tylko na stronę, nigdy do czatu)',
   'Fill password': 'Wypełnij hasło',
-  'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę, bez pytania o zgodę. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter klawiszem poniżej. Hasło nigdy nie trafia do rozmowy z Duetem (nadal przechodzi przez OpenDuet do przeglądarki w chmurze).',
+  'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through ThreatDuet to the cloud browser).': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę, bez pytania o zgodę. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter klawiszem poniżej. Hasło nigdy nie trafia do rozmowy z Duetem (nadal przechodzi przez ThreatDuet do przeglądarki w chmurze).',
 
   'Duet needs your input': 'Duet potrzebuje Twojego wpisu',
   'Password': 'Hasło',
@@ -127,7 +127,7 @@ export const PL_COMPUTER: Record<string, string> = {
   'Copying…': 'Kopiowanie…',
   'Sign-ins copied to the cloud browser.': 'Logowania skopiowane do przeglądarki w chmurze.',
 
-  'Moves the OpenDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.': 'Przenosi sesję przeglądarki OpenDuet z tego Maca/PC do przeglądarki w chmurze, żeby Duet pozostał tam zalogowany.',
+  'Moves the ThreatDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.': 'Przenosi sesję przeglądarki ThreatDuet z tego Maca/PC do przeglądarki w chmurze, żeby Duet pozostał tam zalogowany.',
 
   'Waiting for your input': 'Czeka na Twój wpis',
 

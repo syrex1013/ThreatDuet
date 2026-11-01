@@ -5,7 +5,7 @@ import { getLocalScreen, getScreen, post } from '../api';
 import { t } from '../i18n';
 
 type Props = {
-  /** Instabox cloud browser, or the OpenDuet browser on this Mac/Windows/Linux PC. */
+  /** Instabox cloud browser, or the ThreatDuet browser on this Mac/Windows/Linux PC. */
   source?: 'computer' | 'local';
   /** When true (computer only), wake a sleeping Instabox machine so the page is visible. */
   wake?: boolean;
@@ -150,7 +150,7 @@ export function LiveBrowser({ source = 'computer', wake = true, compact = false,
                 'You are in control here: clicks and typing go straight to the page on this computer without asking. Works for any site. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet.',
               )
             : t(
-                'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).',
+                'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through ThreatDuet to the cloud browser).',
               )}
         </p>
       )}

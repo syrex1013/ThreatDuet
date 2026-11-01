@@ -119,8 +119,8 @@ let store: typeof import('./store.js');
 let home: string;
 
 beforeAll(async () => {
-  home = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-computer-'));
-  process.env.OPENDUET_HOME = home;
+  home = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-computer-'));
+  process.env.THREATDUET_HOME = home;
   store = await import('./store.js');
   await store.openStore();
   machine = await import('./computer/machine.js');
@@ -152,8 +152,8 @@ describe('Duet computer setup and use', () => {
     const s = await settled();
     expect(s).toMatchObject({ connected: true, name: 'dev', machineState: 'running', vault: true, setup: null });
     expect(fake.power_calls).toEqual(['resume']);
-    expect([...fake.files.keys()].sort()).toEqual(['/data/home/openduet/VERSION', '/data/home/openduet/duet-browser.mjs']);
-    expect(fake.files.get('/data/home/openduet/duet-browser.mjs')).toContain('connectOverCDP');
+    expect([...fake.files.keys()].sort()).toEqual(['/data/home/threatduet/VERSION', '/data/home/threatduet/duet-browser.mjs']);
+    expect(fake.files.get('/data/home/threatduet/duet-browser.mjs')).toContain('connectOverCDP');
     expect(JSON.stringify(s)).not.toContain('fake-key');
   });
 
@@ -163,7 +163,7 @@ describe('Duet computer setup and use', () => {
     await machine.browser('open', { url: evil });
     const call = fake.calls.find((c) => c.argv?.[2] === 'open')!;
     expect(call.cmd).toBeUndefined();
-    expect(call.argv).toEqual(['node', '/data/home/openduet/duet-browser.mjs', 'open', JSON.stringify({ url: evil })]);
+    expect(call.argv).toEqual(['node', '/data/home/threatduet/duet-browser.mjs', 'open', JSON.stringify({ url: evil })]);
     expect(call.envs).toEqual({ DISPLAY: ':1' });
   });
 
@@ -172,7 +172,7 @@ describe('Duet computer setup and use', () => {
   });
 
   it('keeps file access inside the working folder, symlinks included', async () => {
-    const dir = '/data/workspace/openduet';
+    const dir = '/data/workspace/threatduet';
     fake.symlinks[`${dir}/sneaky`] = '/etc';
     await expect(machine.safeVmPath('notes/a.md')).resolves.toBe(`${dir}/notes/a.md`);
     await expect(machine.safeVmPath(`${dir}/b.txt`)).resolves.toBe(`${dir}/b.txt`);
@@ -183,7 +183,7 @@ describe('Duet computer setup and use', () => {
   });
 
   it('copies results into the workspace without overwriting protected files', async () => {
-    fake.fileContent['/data/workspace/openduet/report.md'] = '# Report\n';
+    fake.fileContent['/data/workspace/threatduet/report.md'] = '# Report\n';
     await expect(machine.copyToWorkspace('report.md')).resolves.toMatch(/Saved report.md/);
     expect(await fs.readFile(path.join(home, 'workspace', 'report.md'), 'utf8')).toBe('# Report\n');
     await expect(machine.copyToWorkspace('report.md', 'kilo.json')).rejects.toThrow(/Can't save/);

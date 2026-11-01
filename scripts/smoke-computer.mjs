@@ -3,7 +3,7 @@
 //   INSTABOX_API_KEY=ibk_... npm run smoke:computer
 //   INSTABOX_MACHINE=my-machine-name INSTABOX_API_KEY=... npm run smoke:computer   (default machine: dev)
 //
-// Runs OpenDuet in a throwaway folder (your real OpenDuet data is not touched), connects the machine,
+// Runs ThreatDuet in a throwaway folder (your real ThreatDuet data is not touched), connects the machine,
 // and removes the connection again at the end. The machine itself is left as it was. Needs `npm run build` first.
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -15,8 +15,8 @@ if (!key) {
   process.exit(2);
 }
 const wanted = process.env.INSTABOX_MACHINE || 'dev';
-const home = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-smoke-'));
-process.env.OPENDUET_HOME = home;
+const home = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-smoke-'));
+process.env.THREATDUET_HOME = home;
 process.env.LOG_LEVEL = 'warn';
 
 const { startServer } = await import('../dist/server/server.js');

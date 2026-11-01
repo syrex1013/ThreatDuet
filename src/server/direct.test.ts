@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 await vi.hoisted(async () => {
   const { mkdtempSync } = await import('node:fs');
-  process.env.OPENDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/openduet-direct-`);
+  process.env.THREATDUET_HOME = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/threatduet-direct-`);
 });
 
 vi.mock('./direct/gateway.js', async (orig) => ({ ...(await orig<typeof import('./direct/gateway.js')>()), chat: vi.fn() }));

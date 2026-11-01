@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'tech.threatvector.openduet',
-  appName: 'OpenDuet',
+  appId: 'tech.threatvector.threatduet',
+  appName: 'ThreatDuet',
   webDir: 'web/dist',
   // Debug builds would otherwise print plugin calls, including the pairing link and its token, to logcat.
   loggingBehavior: 'none',
@@ -13,7 +13,7 @@ const config: CapacitorConfig = {
     SystemBars: { style: 'LIGHT' },
     // Checks the computer for news while the app is closed. Android runs it about every 15 minutes.
     BackgroundRunner: {
-      label: 'tech.threatvector.openduet.check',
+      label: 'tech.threatvector.threatduet.check',
       src: 'runners/duet.js',
       event: 'check',
       repeat: true,

@@ -127,7 +127,7 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
       <fieldset>
         <legend>{t('Apps')}</legend>
         {isPhone ? (
-          <p className="hint">{t('Connect apps from OpenDuet on your computer, in Apps.')}</p>
+          <p className="hint">{t('Connect apps from ThreatDuet on your computer, in Apps.')}</p>
         ) : (
           <button type="button" className="btn btn-quiet" onClick={onOpenApps}>
             {t('Manage connected apps')}

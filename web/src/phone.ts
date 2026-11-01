@@ -5,11 +5,11 @@ import { parsePairLink, type Connection } from './connection';
 import { t } from './i18n';
 
 /** Must match plugins.BackgroundRunner.label in capacitor.config.ts. */
-export const RUNNER = 'tech.threatvector.openduet.check';
+export const RUNNER = 'tech.threatvector.threatduet.check';
 
 /** Checks a connection works before saving it, with errors that say what to do. */
 export async function verifyConnection(c: Connection): Promise<StateResponse> {
-  const unreachable = t("Can't reach {url}. Check that OpenDuet is running on your computer and that both devices are on Tailscale or the same network.", { url: c.url });
+  const unreachable = t("Can't reach {url}. Check that ThreatDuet is running on your computer and that both devices are on Tailscale or the same network.", { url: c.url });
   let res: Response;
   try {
     // Native HTTP may ignore AbortSignal, so race it against a timer instead.

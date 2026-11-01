@@ -136,7 +136,7 @@ export function buildComputerServer(): McpServer {
 
   server.registerTool(
     'copy_to_workspace',
-    { description: "Copies a file from Duet's cloud computer into this computer's OpenDuet workspace. Needs the user's approval.", inputSchema: { path: z.string().max(500), name: z.string().max(120).optional() } },
+    { description: "Copies a file from Duet's cloud computer into this computer's ThreatDuet workspace. Needs the user's approval.", inputSchema: { path: z.string().max(500), name: z.string().max(120).optional() } },
     ({ path, name }) => guard(() => copyToWorkspace(path, name), text),
   );
 
@@ -160,7 +160,7 @@ export function buildComputerServer(): McpServer {
     'browser_push_session',
     {
       description:
-        "Copies sign-in cookies from the user's local OpenDuet browser into this cloud computer's browser. Use when a session already exists on the Mac/PC and work should continue here.",
+        "Copies sign-in cookies from the user's local ThreatDuet browser into this cloud computer's browser. Use when a session already exists on the Mac/PC and work should continue here.",
     },
     () => guard(() => pushSessionToComputer(), text),
   );

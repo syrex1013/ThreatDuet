@@ -8,7 +8,7 @@ import { chromium } from 'playwright-core';
 
 const PORT = 9222;
 const HOME = process.env.HOME || '/data/home';
-const PROFILE = `${HOME}/openduet/profile`;
+const PROFILE = `${HOME}/threatduet/profile`;
 const MAX_TEXT = 40_000;
 const MAX_ELEMENTS = 150;
 

@@ -209,7 +209,7 @@ function SessionPush() {
       <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => act.mutate()}>
         {act.isPending ? t('Copying…') : t("Copy sign-ins to Duet's computer")}
       </button>
-      <p className="hint">{t('Moves the OpenDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.')}</p>
+      <p className="hint">{t('Moves the ThreatDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.')}</p>
       {msg && <p className="hint">{msg}</p>}
       {err && (
         <p className="is-error" role="alert">

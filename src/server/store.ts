@@ -99,7 +99,7 @@ export async function openStore(): Promise<void> {
   db.data.followups ??= [];
   db.data.routines ??= [];
   db.data.tasks ??= [];
-  // Someone who already used OpenDuet before setup existed doesn't need it.
+  // Someone who already used ThreatDuet before setup existed doesn't need it.
   db.data.setupDone ??= db.data.messages.length > 0;
   // Cut off by a restart: start it again (its work stays inside the workspace).
   for (const t of db.data.tasks) if (t.status === 'running') t.status = 'queued';

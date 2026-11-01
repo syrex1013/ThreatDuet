@@ -73,7 +73,7 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
     }
   };
 
-  const titles = [t('Welcome to OpenDuet'), t('About you'), t('Your day'), t('Connect your things'), t("You're ready")];
+  const titles = [t('Welcome to ThreatDuet'), t('About you'), t('Your day'), t('Connect your things'), t("You're ready")];
 
   return (
     <main className="setup">

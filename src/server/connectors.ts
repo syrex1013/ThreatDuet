@@ -217,7 +217,7 @@ export async function removeConnector(id: string) {
 
 /**
  * Starts kilo's OAuth flow. Kilo opens the browser itself when it can and prints the page either way;
- * tokens land in kilo's own store, never in OpenDuet's files. One at a time: the callback port is fixed.
+ * tokens land in kilo's own store, never in ThreatDuet's files. One at a time: the callback port is fixed.
  */
 export async function startSignIn(id: string): Promise<{ ok: true } | { error: string }> {
   const c = db.data.connectors.find((x) => x.id === id);
@@ -302,7 +302,7 @@ export function cancelSignIn(): void {
   stopSignIn('cancel');
 }
 
-// Never leave the callback port held after OpenDuet quits.
+// Never leave the callback port held after ThreatDuet quits.
 process.once('exit', () => {
   if (signIn?.proc?.pid)
     try {

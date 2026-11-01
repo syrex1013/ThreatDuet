@@ -7,11 +7,11 @@ import { planFor } from './market.js';
 import { discoverMcp, parseMcpConfig } from './mcp-import.js';
 import { parseGithubUrl, parseSkillMd } from './skills.js';
 
-// config.ts reads OPENDUET_HOME when first imported, which happens before any test body runs.
+// config.ts reads THREATDUET_HOME when first imported, which happens before any test body runs.
 const home = await vi.hoisted(async () => {
   const { mkdtempSync } = await import('node:fs');
-  const h = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/openduet-market-`);
-  process.env.OPENDUET_HOME = h;
+  const h = mkdtempSync(`${process.env.TMPDIR ?? '/tmp'}/threatduet-market-`);
+  process.env.THREATDUET_HOME = h;
   return h;
 });
 
@@ -96,7 +96,7 @@ describe('importing Claude and Codex configs', () => {
   });
 
   it('lists what is on this computer without any secret values', async () => {
-    const home = await fs.mkdtemp(path.join(os.tmpdir(), 'openduet-home-'));
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), 'threatduet-home-'));
     await fs.writeFile(path.join(home, '.claude.json'), JSON.stringify({ mcpServers: { mail: { command: 'mail-mcp', env: { SECRET_TOKEN: 'hunter2' } } } }));
     const found = await discoverMcp(home);
     expect(found).toEqual([{ key: 'claude:mail', source: 'Claude', name: 'mail', line: 'mail-mcp', envKeys: ['SECRET_TOKEN'] }]);

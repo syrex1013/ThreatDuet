@@ -298,7 +298,7 @@ function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy
   );
 }
 
-/** "npx -y pkg --root '/my dir'" to argv. Quotes group words; nothing else is interpreted. */
+/** "bunx -y pkg --root '/my dir'" to argv. Quotes group words; nothing else is interpreted. */
 const splitCommand = (line: string) => [...line.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 
 function CustomApp({ busy, onConnect }: { busy: boolean; onConnect: ConnectFn }) {
@@ -351,7 +351,7 @@ function CustomApp({ busy, onConnect }: { busy: boolean; onConnect: ConnectFn })
         <>
           <div className="field">
             <label htmlFor="custom-cmd">{t('Command')}</label>
-            <input id="custom-cmd" spellCheck={false} placeholder="npx -y @org/mail-mcp" value={command} onChange={(e) => setCommand(e.target.value)} />
+            <input id="custom-cmd" spellCheck={false} placeholder="bunx -y @org/mail-mcp" value={command} onChange={(e) => setCommand(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="custom-env">{t('Environment variables (one per line, NAME=value)')}</label>

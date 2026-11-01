@@ -32,7 +32,7 @@ export function PhoneAccess() {
     return (
       <>
         <p className="phone-text">
-          {t('Get briefs, approvals and replies on your phone. This computer still does the work, so leave OpenDuet running.')}
+          {t('Get briefs, approvals and replies on your phone. This computer still does the work, so leave ThreatDuet running.')}
         </p>
         <button type="button" className="btn btn-quiet" onClick={() => change.mutate({ enabled: true })} disabled={change.isPending}>
           {t('Turn on phone access')}
@@ -66,9 +66,9 @@ export function PhoneAccess() {
             </p>
           )}
           <div className="pairing">
-            {qr.data && <img className="qr" src={qr.data} width={232} height={232} alt={t('Pairing code for the OpenDuet phone app')} />}
+            {qr.data && <img className="qr" src={qr.data} width={232} height={232} alt={t('Pairing code for the ThreatDuet phone app')} />}
             <div>
-              <p className="phone-text">{t("Scan with your phone's camera. It opens the OpenDuet app and pairs it.")}</p>
+              <p className="phone-text">{t("Scan with your phone's camera. It opens the ThreatDuet app and pairs it.")}</p>
               <p className="hint">{t('Or enter these in the app:')}</p>
               <dl className="manual">
                 <dt>{t('Computer address')}</dt>
@@ -96,7 +96,7 @@ export function PhoneAccess() {
           {t('Use fully from phone')}
           <span className="hint">
             {t(
-              'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave OpenDuet running here. Anyone with a paired phone can act as you.',
+              'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave ThreatDuet running here. Anyone with a paired phone can act as you.',
             )}
           </span>
         </span>

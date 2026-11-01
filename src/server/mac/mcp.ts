@@ -120,7 +120,7 @@ export function buildMacServer(): McpServer {
     'browser_push_session',
     {
       description:
-        "Copies the current sign-in cookies from this computer's OpenDuet browser into Duet's cloud computer browser, so the cloud browser can use the same sessions. Call when work should continue on the Instabox machine.",
+        "Copies the current sign-in cookies from this computer's ThreatDuet browser into Duet's cloud computer browser, so the cloud browser can use the same sessions. Call when work should continue on the Instabox machine.",
     },
     () => web(() => pushSessionToComputer(), text),
   );

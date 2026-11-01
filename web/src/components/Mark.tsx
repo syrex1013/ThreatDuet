@@ -1,4 +1,4 @@
-/** The reticle: four corner brackets around a square. OpenDuet's mark, used as Duet's avatar. */
+/** The reticle: four corner brackets around a square. ThreatDuet's mark, used as Duet's avatar. */
 export function Mark({ size = 16, className }: { size?: number; className?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
