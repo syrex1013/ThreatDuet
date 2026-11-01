@@ -21,7 +21,8 @@ export interface KiloRun {
 
 /** What a tool call means to the user, in a few words. */
 export function describeTool(tool: string, input: Record<string, unknown> = {}): string {
-  const file = typeof input.filePath === 'string' ? path.basename(input.filePath) : '';
+  const named = input.filePath ?? input.path;
+  const file = typeof named === 'string' ? path.basename(named) : '';
   switch (tool) {
     case 'read':
       return file ? `reading ${file}` : 'reading a file';

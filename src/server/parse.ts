@@ -1,3 +1,4 @@
+import { Cron } from 'croner';
 import type { ToolUse } from '../shared/types.js';
 
 export interface FollowUp {
@@ -14,12 +15,30 @@ export interface ParsedReply {
   followups: FollowUp[];
   /** Check-in triage: high interrupts the user, low waits for the next brief. */
   priority: 'high' | 'low' | null;
+  /** Suggested recurring routines; the user has to turn each one on. */
+  routines: { cron: string; what: string }[];
+}
+
+/** The first run of a cron pattern after `from`, or null if it is invalid or never runs again. */
+export function nextRoutineRun(cron: string, from = new Date()): number | null {
+  try {
+    return new Cron(cron, { paused: true }).nextRun(from)?.getTime() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A 5-field pattern with one fixed minute runs at most hourly, so a routine never fires more often than that. */
+export function routineCron(expr: string): boolean {
+  const f = expr.trim().split(/\s+/);
+  return f.length === 5 && /^\d{1,2}$/.test(f[0]) && nextRoutineRun(expr) !== null;
 }
 
 /** Splits Duet's reply into visible text and its control markers. */
 export function parseReply(raw: string, now = Date.now()): ParsedReply {
   const remember: string[] = [];
   const followups: FollowUp[] = [];
+  const routines: ParsedReply['routines'] = [];
   let priority: ParsedReply['priority'] = null;
   let cont = false;
   let text = raw
@@ -28,9 +47,15 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
       return '';
     })
     .replace(/<<FOLLOWUP:?\s*([^|>]*)\|([\s\S]*?)>>/g, (_, when: string, what: string) => {
-      const at = Date.parse(when.trim());
+      const w = when.trim();
+      // Date-only ISO strings parse as UTC midnight; read them as 09:00 local like the date-times.
+      const at = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(w) ? `${w}T09:00` : w);
       // Ignore unparseable or past times rather than firing immediately.
       if (Number.isFinite(at) && at > now && what.trim()) followups.push({ at, what: what.trim() });
+      return '';
+    })
+    .replace(/<<ROUTINE:?\s*([^|>]*)\|([\s\S]*?)>>/g, (_, cron: string, what: string) => {
+      if (routineCron(cron) && what.trim()) routines.push({ cron: cron.trim().split(/\s+/).join(' '), what: what.trim() });
       return '';
     })
     .replace(/<<PRIORITY:?\s*(high|low)\s*>>/gi, (_, p: string) => {
@@ -42,15 +67,13 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
       return '';
     });
   let actions: string | null = null;
-  const start = text.indexOf('<<ACTIONS');
-  if (start !== -1) {
-    // An unclosed block still counts as a proposal: parsing errors fail toward asking.
-    const end = text.indexOf('ACTIONS>>', start);
-    actions = text.slice(start + '<<ACTIONS'.length, end === -1 ? undefined : end).trim();
-    text = text.slice(0, start) + (end === -1 ? '' : text.slice(end + 'ACTIONS>>'.length));
-    if (!actions || /^none\.?$/i.test(actions)) actions = null;
-  }
-  return { text: text.trim(), actions, remember, continue: cont, followups, priority };
+  // An unclosed block still counts as a proposal: parsing errors fail toward asking. The last block is the final word.
+  text = text.replace(/<<ACTIONS([\s\S]*?)(?:ACTIONS>>|$)/g, (_, a: string) => {
+    actions = a.trim();
+    return '';
+  });
+  if (!actions || /^none\.?$/i.test(actions)) actions = null;
+  return { text: text.trim(), actions, remember, continue: cont, followups, priority, routines };
 }
 
 export interface KiloResult {

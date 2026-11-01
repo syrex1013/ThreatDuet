@@ -32,8 +32,10 @@ export function clearCommands(): void {
 export async function runShell(command: string, cwd?: string, timeoutSeconds = 60): Promise<string> {
   if (!approved?.includes(command.trim()))
     throw new Error('This command is not in the proposal the user approved, so it was not run. Commands must appear exactly, each in its own ``` block, in the approved text.');
-  const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command]] : ['/bin/zsh', ['-c', command]];
+  const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command]] : [process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh', ['-c', command]];
   const r = await execa(bin as string, args as string[], { cwd: cwd ?? os.homedir(), timeout: timeoutSeconds * 1000, reject: false, all: true, stdin: 'ignore', maxBuffer: 5_000_000 });
   const out = (r.all ?? '').slice(-20_000);
+  // No exit code: it never started (missing folder), or was killed (signal, output too large). Keep what it printed.
+  if (r.failed && r.exitCode === undefined && !r.timedOut) return `exit failed\n${r.shortMessage}\n${out}`;
   return `exit ${r.timedOut ? 'timed out' : r.exitCode}\n${out}`;
 }

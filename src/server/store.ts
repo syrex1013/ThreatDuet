@@ -5,7 +5,7 @@ import { execa } from 'execa';
 import { JSONFilePreset } from 'lowdb/node';
 import { stateChanged } from './events.js';
 import type { Low } from 'lowdb';
-import type { BrowserId, FollowUpItem, Message, Settings } from '../shared/types.js';
+import type { BrowserId, FollowUpItem, Message, RoutineItem, Settings } from '../shared/types.js';
 import type { ConnectorRecord } from './connectors.js';
 import type { SkillRecord } from './skills.js';
 import { DATA_DIR, DEFAULT_SETTINGS, MEMORY_FILE, REMOTE_PORT, STATE_FILE, WORKSPACE } from './config.js';
@@ -14,10 +14,13 @@ export interface Data {
   settings: Settings;
   messages: Message[];
   threadSession: string | null;
+  /** Topic channels; each continues its own kilo session. The main thread uses threadSession. */
+  channels: { id: string; name: string; session: string | null; createdAt: number }[];
   lastCheck: number;
   lastBrief: string;
   lastReport: string;
   followups: FollowUpItem[];
+  routines: RoutineItem[];
   /** Low-priority findings held back for the next brief. */
   digest: { ts: number; text: string }[];
   /** Phone access: a second listener that only answers requests carrying this token. */
@@ -44,10 +47,12 @@ export async function openStore(): Promise<void> {
     settings: DEFAULT_SETTINGS,
     messages: [],
     threadSession: null,
+    channels: [],
     lastCheck: 0,
     lastBrief: '',
     lastReport: '',
     followups: [],
+    routines: [],
     digest: [],
     remote: { enabled: false, token: null, port: REMOTE_PORT },
     connectors: [],
@@ -56,6 +61,7 @@ export async function openStore(): Promise<void> {
     computer: null,
   });
   db.data.connectors ??= [];
+  db.data.channels ??= [];
   db.data.skills ??= [];
   db.data.mac ??= { files: false, folders: [], shell: false, browser: false, browserApp: 'auto' };
   db.data.mac.browserApp ??= 'auto';
@@ -68,6 +74,7 @@ export async function openStore(): Promise<void> {
     stateChanged();
   };
   db.data.followups ??= [];
+  db.data.routines ??= [];
   db.data.digest ??= [];
   db.data.settings = { ...DEFAULT_SETTINGS, ...db.data.settings };
   // A task cut off by a restart may be half done: never re-run it silently.
@@ -84,8 +91,15 @@ export async function openStore(): Promise<void> {
 
 export async function post(msg: Omit<Message, 'id' | 'ts'>): Promise<Message> {
   const m: Message = { id: randomUUID(), ts: Date.now(), ...msg };
+  // A channel closed while Duet was still working: its history went to main, so does this.
+  if (m.channel && !db.data.channels.some((c) => c.id === m.channel)) delete m.channel;
   db.data.messages.push(m);
-  if (db.data.messages.length > MAX_MESSAGES) db.data.messages.splice(0, db.data.messages.length - MAX_MESSAGES);
+  // Per channel, so a busy main thread never evicts a quiet channel's history.
+  const same = db.data.messages.filter((x) => x.channel === m.channel);
+  if (same.length > MAX_MESSAGES) {
+    const drop = new Set(same.slice(0, same.length - MAX_MESSAGES));
+    db.data.messages = db.data.messages.filter((x) => !drop.has(x));
+  }
   await db.write();
   return m;
 }

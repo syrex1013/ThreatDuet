@@ -38,13 +38,21 @@ async function save(id: string, history: ChatMessage[]): Promise<void> {
   await fs.writeFile(sessionFile(id), JSON.stringify(history), { mode: 0o600 });
 }
 
+const CUT = '[older tool output removed]';
+
 /** Old turns are dropped from the front, always at a user message, so a tool result never loses its call. */
-function trim(history: ChatMessage[]): void {
+export function trim(history: ChatMessage[]): void {
   const size = () => history.reduce((n, m) => n + JSON.stringify(m).length, 0);
   while (size() > MAX_HISTORY_CHARS && history.length > 4) {
     const next = history.findIndex((m, i) => i > 0 && m.role === 'user');
     if (next < 0) break;
     history.splice(0, next);
+  }
+  // One long turn can't be dropped whole: empty its oldest tool results, keeping those of the latest step.
+  const latest = history.findLastIndex((m) => m.role === 'assistant');
+  for (let i = 0; i < latest && size() > MAX_HISTORY_CHARS; i++) {
+    const m = history[i];
+    if (m.role === 'tool' && m.content !== CUT) m.content = CUT;
   }
 }
 
@@ -76,10 +84,13 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
       for (const call of reply.tool_calls) {
         const name = call.function.name;
         let args: Record<string, unknown> = {};
+        let bad: string | null = null;
         try {
-          args = JSON.parse(call.function.arguments || '{}');
-        } catch {
-          /* the tool reports the bad arguments */
+          const parsed: unknown = JSON.parse(call.function.arguments || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
+          else bad = 'Arguments must be a JSON object.';
+        } catch (e) {
+          bad = `Arguments were not valid JSON: ${e instanceof Error ? e.message : String(e)}`;
         }
         run.onProgress?.(describe(name, args));
         let out: string;
@@ -87,6 +98,10 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         try {
           const tool = tools.get(name);
           if (!tool || policy.tool(name) !== 'allow') throw new Error(`${name} is not available to you.`);
+          if (bad) throw new Error(bad);
+          const required = (tool.schema as { required?: unknown }).required;
+          const missing = Array.isArray(required) ? required.filter((k) => args[k] === undefined) : [];
+          if (missing.length) throw new Error(`Missing required argument(s): ${missing.join(', ')}`);
           // File-changing tools are also judged by path, so config and instruction files stay untouchable.
           if (name === 'write' || name === 'edit') if (policy.edit(await relPath(String(args.path))) !== 'allow') throw new Error('That file is protected.');
           out = (await tool.call(args)).slice(0, MAX_TOOL_CHARS);
@@ -94,7 +109,7 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
           status = 'error';
           out = e instanceof Error ? e.message : String(e);
         }
-        parts.push({ type: 'tool', tool: name, state: { status, input: args, title: describe(name, args) } });
+        parts.push({ type: 'tool', tool: name, state: { status, input: args, title: name === 'write' || name === 'edit' ? String(args.path ?? '') : describe(name, args) } });
         history.push({ role: 'tool', tool_call_id: call.id, content: out });
       }
       if (step === MAX_STEPS - 1) errors.push(`Stopped after ${MAX_STEPS} steps.`);

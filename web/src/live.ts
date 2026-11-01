@@ -19,7 +19,10 @@ let cached: StateResponse | undefined;
 export async function loadCachedState(): Promise<void> {
   if (!isPhone) return;
   const { value } = await Preferences.get({ key: CACHE_KEY });
-  if (value) cached = JSON.parse(value) as StateResponse;
+  if (!value) return;
+  // Older caches stored memory as ''; without it the Settings sheet knows the memory is not loaded.
+  const { memory: _memory, ...rest } = JSON.parse(value) as StateResponse;
+  cached = rest as StateResponse;
 }
 
 export function clearCachedState(): void {
@@ -28,7 +31,7 @@ export function clearCachedState(): void {
 }
 
 /** Keeps the state query fresh: a change feed where fetch can stream, polling where it can't. */
-export function useLiveState(): { state: StateResponse | undefined; status: ConnectionStatus; error: Error | null } {
+export function useLiveState(): { state: StateResponse | undefined; status: ConnectionStatus; error: Error | null; fromCache: boolean } {
   const qc = useQueryClient();
   const [feed, setFeed] = useState<'open' | 'closed'>('closed');
   const wasOpen = useRef(false);
@@ -74,9 +77,10 @@ export function useLiveState(): { state: StateResponse | undefined; status: Conn
   useEffect(() => {
     if (!isPhone || !query.data || query.isError) return;
     const { memory: _memory, ...rest } = query.data;
-    void Preferences.set({ key: CACHE_KEY, value: JSON.stringify({ ...rest, memory: '', messages: rest.messages.slice(-80) }) });
+    void Preferences.set({ key: CACHE_KEY, value: JSON.stringify({ ...rest, messages: rest.messages.slice(-80) }) });
   }, [query.data, query.isError]);
 
   const status: ConnectionStatus = query.isError ? 'reconnecting' : !isPhone && feed === 'open' ? 'live' : 'polling';
-  return { state: query.data, status, error: query.error };
+  // Only the server sends memory, and optimistic updates keep what they copy, so its absence means cache.
+  return { state: query.data, status, error: query.error, fromCache: !!query.data && typeof query.data.memory !== 'string' };
 }

@@ -1,12 +1,15 @@
 import { ChevronRight, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import type { StateResponse } from '../../../src/shared/types';
+import type { RoutineItem, StateResponse } from '../../../src/shared/types';
+import { isPhone } from '../connection';
 import { clock, countWord, proposalHeadline, ROUTINE_TITLE, spring, whenParts, whenPhrase } from '../lib';
 
 interface PanelProps {
   state: StateResponse;
   onJump: (messageId: string) => void;
   onCancelFollowup: (id: string) => void;
+  onToggleRoutine: (id: string, enabled: boolean) => void;
+  onDeleteRoutine: (id: string) => void;
   /** Connected apps on this computer; null on the phone, where apps aren't managed. */
   appsCount?: number | null;
   onOpenApps?: () => void;
@@ -17,21 +20,31 @@ function headline(state: StateResponse): string {
   return n === 0 ? 'Nothing needs you right now.' : `${countWord(n)} ${n === 1 ? 'thing needs' : 'things need'} your approval.`;
 }
 
+// Cached state from an older server has no channels.
+const channelName = (state: StateResponse, id?: string) => {
+  const c = id && state.channels?.find((x) => x.id === id);
+  return c ? `#${c.name} · ` : '';
+};
+
 function upcomingOf(state: StateResponse) {
   return [
-    ...state.upcoming.map((r) => ({ key: r.kind, at: r.at, label: ROUTINE_TITLE[r.kind], followupId: null as string | null })),
-    ...state.followups.map((f) => ({ key: f.id, at: f.at, label: f.what, followupId: f.id })),
+    ...state.upcoming.map((r) => ({ key: r.kind, at: r.at, label: ROUTINE_TITLE[r.kind], followupId: null as string | null, routine: null as RoutineItem | null })),
+    ...state.followups.map((f) => ({ key: f.id, at: f.at, label: f.what, followupId: f.id, routine: null })),
+    // Cached state from an older server has no routines.
+    ...(state.routines ?? []).flatMap((r) => (r.nextAt === null ? [] : [{ key: r.id, at: r.nextAt, label: r.what, followupId: null, routine: r as RoutineItem }])),
   ].sort((a, b) => a.at - b.at);
 }
 
 function subline(state: StateResponse): string {
   if (state.busy) return `Duet is ${state.busy}${state.busyDetail ? `: ${state.busyDetail}` : ''}.`;
-  const next = upcomingOf(state)[0];
-  return next ? `Next up: ${next.followupId ? 'a follow-up' : `the ${next.label.toLowerCase()}`} ${whenPhrase(next.at)}.` : 'Duet is idle.';
+  const next = upcomingOf(state).find((u) => u.routine?.enabled !== false);
+  return next
+    ? `Next up: ${next.followupId ? 'a follow-up' : next.routine ? 'a routine' : `the ${next.label.toLowerCase()}`} ${whenPhrase(next.at)}.`
+    : 'Duet is idle.';
 }
 
 /** Duet speaks first: what needs you, what it is doing, what comes next. */
-export function Panel({ state, onJump, onCancelFollowup, appsCount, onOpenApps }: PanelProps) {
+export function Panel({ state, onJump, onCancelFollowup, onToggleRoutine, onDeleteRoutine, appsCount, onOpenApps }: PanelProps) {
   const reduce = useReducedMotion();
   const pending = state.messages.filter((m) => m.proposal?.status === 'pending');
   const upcoming = upcomingOf(state);
@@ -79,7 +92,9 @@ export function Panel({ state, onJump, onCancelFollowup, appsCount, onOpenApps }
                 <li key={m.id}>
                   <button type="button" className="need" onClick={() => onJump(m.id)}>
                     <span className="need-text">{proposalHeadline(m.proposal!.actions)}</span>
-                    <span className="need-time">Asked at {clock(m.ts)}</span>
+                    <span className="need-time">
+                      {channelName(state, m.channel)}Asked at {clock(m.ts)}
+                    </span>
                     <ChevronRight size={16} className="need-go" aria-hidden="true" />
                   </button>
                 </li>
@@ -101,15 +116,38 @@ export function Panel({ state, onJump, onCancelFollowup, appsCount, onOpenApps }
         <ul className="upcoming">
           {upcoming.map((u) => {
             const { day, time } = whenParts(u.at);
+            const r = u.routine;
             return (
-              <li key={u.key}>
+              <li key={u.key} className={r && !r.enabled ? 'routine-off' : undefined}>
                 <span className="upcoming-when">
                   {day && <span className="upcoming-day">{day}</span>}
                   {time}
                 </span>
                 <span className="upcoming-what" title={u.label}>
-                  {u.followupId ? `Follow-up: ${u.label}` : u.label}
+                  {u.followupId ? `Follow-up: ${u.label}` : r ? `${r.enabled ? 'Routine' : 'Suggested, off'}: ${u.label}` : u.label}
                 </span>
+                {r && (
+                  <span className="routine-controls">
+                    <label className="check check-inline" title={isPhone && !r.enabled ? 'Turn routines on from your computer' : undefined}>
+                      <input
+                        type="checkbox"
+                        checked={r.enabled}
+                        disabled={isPhone && !r.enabled}
+                        onChange={(e) => onToggleRoutine(r.id, e.target.checked)}
+                      />
+                      <span>On</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="icon-btn icon-btn-sm"
+                      onClick={() => onDeleteRoutine(r.id)}
+                      aria-label={`Delete routine: ${u.label}`}
+                      title="Delete routine"
+                    >
+                      <X size={15} aria-hidden="true" />
+                    </button>
+                  </span>
+                )}
                 {u.followupId && (
                   <button
                     type="button"

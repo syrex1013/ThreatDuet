@@ -11,6 +11,13 @@ import './app.css';
 const shell = isPhone ? 'phone' : new URLSearchParams(location.search).get('shell');
 if (shell) document.documentElement.dataset.shell = shell;
 
+declare global {
+  interface Window {
+    /** Present only in the desktop app (src/electron/preload.cts). */
+    openduet?: { toggleCompact: () => void; onCompact: (cb: (compact: boolean) => void) => void };
+  }
+}
+
 const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
 
 async function boot() {

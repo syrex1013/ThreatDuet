@@ -1,32 +1,42 @@
 import { useState } from 'react';
 import type { StateResponse } from '../../../src/shared/types';
 import { connection, isPhone } from '../connection';
+import { settingsPatch, type SettingsForm } from '../settingsPatch';
 import { PhoneAccess } from './PhoneAccess';
 import { Sheet } from './Sheet';
 
 interface SettingsSheetProps {
   state: StateResponse;
+  /** The phone's cached state has no memory, so it must not be edited from it. */
+  fromCache?: boolean;
   onClose: () => void;
   onSave: (path: string, body?: unknown) => void;
+  onSaveSettings: (body: Record<string, unknown>) => Promise<unknown>;
   onUnpair?: () => void;
   onOpenApps?: () => void;
 }
 
-export function SettingsSheet({ state, onClose, onSave, onUnpair, onOpenApps }: SettingsSheetProps) {
-  const [form, setForm] = useState({
-    ...state.settings,
-    checkEveryHours: String(state.settings.checkEveryHours),
-    memory: state.memory,
+export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSaveSettings, onUnpair, onOpenApps }: SettingsSheetProps) {
+  const [initial] = useState<SettingsForm>(() => {
+    const { openWebPages: _openWebPages, ...settings } = state.settings;
+    return { ...settings, checkEveryHours: String(settings.checkEveryHours), memory: state.memory ?? '' };
   });
+  const [form, setForm] = useState(initial);
+  const [memoryLocked] = useState(fromCache);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
 
-  const save = () => {
-    onSave('/settings', {
-      ...form,
-      checkEveryHours: Number(form.checkEveryHours),
-    });
-    onClose();
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSaveSettings(settingsPatch(initial, form));
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+      setSaving(false);
+    }
   };
 
   return (
@@ -38,12 +48,17 @@ export function SettingsSheet({ state, onClose, onSave, onUnpair, onOpenApps }: 
           <button type="button" className="btn btn-quiet" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn btn-send" onClick={save}>
+          <button type="button" className="btn btn-send" onClick={() => void save()} disabled={saving}>
             Save settings
           </button>
         </>
       }
     >
+      {error && (
+        <p className="is-error" role="alert">
+          {error}
+        </p>
+      )}
       <fieldset>
         <legend>Schedule</legend>
         <div className="field-grid">
@@ -107,8 +122,8 @@ export function SettingsSheet({ state, onClose, onSave, onUnpair, onOpenApps }: 
         <label htmlFor="memory" className="sr-only">
           What Duet remembers about you
         </label>
-        <textarea id="memory" rows={7} value={form.memory} onChange={set('memory')} />
-        <p className="hint">Duet reads this before every task. Edit or delete anything.</p>
+        <textarea id="memory" rows={7} value={form.memory} onChange={set('memory')} readOnly={memoryLocked} />
+        <p className="hint">{memoryLocked ? 'Reopen Settings once your computer is reachable to edit this.' : 'Duet reads this before every task. Edit or delete anything.'}</p>
       </fieldset>
 
       <fieldset>

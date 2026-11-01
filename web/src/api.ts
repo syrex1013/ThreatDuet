@@ -15,7 +15,9 @@ export const getState = () => request<StateResponse>('/state');
 
 export const getFile = (path: string) => request<{ path: string; text: string }>(`/file?path=${encodeURIComponent(path)}`);
 
-export const getRemote = () => request<RemoteInfo>('/remote');
+export const getFiles = () => request<{ files: { path: string; size: number; mtime: number }[] }>('/files');
+
+export const getRemote =() => request<RemoteInfo>('/remote');
 
 export const getConnectors = (refresh = false) => request<ConnectorsResponse>(`/connectors${refresh ? '?refresh=1' : ''}`);
 

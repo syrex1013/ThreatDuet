@@ -25,15 +25,16 @@ async function inside(raw: string): Promise<string> {
 }
 export const relPath = async (raw: string) => path.relative((await real(WORKSPACE)) ?? WORKSPACE, await inside(raw));
 
-const globRe = (g: string) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\/?/g, '\u0001').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0001/g, '(?:.*/)?')}$`);
-const SKIP = new Set(['.git', 'node_modules', '.kilo']);
+// walk yields '/' paths, and a backslash is never a useful glob escape here (Windows paths use it).
+const globRe = (g: string) => new RegExp(`^${g.replace(/\\/g, '/').replace(/[.+^${}()|[\]]/g, '\\$&').replace(/\*\*\/?/g, '\u0001').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0001/g, '(?:.*/)?')}$`);
+export const SKIP = new Set(['.git', 'node_modules', '.kilo']);
 
 async function* walk(dir: string, root: string): AsyncGenerator<string> {
   for (const e of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
     if (SKIP.has(e.name) || e.isSymbolicLink()) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) yield* walk(full, root);
-    else yield path.relative(root, full);
+    else yield path.relative(root, full).split(path.sep).join('/');
   }
 }
 
@@ -116,7 +117,7 @@ export function builtinTools(): Tool[] {
         const st = await fs.stat(file);
         if (st.isDirectory()) return (await fs.readdir(file)).join('\n');
         if (st.size > 2_000_000) throw new Error('That file is too big to read.');
-        const lines = (await fs.readFile(file, 'utf8')).split('\n');
+        const lines = (await fs.readFile(file, 'utf8')).split(/\r?\n/);
         const from = Math.max(0, Number(a.offset ?? 1) - 1);
         const slice = lines.slice(from, from + Number(a.limit ?? 2000));
         return untrusted(`File ${a.path}`, slice.map((l, i) => `${from + i + 1}: ${l}`).join('\n').slice(0, 60_000));
@@ -159,7 +160,7 @@ export function builtinTools(): Tool[] {
           if (!st || st.size > 1_000_000) continue;
           const text = await fs.readFile(path.join(root, f), 'utf8').catch(() => '');
           if (text.includes('\0')) continue;
-          text.split('\n').forEach((l, i) => hits.length < 100 && re.test(l) && hits.push(`${f}:${i + 1}: ${l.slice(0, 200)}`));
+          text.split(/\r?\n/).forEach((l, i) => hits.length < 100 && re.test(l) && hits.push(`${f}:${i + 1}: ${l.slice(0, 200)}`));
           if (hits.length >= 100) break;
         }
         return untrusted('Search results', hits.join('\n') || 'No matches.');
@@ -184,9 +185,15 @@ export function builtinTools(): Tool[] {
         const file = await inside(String(a.path));
         const text = await fs.readFile(file, 'utf8');
         const old = String(a.oldString);
-        const n = old ? text.split(old).length - 1 : 0;
+        let nw = String(a.newString);
+        const count = (s: string) => (s ? text.split(s).length - 1 : 0);
+        // read shows lines without '\r', so on a CRLF file the model's '\n' may mean '\r\n'.
+        const o = !count(old) && !old.includes('\r') && text.includes('\r\n') ? old.replace(/\n/g, '\r\n') : old;
+        const n = count(o);
         if (n !== 1) throw new Error(n === 0 ? 'That text is not in the file.' : `That text occurs ${n} times; include more around it.`);
-        await fs.writeFile(file, text.replace(old, () => String(a.newString)));
+        // The new text takes the line ending of the place it lands, so mixed files stay as they were.
+        if (!old.includes('\r')) nw = nw.replace(/\r?\n/g, text.slice(text.indexOf(o)).match(/\r?\n/)?.[0] ?? (text.includes('\r\n') ? '\r\n' : '\n'));
+        await fs.writeFile(file, text.replace(o, () => nw));
         return `Edited ${a.path}.`;
       },
     },

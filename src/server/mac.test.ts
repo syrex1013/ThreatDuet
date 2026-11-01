@@ -123,6 +123,10 @@ describe('commands', () => {
     shell.allowCommands('Please run:\n```sh\necho hello\n```\nand\n```\nls /tmp\npwd\n```');
     expect(await shell.runShell('echo hello')).toContain('hello');
     expect(await shell.runShell('pwd')).toContain('exit 0');
+    expect(await shell.runShell('pwd', path.join(home, 'no-such-folder'))).toMatch(/^exit failed\n\S/);
+    shell.allowCommands('```\necho kept; kill -9 $$\n```');
+    expect(await shell.runShell('echo kept; kill -9 $$')).toMatch(/^exit failed\n[^]*kept/);
+    shell.allowCommands('Please run:\n```sh\necho hello\n```\nand\n```\nls /tmp\npwd\n```');
     await expect(shell.runShell('echo hello && rm -rf ~')).rejects.toThrow(/not in the proposal/);
     await expect(shell.runShell('echo other')).rejects.toThrow(/not in the proposal/);
     shell.clearCommands();

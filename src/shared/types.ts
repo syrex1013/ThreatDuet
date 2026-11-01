@@ -13,6 +13,8 @@ export interface Proposal {
   status: ProposalStatus;
   reason?: string | null;
   remindedAt?: number;
+  /** Sensitive topics (health, finances) the user shares by approving. */
+  flags?: string[];
 }
 
 export interface Message {
@@ -25,6 +27,8 @@ export interface Message {
   sessionID?: string | null;
   proposal?: Proposal;
   replyTo?: string;
+  /** Channel id; absent means the main thread. */
+  channel?: string;
   /** Client-only: sent, not yet confirmed by the server. */
   pending?: boolean;
 }
@@ -76,6 +80,16 @@ export interface FollowUpItem {
   id: string;
   at: number;
   what: string;
+}
+
+/** A recurring job on a 5-field cron pattern. Ones Duet suggests start off until the user turns them on. */
+export interface RoutineItem {
+  id: string;
+  what: string;
+  cron: string;
+  enabled: boolean;
+  createdAt: number;
+  lastRun: number | null;
 }
 
 export interface UpcomingRoutine {
@@ -132,6 +146,7 @@ export interface StateResponse {
   messages: Message[];
   followups: FollowUpItem[];
   upcoming: UpcomingRoutine[];
+  routines: (RoutineItem & { nextAt: number | null })[];
   digestCount: number;
   busy: string | null;
   /** What Duet is doing this moment, e.g. "reading acme-brief.md". */
@@ -141,6 +156,8 @@ export interface StateResponse {
   /** Bumps on every change; the live feed sends it so clients know when to refetch. */
   version: number;
   memory: string;
+  /** Topic channels besides the main thread. They share Duet's memory but each keeps its own context. */
+  channels: { id: string; name: string }[];
 }
 
 /** What Duet may reach on this Mac. Managed from this computer only. */

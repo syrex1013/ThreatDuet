@@ -152,6 +152,9 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
           <div className="proposal-card">
             <p className="proposal-title">Waiting for your approval</p>
             <Markdown text={p.actions} />
+            {p.flags?.length ? (
+              <p className="proposal-flag">Contains health/financial information. Approving shares it with the recipients.</p>
+            ) : null}
             <div className="proposal-actions">
               <button type="button" className="btn btn-approve" onClick={onApprove} disabled={busy}>
                 {busy ? 'Approving…' : 'Approve'}

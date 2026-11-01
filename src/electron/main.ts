@@ -1,5 +1,6 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, dialog, Menu, nativeImage, Notification, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, screen, session, shell, Tray, type Rectangle } from 'electron';
 import { execa } from 'execa';
 import fixPath from 'fix-path';
 
@@ -11,6 +12,59 @@ let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let origin = '';
 let quitting = false;
+
+// Size and place of the window, kept between launches. `full` is where the large window returns to from compact.
+interface WindowState {
+  full?: Rectangle;
+  mini?: Rectangle;
+  compact?: boolean;
+}
+const COMPACT = { width: 440, height: 680 };
+const stateFile = () => path.join(app.getPath('userData'), 'window.json');
+let winState: WindowState = {};
+const onScreen = (b?: Rectangle) =>
+  b && screen.getAllDisplays().some(({ workArea: w }) => b.x < w.x + w.width && b.x + b.width > w.x && b.y < w.y + w.height && b.y + b.height > w.y) ? b : undefined;
+
+function loadWindowState() {
+  try {
+    winState = JSON.parse(fs.readFileSync(stateFile(), 'utf8')) as WindowState;
+  } catch {
+    winState = {};
+  }
+}
+
+function saveWindowState() {
+  if (!win || win.isDestroyed()) return;
+  const b = win.isMinimized() || win.isFullScreen() ? undefined : win.getNormalBounds();
+  if (b) winState[winState.compact ? 'mini' : 'full'] = b;
+  try {
+    fs.writeFileSync(stateFile(), JSON.stringify(winState));
+  } catch {
+    /* keeping the layout is a nicety */
+  }
+}
+
+/** First compact window: the bottom-right corner of the screen the window is on. */
+function cornerBounds(near: Rectangle): Rectangle {
+  const w = screen.getDisplayMatching(near).workArea;
+  return { ...COMPACT, x: w.x + w.width - COMPACT.width - 16, y: w.y + w.height - COMPACT.height - 16 };
+}
+
+function setCompact(compact: boolean) {
+  if (!win) return;
+  if (win.isFullScreen()) win.setFullScreen(false);
+  saveWindowState();
+  winState.compact = compact;
+  const target = compact ? onScreen(winState.mini) ?? cornerBounds(win.getBounds()) : onScreen(winState.full);
+  if (win.isMaximized()) win.unmaximize();
+  if (target) win.setBounds(target, true);
+  else win.setSize(1320, 880, true);
+  win.setAlwaysOnTop(compact, 'floating');
+  win.webContents.send('compact', compact);
+  saveWindowState();
+  tray?.setContextMenu(trayMenu?.() ?? null);
+}
+let trayMenu: (() => Menu) | null = null;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -35,8 +89,11 @@ async function boot() {
 
   const server = await startServer({ port: 0 });
   origin = `http://127.0.0.1:${server.port}`;
+  let closing = false;
   app.on('will-quit', (e) => {
     e.preventDefault();
+    if (closing) return;
+    closing = true;
     void server.close().finally(() => app.exit(0));
   });
 
@@ -49,6 +106,34 @@ async function boot() {
   // The UI never needs camera, microphone, location and the like.
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
 
+  loadWindowState();
+  ipcMain.on('compact:toggle', (e) => {
+    if (e.sender === win?.webContents) setCompact(!winState.compact);
+  });
+  ipcMain.on('compact:get', (e) => {
+    if (e.sender === win?.webContents) e.sender.send('compact', Boolean(winState.compact));
+  });
+  app.on('before-quit', saveWindowState);
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      ...(isMac ? [{ role: 'appMenu' as const }] : [{ role: 'fileMenu' as const }]),
+      { role: 'editMenu' },
+      {
+        label: 'View',
+        submenu: [
+          { label: 'Compact window', accelerator: 'CmdOrCtrl+Shift+M', click: () => setCompact(!winState.compact) },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' },
+          ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
+        ],
+      },
+      { role: 'windowMenu' },
+    ]),
+  );
   createWindow();
 
   const pending = () => store.db.data.messages.filter((m) => m.proposal?.status === 'pending').length;
@@ -57,6 +142,15 @@ async function boot() {
       { label: pending() ? `${pending()} waiting for your approval` : 'Nothing needs you right now', enabled: false },
       { type: 'separator' },
       { label: 'Open OpenDuet', click: showWindow },
+      {
+        label: 'Compact window',
+        type: 'checkbox',
+        checked: Boolean(winState.compact),
+        click: (item) => {
+          showWindow();
+          setCompact(item.checked);
+        },
+      },
       { label: 'Brief me now', click: () => routines.brief() },
       { label: 'Check in now', click: () => routines.check() },
       { type: 'separator' },
@@ -70,6 +164,7 @@ async function boot() {
       { type: 'separator' },
       { label: 'Quit OpenDuet', click: () => app.quit() },
     ]);
+  trayMenu = menu;
 
   const icon = nativeImage.createFromPath(path.join(app.getAppPath(), 'build', isMac ? 'trayTemplate.png' : 'icon.png'));
   tray = new Tray(isMac ? icon : icon.resize({ width: 16, height: 16 }));
@@ -91,17 +186,28 @@ async function boot() {
 }
 
 function createWindow() {
+  const start = winState.compact ? onScreen(winState.mini) ?? cornerBounds(screen.getPrimaryDisplay().bounds) : onScreen(winState.full);
   win = new BrowserWindow({
     width: 1320,
     height: 880,
-    minWidth: 380,
-    minHeight: 520,
+    ...start,
+    minWidth: 360,
+    minHeight: 480,
+    resizable: true,
+    movable: true,
     title: 'OpenDuet',
     backgroundColor: '#f4f4f4',
     show: false,
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 20, y: 24 } } : {}),
-    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, devTools: !app.isPackaged },
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      devTools: !app.isPackaged,
+      preload: path.join(import.meta.dirname, 'preload.cjs'),
+    },
   });
+  if (winState.compact) win.setAlwaysOnTop(true, 'floating');
   // Started at login: stay in the tray until the user opens the window.
   const hidden = process.argv.includes('--hidden') || (isMac && app.getLoginItemSettings().wasOpenedAtLogin);
   win.once('ready-to-show', () => !hidden && win?.show());
@@ -125,6 +231,7 @@ function createWindow() {
 
   // Closing the window hides it; Duet keeps working in the background.
   win.on('close', (e) => {
+    saveWindowState();
     if (quitting) return;
     e.preventDefault();
     win?.hide();

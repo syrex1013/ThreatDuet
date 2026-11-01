@@ -86,6 +86,8 @@ interface Conn {
   tools: { name: string; description?: string; inputSchema: Record<string, unknown> }[];
 }
 const conns = new Map<string, Conn>();
+/** A slow first connect (npx downloading a package) is shared, not started again by every run and status poll. */
+const pending = new Map<string, Promise<Conn>>();
 
 function transportFor(c: ConnectorRecord, kind: 'http' | 'sse'): Transport {
   if (c.command) return new StdioClientTransport({ command: c.command[0], args: c.command.slice(1), env: { ...(process.env as Record<string, string>), ...(c.env ?? {}) }, stderr: 'ignore' });
@@ -93,9 +95,33 @@ function transportFor(c: ConnectorRecord, kind: 'http' | 'sse'): Transport {
   return kind === 'http' ? new StreamableHTTPClientTransport(new URL(c.url), opts) : new SSEClientTransport(new URL(c.url), opts);
 }
 
-async function connect(c: ConnectorRecord): Promise<Conn> {
+function connect(c: ConnectorRecord): Promise<Conn> {
   const have = conns.get(c.id);
-  if (have) return have;
+  if (have) return Promise.resolve(have);
+  let p = pending.get(c.id);
+  if (!p) {
+    const mine: Promise<Conn> = doConnect(c)
+      .then(async (conn) => {
+        // Dropped, signed out or changed while connecting: this client was built from the old settings.
+        if (pending.get(c.id) !== mine) {
+          await conn.client.close().catch(() => undefined);
+          throw new Error('The app changed while connecting. Try again.');
+        }
+        const prev = conns.get(c.id);
+        conns.set(c.id, conn);
+        if (prev) await prev.client.close().catch(() => undefined);
+        return conn;
+      })
+      .finally(() => {
+        if (pending.get(c.id) === mine) pending.delete(c.id);
+      });
+    p = mine;
+    pending.set(c.id, p);
+  }
+  return p;
+}
+
+async function doConnect(c: ConnectorRecord): Promise<Conn> {
   let lastError: unknown;
   for (const kind of c.command ? (['http'] as const) : (['http', 'sse'] as const)) {
     const transport = transportFor(c, kind);
@@ -103,9 +129,7 @@ async function connect(c: ConnectorRecord): Promise<Conn> {
     try {
       await client.connect(transport);
       const listed = await client.listTools();
-      const conn: Conn = { client, transport, tools: listed.tools as Conn['tools'] };
-      conns.set(c.id, conn);
-      return conn;
+      return { client, transport, tools: listed.tools as Conn['tools'] };
     } catch (e) {
       lastError = e;
       await client.close().catch(() => undefined);
@@ -119,6 +143,7 @@ async function connect(c: ConnectorRecord): Promise<Conn> {
 export async function dropConnections(): Promise<void> {
   const all = [...conns.values()];
   conns.clear();
+  pending.clear();
   await Promise.all(all.map((c) => c.client.close().catch(() => undefined)));
 }
 
@@ -190,6 +215,7 @@ export async function connectorStatuses(): Promise<Record<string, { state: Conne
 export async function directLogout(id: string): Promise<void> {
   const c = conns.get(id);
   conns.delete(id);
+  pending.delete(id);
   await c?.client.close().catch(() => undefined);
   await authFor(id).forget();
   auths.delete(id);
@@ -205,6 +231,7 @@ const openBrowser = (url: string) =>
 export async function directSignIn(c: ConnectorRecord, onUrl: (url: string) => void, signal: AbortSignal): Promise<boolean> {
   if (c.command) return false;
   conns.delete(c.id);
+  pending.delete(c.id);
   const auth = authFor(c.id);
   auth.authUrl = null;
   const transport = new StreamableHTTPClientTransport(new URL(c.url), { requestInit: { headers: c.headers ?? {} }, authProvider: auth });

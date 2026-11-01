@@ -238,6 +238,8 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 .upcoming-day { display: block; font-weight: 500; color: var(--muted); }
 .upcoming-what { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .upcoming .icon-btn { align-self: center; }
+.routine-controls { display: flex; align-items: center; gap: 0.25rem; }
+.routine-off .upcoming-when, .routine-off .upcoming-what { color: var(--muted); }
 .held { margin: 0.75rem 0.25rem 0; font-size: 0.875rem; color: var(--muted); }
 
 /* ---------- status strip (narrow) ---------- */
@@ -310,6 +312,14 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 .file-chip:hover { border-color: var(--ink); }
 .work-notes { font-size: 0.85rem; color: var(--muted); }
 
+/* ---------- channels ---------- */
+.channels { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; width: 100%; max-width: 50rem; margin: 0 auto; padding-top: 1rem; }
+.channel { position: relative; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface); padding: 0.25rem 0.75rem; font-size: 0.85rem; font-weight: 550; overflow-wrap: anywhere; }
+.channel:hover { border-color: var(--line-strong); }
+.channel.is-active { border-color: var(--ink); }
+.channel-dot { position: absolute; top: 2px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--signal); }
+.channel-input { border: 1px solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface); color: inherit; padding: 0.25rem 0.75rem; font: inherit; font-size: 0.85rem; width: 10rem; max-width: 100%; }
+
 /* ---------- approvals: the one loud thing ---------- */
 .reticle {
   --reticle: 16px;
@@ -333,6 +343,7 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 .proposal-title { font-weight: 650; font-stretch: 104%; color: var(--signal); margin-bottom: 0.4rem; }
 .proposal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.75rem; margin-top: 1rem; }
 .proposal-hint { font-size: 0.825rem; color: var(--muted); }
+.proposal-flag { margin-top: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--signal); }
 .proposal.resolved { border-left: 2px solid var(--line-strong); padding: 0.15rem 0 0.15rem 1rem; color: var(--muted); }
 .proposal.resolved .md { font-size: 0.925rem; }
 .proposal-status { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; font-weight: 600; font-size: 0.875rem; color: var(--ink); }
@@ -501,6 +512,13 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 .reset p { flex-basis: 100%; font-size: 0.9rem; }
 .file-raw { white-space: pre-wrap; overflow-wrap: anywhere; font: 0.85rem/1.5 var(--mono); }
 .file-where { margin-top: 2rem; font-size: 0.85rem; }
+.file-toggle { margin: 0.75rem 0; }
+.file-frame { display: block; width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; }
+.file-ask { margin-top: 1.5rem; }
+.file-ask label { display: block; font-size: 0.875rem; font-weight: 550; margin-bottom: 0.3rem; }
+.make-file { display: flex; flex-direction: column; gap: 0.15rem; width: 100%; text-align: left; padding: 0.7rem 1rem; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); overflow-wrap: anywhere; transition: border-color 160ms var(--ease); }
+.make-file:hover { border-color: var(--ink); }
+.make-file .muted { font-size: 0.825rem; }
 .sheet-body > .md { padding-top: 1rem; max-width: 40rem; }
 
 /* ---------- phone pairing ---------- */
@@ -531,6 +549,10 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 /* ---------- shells ---------- */
 [data-shell='mac'] .topbar { padding-left: 5.25rem; -webkit-app-region: drag; user-select: none; }
 [data-shell='mac'] .topbar :is(a, button) { -webkit-app-region: no-drag; }
+[data-compact] .topbar-actions .btn-text, [data-compact] .wordmark { display: none; }
+[data-compact] .topbar { gap: 0.25rem; }
+[data-shell='desktop'] .topbar, [data-shell='mac'] .topbar { -webkit-app-region: drag; user-select: none; }
+[data-shell='desktop'] .topbar :is(a, button, input, select), [data-shell='mac'] .topbar :is(input, select) { -webkit-app-region: no-drag; }
 [data-shell='phone'] .topbar {
   height: calc(var(--bar) + var(--inset-top));
   padding-top: var(--inset-top);
@@ -543,6 +565,7 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 /* ---------- responsive ---------- */
 @media (max-width: 959px) {
   .timeline { padding: 0.25rem 1rem 1rem; }
+  .channels { padding: 0.75rem 1rem 0; }
   .composer { padding-left: 1rem; padding-right: 1rem; }
   .banner { margin: 0 1rem; }
   .topbar { padding: 0 0.6rem 0 1rem; gap: 0.5rem; }
@@ -569,7 +592,7 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 
 @media (prefers-reduced-motion: reduce) {
   .reticle, .pulse, .skeleton { animation: none; }
-  .btn, .send, .need, .suggestion, .file-chip, .icon-btn, .composer-box { transition: none; }
+  .btn, .send, .need, .suggestion, .file-chip, .make-file, .icon-btn, .composer-box { transition: none; }
   .btn:active:not(:disabled), .send:active:not(:disabled) { transform: none; }
 }
 

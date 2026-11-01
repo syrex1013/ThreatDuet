@@ -20,6 +20,7 @@ interface Server {
 
 let server: Server | null = null;
 let starting: Promise<Server> | null = null;
+let pending: ResultPromise | null = null;
 let applied = '';
 
 /** The server could not be started: callers fall back to the CLI. */
@@ -37,6 +38,7 @@ async function start(): Promise<Server> {
     detached: posix,
     buffer: false,
   });
+  pending = proc;
   const base = await new Promise<string>((resolve, reject) => {
     const timer = setTimeout(() => reject(new KiloServerError('kilo serve did not start in 30 seconds')), 30_000);
     let seen = '';
@@ -55,6 +57,8 @@ async function start(): Promise<Server> {
   }).catch((e) => {
     killTree(proc.pid, 'SIGKILL');
     throw e instanceof KiloServerError ? e : new KiloServerError(String(e));
+  }).finally(() => {
+    if (pending === proc) pending = null;
   });
   const s: Server = { base, auth: `Basic ${Buffer.from(`kilo:${password}`).toString('base64')}`, proc };
   void proc.then(() => {
@@ -79,6 +83,7 @@ export function stopKiloServer(): void {
   const s = server;
   server = null;
   if (s) killTree(s.proc.pid, 'SIGKILL');
+  if (pending) killTree(pending.pid, 'SIGKILL');
 }
 process.once('exit', stopKiloServer);
 
@@ -143,7 +148,7 @@ function watch(s: Server, sessionID: string, run: KiloRun, describe: (tool: stri
     for (;;) {
       const { value, done } = await reader.read().catch(() => ({ value: undefined, done: true }));
       if (done) return;
-      buf += dec.decode(value);
+      buf += dec.decode(value, { stream: true });
       let i: number;
       while ((i = buf.indexOf('\n\n')) >= 0) {
         const chunk = buf.slice(0, i);

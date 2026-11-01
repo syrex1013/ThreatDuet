@@ -11,6 +11,10 @@ Like Claude Duet, it comes to you first:
 It **shows you exactly what it will do and waits for your approval** before it sends, pays,
 signs, deletes or changes anything outside its workspace.
 
+Approvals don't stall a bigger task. When one part needs your OK (say, an email draft), Duet
+posts that proposal, pings you, and keeps working on the parts that don't depend on it, up to
+its step limit. The proposal waits in "Needs you" until you approve or reject it.
+
 ## Quick start
 
 Requires Node 22+ and the Kilo CLI (`npm i -g @kilocode/cli`, then `kilo auth`).
@@ -41,6 +45,7 @@ npm run dist:desktop   # package it: release/OpenDuet-<version>-arm64.dmg and .z
 
 The desktop app runs the same server inside Electron and keeps Duet working in the background:
 - Closing the window hides it. Duet keeps running from the menu-bar icon, which shows how many approvals are waiting.
+- The window can be resized and moved, and it remembers its size and position. **Compact window** (the arrows button in the top bar, View → Compact window, the tray menu, or Cmd/Ctrl+Shift+M) shrinks it to a small window that floats above the others; toggle again to get the full window back.
 - The tray menu has Brief me now, Check in now, Open at login, Show workspace folder and Quit.
 - Notifications are native, and clicking one opens the window. Approvals waiting also show as a Dock badge.
 - Data lives in the OS app-data folder (`~/Library/Application Support/OpenDuet` on macOS) instead of the repo.
@@ -164,6 +169,8 @@ npm run release   # tests, signed APK, signed macOS app, all collected in builds
 Calm layered surfaces in ThreatVector white and red: a light-grey ground, white cards for anything you read or touch, and red reserved for what needs you. The same React UI runs in the browser, the desktop app and the phone app.
 - **Status panel** (left on wide screens, a tappable strip with a bottom sheet on phones): Duet speaks first, for example "Two things need your approval." It lists what needs you, what's coming up (routines and Duet's own follow-ups, which you can cancel) and what's held for your next brief.
 - **Timeline**: the thread by day on a time gutter, your messages in white cards, Duet's replies as plain markdown with the reticle mark. A "Now" line shows what Duet is doing this second ("reading acme-brief.md", "searching the web"), streamed from kilo's tool events.
+- **Channels**: chips above the timeline (Main, `#sales`, `+`) split work by topic, on the phone too. Each channel keeps its own conversation context, so topics don't pollute each other, while Duet's memory is shared across all of them. Briefs, reports, check-ins and routines post to Main; "Needs you" lists approvals from every channel, tagged `#name`, and a red dot marks a channel with a reply you haven't opened. Closing a channel (×) moves its messages into Main. "Start a new thread" in Settings resets only the channel you are in.
+- **Made by Duet** (folder button in the top bar, on the phone too): every file Duet wrote in its workspace, newest first, grouped by day, even after the message that made it has scrolled away. Read-only (`GET /api/files`); symlinks and Kilo's own config (`.kilo`, `kilo.json`, `AGENTS.md`, `.git`, ...) are never listed. Opening a file shows Markdown rendered, HTML as a sandboxed preview (no scripts, no network, separate origin; a Source toggle shows the code), and other text as-is. Select a passage and type in "Ask Duet to change this" to have Duet edit only that part; with no selection the request covers the whole file.
 - **Approvals**: a white card framed by red corner brackets that lock on when it appears. Approve runs the action; Reject drops it.
 - **Live**: the server pushes change events over SSE (`/api/events`); the UI refetches on each one and falls back to polling if the feed drops. Sending a message or approving shows at once and is rolled back if the server disagrees. A one-line banner appears while reconnecting, over whatever is already on screen.
 - **Motion** (Motion for React): new entries rise in, the status headline crossfades, sheets spring open, approvals collapse into their resolved state. Everything respects `prefers-reduced-motion`.
@@ -232,6 +239,13 @@ outside world.
    thread and can be cancelled.
 8. **Routines.** The morning brief runs at `briefAt` and the evening report at `reportAt`.
    A brief missed while the machine slept runs when it wakes.
+   **Your own routines:** ask Duet for something recurring ("rebuild dashboard.html every
+   weekday at 05:30", "recap unfinished drafts at 16:00") and it suggests one with
+   `<<ROUTINE: 30 5 * * 1-5 | rebuild dashboard.html>>` (5-field cron, local time, at most
+   hourly). Suggestions show under Coming up as "Suggested, off": tick On to start it, X to
+   delete it. Only this computer can turn a routine on; a paired phone can only turn one off
+   or delete it. Each run is an ordinary background turn, so anything leaving the workspace
+   still comes back for your approval. Routines run at their time even in quiet hours.
 9. **Context.** Every prompt carries `data/memory.md`, the pending approvals (so Duet doesn't
    propose them again) and its scheduled follow-ups. The agent adds to memory with
    `<<REMEMBER: …>>`. Chat continues one Kilo session; Settings → New thread starts fresh.
@@ -257,6 +271,12 @@ outside world.
 
 - The server binds to `127.0.0.1`, rejects foreign `Host` headers (DNS rebinding) and requires
   an `x-duet: 1` header on every write (CSRF). Anyone with a shell on your machine can still use it.
+- Every proposal is checked for sensitive information in two tiers (`src/server/policy.ts`).
+  Never shared, even with approval: passwords and access keys (`sk-…`, `AKIA…`, `ghp_…`, private
+  key blocks, `password: …`), card numbers, IBANs and government ID numbers. When a proposal is
+  blocked for one of these, Duet is asked once to rewrite it without that information. Needs your consent: health
+  and financial details are allowed, but the approval card warns that approving shares them.
+  Both checks are regex screens, not classifiers.
 - Connector tools are allowed for autonomous work unless their name contains a side-effect verb
   (see `SIDE_EFFECT_VERBS` in `src/server/store.ts`). This is a name screen, not a classifier.
   A write tool with a bland name would slip through, so review your MCP servers' tool names.

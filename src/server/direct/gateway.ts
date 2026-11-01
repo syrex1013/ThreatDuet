@@ -41,10 +41,13 @@ export async function chat(model: string, messages: ChatMessage[], tools: ToolSp
       return null;
     });
     if (r?.ok) {
-      const body = (await r.json()) as { choices?: { message?: Reply }[]; error?: { message?: string } };
-      const m = body.choices?.[0]?.message;
+      const body = (await r.json().catch((e: Error) => {
+        if (signal.aborted) throw e;
+        return null;
+      })) as { choices?: { message?: Reply }[]; error?: { message?: string } } | null;
+      const m = body?.choices?.[0]?.message;
       if (m) return { content: m.content ?? null, tool_calls: m.tool_calls?.length ? m.tool_calls : undefined, reasoning_details: m.reasoning_details };
-      last = body.error?.message ?? 'The Kilo gateway sent an empty answer.';
+      last = body?.error?.message ?? (body ? 'The Kilo gateway sent an empty answer.' : 'The Kilo gateway sent an unreadable answer.');
     } else if (r) {
       const text = (await r.text().catch(() => '')).slice(0, 300);
       if (r.status === 429) last = 'The free Kilo models are rate-limited right now (anonymous use allows about 200 requests an hour). Try again later, or set KILO_API_KEY.';

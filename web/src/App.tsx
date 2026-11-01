@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Blocks, Laptop, Monitor, RefreshCw, Settings } from 'lucide-react';
+import { Blocks, FolderOpen, Laptop, Maximize2, Minimize2, Monitor, RefreshCw, Settings } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import type { Message, StateResponse } from '../../src/shared/types';
@@ -7,8 +7,10 @@ import { getConnectors, post } from './api';
 import { AppsSheet } from './components/AppsSheet';
 import { ComputerSheet } from './components/ComputerSheet';
 import { MacSheet } from './components/MacSheet';
+import { Channels } from './components/Channels';
 import { Composer } from './components/Composer';
 import { FileViewer } from './components/FileViewer';
+import { Make } from './components/Make';
 import { PairScreen } from './components/PairScreen';
 import { Panel, StatusStrip } from './components/Panel';
 import { SettingsSheet } from './components/SettingsSheet';
@@ -75,15 +77,36 @@ function Topbar({ children }: { children?: React.ReactNode }) {
   );
 }
 
-type Sheet = { kind: 'settings' } | { kind: 'file'; path: string } | { kind: 'panel' } | { kind: 'apps' } | { kind: 'computer' } | { kind: 'mac' };
+/** The desktop app's small floating window; `data-compact` lets CSS trim the top bar. */
+function useCompact() {
+  const [compact, setCompact] = useState(false);
+  useEffect(
+    () =>
+      window.openduet?.onCompact((c) => {
+        setCompact(c);
+        if (c) document.documentElement.dataset.compact = '';
+        else delete document.documentElement.dataset.compact;
+      }),
+    [],
+  );
+  return compact;
+}
+
+type Sheet = { kind: 'settings' } | { kind: 'file'; path: string } | { kind: 'panel' } | { kind: 'apps' } | { kind: 'computer' } | { kind: 'mac' } | { kind: 'make' };
 
 function Workspace({ onUnpair }: { onUnpair: () => void }) {
   const qc = useQueryClient();
-  const { state: data, status, error: loadError } = useLiveState();
+  const { state: data, status, error: loadError, fromCache } = useLiveState();
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [acting, setActing] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const compact = useCompact();
+  const [channelPick, setChannel] = useState<string | undefined>();
+  const channels = data?.channels ?? [];
+  // A channel closed elsewhere (another window, the phone) falls back to Main.
+  const channel = channels.some((c) => c.id === channelPick) ? channelPick : undefined;
+  const shown = data?.messages.filter((m) => m.channel === channel);
   const narrow = useMedia('(max-width: 959px)');
   // Apps are managed on the computer; the phone doesn't ask (and the phone listener doesn't serve them).
   const apps = useQuery({ queryKey: ['connectors'], queryFn: () => getConnectors(), enabled: !isPhone, staleTime: 60_000 });
@@ -102,12 +125,12 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
 
   // The message shows up at once; the server's copy replaces it on the next refresh.
   const send = useMutation({
-    mutationFn: (text: string) => post('/message', { text }),
+    mutationFn: (text: string) => post('/message', { text, channel }),
     onMutate: async (text) => {
       await qc.cancelQueries({ queryKey: ['state'] });
       const before = qc.getQueryData<StateResponse>(['state']);
       if (before) {
-        const optimistic: Message = { id: `pending-${Date.now()}`, ts: Date.now(), role: 'user', kind: 'chat', text, pending: true };
+        const optimistic: Message = { id: `pending-${Date.now()}`, ts: Date.now(), role: 'user', kind: 'chat', text, channel, pending: true };
         qc.setQueryData<StateResponse>(['state'], { ...before, messages: [...before.messages, optimistic] });
       }
       return { before, text };
@@ -134,14 +157,18 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
     act.mutate([path, { id }], { onError: () => before && qc.setQueryData(['state'], before) });
   };
 
-  useStickToBottom(data?.messages.length, data?.busy);
+  useStickToBottom(shown?.length, data?.busy);
   useMarkSeen(data?.messages);
 
   const jumpTo = (id: string) => {
     setSheet(null);
-    const el = document.getElementById(`m-${id}`);
-    el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
-    el?.querySelector<HTMLButtonElement>('.btn-approve')?.focus({ preventScroll: true });
+    setChannel(data?.messages.find((m) => m.id === id)?.channel);
+    // After the switched channel has rendered.
+    setTimeout(() => {
+      const el = document.getElementById(`m-${id}`);
+      el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' });
+      el?.querySelector<HTMLButtonElement>('.btn-approve')?.focus({ preventScroll: true });
+    });
   };
 
   const panel = data && (
@@ -149,6 +176,8 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
       state={data}
       onJump={jumpTo}
       onCancelFollowup={(id) => run('/followups/cancel', { id })}
+      onToggleRoutine={(id, enabled) => run('/routines/toggle', { id, enabled })}
+      onDeleteRoutine={(id) => run('/routines/delete', { id })}
       appsCount={appsCount}
       onOpenApps={() => setSheet({ kind: 'apps' })}
     />
@@ -167,6 +196,9 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
           <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'report' })}>
             Write report
           </button>
+          <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'make' })} aria-label="Made by Duet" title="Made by Duet">
+            <FolderOpen size={20} aria-hidden="true" />
+          </button>
           {!isPhone && (
             <>
               <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'computer' })} aria-label="Duet's computer" title="Duet's computer">
@@ -183,6 +215,11 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
           <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'settings' })} aria-label="Settings" title="Settings">
             <Settings size={20} aria-hidden="true" />
           </button>
+          {window.openduet && (
+            <button type="button" className="icon-btn" onClick={() => window.openduet?.toggleCompact()} aria-label={compact ? 'Full window' : 'Compact window'} title={`${compact ? 'Full window' : 'Compact window'} (${/Mac/i.test(navigator.platform) ? '⌘⇧M' : 'Ctrl+Shift+M'})`}>
+              {compact ? <Maximize2 size={20} aria-hidden="true" /> : <Minimize2 size={20} aria-hidden="true" />}
+            </button>
+          )}
         </nav>
       </Topbar>
 
@@ -202,8 +239,25 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
         <div className={`layout ${narrow ? 'is-narrow' : ''}`}>
           {narrow ? <StatusStrip state={data} onOpen={() => setSheet({ kind: 'panel' })} /> : <aside className="sidebar" aria-label="Status">{panel}</aside>}
           <main className="main">
-            <Timeline
+            <Channels
+              channels={channels}
               messages={data.messages}
+              active={channel}
+              onSelect={setChannel}
+              onCreate={(name) =>
+                post<{ id: string }>('/channels', { name }).then(
+                  // Select it once the state that has it arrived; until then it would read as Main.
+                  async (r) => {
+                    await qc.invalidateQueries({ queryKey: ['state'] });
+                    setChannel(r.id);
+                  },
+                  (e) => setError(e.message),
+                )
+              }
+              onDelete={(id) => run('/channels/delete', { id })}
+            />
+            <Timeline
+              messages={shown!}
               busy={data.busy}
               busyDetail={data.busyDetail}
               briefAt={data.settings.briefAt}
@@ -219,9 +273,10 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
       )}
 
       {sheet?.kind === 'settings' && data && (
-        <SettingsSheet state={data} onClose={() => setSheet(null)} onSave={run} onUnpair={onUnpair} onOpenApps={() => setSheet({ kind: 'apps' })} />
+        <SettingsSheet state={data} fromCache={fromCache} onClose={() => setSheet(null)} onSave={(path, body) => run(path, path === '/new-thread' ? { channel } : body)} onSaveSettings={(body) => act.mutateAsync(['/settings', body])} onUnpair={onUnpair} onOpenApps={() => setSheet({ kind: 'apps' })} />
       )}
-      {sheet?.kind === 'file' && <FileViewer path={sheet.path} onClose={() => setSheet(null)} />}
+      {sheet?.kind === 'file' && <FileViewer path={sheet.path} onClose={() => setSheet(null)} onAsk={(text) => send.mutate(text)} />}
+      {sheet?.kind === 'make' && <Make onOpen={(path) => setSheet({ kind: 'file', path })} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'computer' && <ComputerSheet onClose={() => setSheet(null)} />}
       {sheet?.kind === 'mac' && <MacSheet onClose={() => setSheet(null)} />}
       {sheet?.kind === 'apps' && (
