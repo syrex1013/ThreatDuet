@@ -130,7 +130,7 @@ Notifications are native Windows toasts. They need the Start-menu shortcut the i
 - **Unsigned:** the installer and app are not code-signed, so Windows SmartScreen warns on first run ("More info" > "Run anyway"). The exe has Electron's default icon because icon editing needs Wine or a Windows build machine.
 - **Your PC panel:** files work the same (folders, symlink checks, deny-list for `AppData` credential stores, Brave data, `NTUSER.DAT`). Commands run in PowerShell, and only the exact commands in an approved proposal.
 - **Browsers:** the cookie database is copied with Node's built-in sqlite. Chrome and Brave lock it while they run, so close the browser before the first use or press "Copy my sign-ins again". Newer Chromium builds can bind cookies to the original profile on Windows (app-bound encryption); the copy then opens signed out.
-- **Not tested on Windows:** I built the installer on a Mac and could not run it. Treat the first Windows run as the real test.
+- **Testing on Windows:** `npm run smoke:task` runs a real task on the computer it is started on (the live model, `mac_shell_run`, `mac_files_list`, the real permission file) and fails if a tool errors or the answer is wrong; `.github/workflows/check.yml` runs the type check, the tests, that task and an Electron window screenshot on `windows-latest` and `macos-latest`. The installers were built on a Mac; the workflow is the Windows test, and it only runs while the GitHub account's Actions billing is in order (a private repo bills every minute).
 
 ## Your Mac (off by default)
 
