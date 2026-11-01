@@ -18,7 +18,17 @@ const sensitive = (): string[] => {
       ? ['AppData/Local/BraveSoftware', 'AppData/Local/Google/Chrome', 'AppData/Local/Microsoft/Edge', 'AppData/Local/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Credentials', 'AppData/Roaming/Microsoft/Protect', 'AppData/Roaming/Mozilla/Firefox', 'AppData/Roaming/1Password', 'NTUSER.DAT'].map((p) => path.join(h, p))
       : []),
     ...(process.platform === 'linux'
-      ? [...['.config/google-chrome', '.config/chromium', '.config/BraveSoftware', '.mozilla', '.local/share/keyrings', '.password-store', '.config/1Password'].map((p) => path.join(h, p)), '/etc/shadow', '/etc/gshadow', '/etc/sudoers', '/root']
+      ? (() => {
+          const cfg = process.env.XDG_CONFIG_HOME ?? path.join(h, '.config');
+          const data = process.env.XDG_DATA_HOME ?? path.join(h, '.local', 'share');
+          return [
+            path.join(cfg, 'google-chrome'), path.join(cfg, 'chromium'), path.join(cfg, 'BraveSoftware'),
+            path.join(cfg, '1Password'), path.join(h, '.mozilla'),
+            path.join(data, 'keyrings'), path.join(h, '.password-store'),
+            path.join(h, '.var', 'app'), path.join(h, 'snap'),
+            '/etc/shadow', '/etc/gshadow', '/etc/sudoers', '/root',
+          ];
+        })()
       : []),
     ...['Library/Keychains', 'Library/Cookies', 'Library/Application Support/BraveSoftware', 'Library/Application Support/Google/Chrome', 'Library/Application Support/Firefox', 'Library/Application Support/com.apple.TCC', 'Library/Application Support/1Password', 'Library/Group Containers'].map((p) => path.join(h, p)),
   ];
