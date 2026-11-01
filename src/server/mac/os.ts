@@ -26,7 +26,7 @@ export const osLine = () => {
     `user: ${os.userInfo().username}`,
     `home: ${os.homedir()}`,
     `shell: ${shell}`,
-    `path separator: ${path.sep}`,
+    `path separator: ${process.platform === 'win32' ? '\\' : '/'}`,
     `PATH: ${process.env.PATH ?? process.env.Path ?? ''}`,
     `locale/time zone: ${Intl.DateTimeFormat().resolvedOptions().locale}, ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
   ];
