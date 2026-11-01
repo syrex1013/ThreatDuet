@@ -285,8 +285,12 @@ outside world.
 | Sensitive-information classifier | Regex + Luhn screen (no classifier model) |
 | Memory | `data/memory.md` |
 | Connected apps, disconnect any | Kilo MCP servers, per-server deny |
-| Own VM with a browser | **Not implemented.** Runs on your machine; web access via Kilo's webfetch/websearch |
-| Purchases via Link/Shop Pay, 1Password sign-in | **Not implemented** |
+| Own VM with a browser | Instabox `agent-browser` machine; Watch panel shows the screen (Claude Duet cannot yet) |
+| Purchases via Link / Shop Pay | Apps → Payments: Link (`@stripe/link-cli` MCP) and Shop Pay (`https://mcp.shop.com/`); each purchase still needs your approval here and again in Link/Shop |
+| 1Password sign-in | Not yet (also "coming soon" in Claude Duet) |
+| Search past chats | `duet_search_chats` tool |
+| Password stays out of chat | Watch panel password field sends only to the cloud browser |
+| iOS app | Android + desktop + web; no iOS build yet |
 
 ## Security notes
 

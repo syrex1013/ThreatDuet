@@ -70,6 +70,22 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
         </section>
       )}
 
+      {PRESETS.some((p) => p.kind === 'payment' && !added.has(p.id)) && (
+        <section className="apps-section" aria-label={t('Payments')}>
+          <h3>{t('Payments')}</h3>
+          <p className="hint">
+            {t(
+              'Buy things with Link or Shop Pay. Duet confirms the item with you here; Link or Shop asks you again before charging, and pays with a one-time card so your real card number is never shared with Duet.',
+            )}
+          </p>
+          <div className="catalog">
+            {PRESETS.filter((p) => p.kind === 'payment' && !added.has(p.id)).map((p) => (
+              <PresetCard key={p.id} preset={p} busy={act.isPending} onConnect={connect} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="apps-section" aria-label={t('Add an app')}>
         <h3>{t('Add an app')}</h3>
         <div className="tabs" role="tablist">
@@ -88,7 +104,7 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
         </div>
         {tab === 'popular' && (
           <div className="catalog">
-            {PRESETS.filter((p) => !added.has(p.id)).map((p) => (
+            {PRESETS.filter((p) => (p.kind ?? 'app') !== 'payment' && !added.has(p.id)).map((p) => (
               <PresetCard key={p.id} preset={p} busy={act.isPending} onConnect={connect} />
             ))}
           </div>
@@ -214,6 +230,8 @@ function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
+    if (preset.auth === 'local' && preset.command?.length)
+      return void onConnect({ name: preset.name, command: preset.command, presetId: preset.id, confirmed: true }, false);
     if (preset.auth === 'personal-url') return void onConnect({ name: preset.name, url: secret.trim(), presetId: preset.id }, false);
     if (preset.auth === 'key')
       return void onConnect(

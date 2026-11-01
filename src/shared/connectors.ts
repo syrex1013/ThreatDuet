@@ -7,14 +7,18 @@
  * - key: the user pastes an API key, sent as a header (keyHeader, with keyPrefix).
  * - personal-url: the vendor gives each user a private server address; the address is the secret.
  * - none: public server, nothing to sign in to.
+ * - local: a program on this computer (`command`); the person confirms before it runs.
  */
 export interface ConnectorPreset {
   id: string;
   name: string;
   /** What Duet can do with it, in a few words. */
   blurb: string;
+  /** Remote MCP URL. Empty when `command` runs a program on this computer instead. */
   url: string;
-  auth: 'oauth' | 'key' | 'personal-url' | 'none';
+  /** Program argv for a local MCP (e.g. Link CLI). Requires the person to confirm. */
+  command?: string[];
+  auth: 'oauth' | 'key' | 'personal-url' | 'none' | 'local';
   keyHeader?: string;
   keyPrefix?: string;
   keyLabel?: string;
@@ -22,9 +26,38 @@ export interface ConnectorPreset {
   keyHelp?: string;
   /** Vendor documentation for the server. */
   source: string;
+  /**
+   * app: listed under Popular. payment: Link / Shop Pay, listed under Payments (separate from
+   * business-account connectors, as in Claude Duet).
+   */
+  kind?: 'app' | 'payment';
+  /** Optional skill to install when this preset is connected (GitHub folder or raw SKILL.md URL). */
+  skillUrl?: string;
 }
 
 export const PRESETS: ConnectorPreset[] = [
+  // Payments first in the data so Payments UI can filter by kind without caring about order.
+  {
+    id: 'link',
+    name: 'Link',
+    blurb: 'Pay for purchases you approve with a one-time virtual card (Stripe Link)',
+    url: '',
+    command: ['npx', '-y', '@stripe/link-cli', '--mcp'],
+    auth: 'local',
+    source: 'https://docs.stripe.com/agentic-commerce/agents/link-agent-wallet/use-link-wallet-pay-online',
+    kind: 'payment',
+    skillUrl: 'https://github.com/stripe/link-cli/tree/main/skills/create-payment-credential',
+  },
+  {
+    id: 'shop',
+    name: 'Shop Pay',
+    blurb: 'Search products and check out with Shop Pay after you approve',
+    url: 'https://mcp.shop.com/',
+    auth: 'oauth',
+    source: 'https://shop.dev/docs/connect',
+    kind: 'payment',
+    skillUrl: 'https://mcp.shop.com/skill.md',
+  },
   { id: 'zapier', name: 'Zapier', blurb: 'Gmail, Google Calendar, Slack and thousands of other apps through one sign-in', url: 'https://mcp.zapier.com/api/v1/connect', auth: 'oauth', source: 'https://docs.zapier.com/mcp/overview/how-connections-work' },
   { id: 'composio', name: 'Composio', blurb: 'Email, calendar, chat and 250+ apps through one sign-in', url: 'https://connect.composio.dev/mcp', auth: 'oauth', source: 'https://docs.composio.dev/docs/composio-connect' },
   { id: 'notion', name: 'Notion', blurb: 'Pages, databases and notes', url: 'https://mcp.notion.com/mcp', auth: 'oauth', source: 'https://developers.notion.com/docs/get-started-with-mcp' },

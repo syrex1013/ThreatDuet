@@ -34,6 +34,8 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
     case 'grep':
     case 'list':
       return tr('searching the workspace');
+    case 'duet_search_chats':
+      return typeof input.query === 'string' ? tr('searching past chats for “{query}”', { query: input.query.slice(0, 60) }) : tr('searching past chats');
     case 'websearch':
       return typeof input.query === 'string' ? tr('searching the web for “{query}”', { query: input.query.slice(0, 60) }) : tr('searching the web');
     case 'webfetch':
