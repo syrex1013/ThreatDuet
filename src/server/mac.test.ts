@@ -117,6 +117,45 @@ describe('whole disk', () => {
   });
 });
 
+describe('everything', () => {
+  it('opens any folder with no list, keeps credential stores out, and the folder list rules again once off', async () => {
+    await settings.setMac({ files: true, everything: true });
+    expect(await files.readText(path.join(home, 'outside.txt'))).toBe('secret');
+    expect(await files.listFolder(os.homedir())).toContain('dir');
+    await expect(files.readText(path.join(home, 'data', 'state.json'))).rejects.toThrow(/passwords or keys/);
+    await expect(files.listFolder(path.join(os.homedir(), '.ssh'))).rejects.toThrow(/passwords or keys|does not exist/);
+    expect(await files.searchFiles('quarterly', docs)).toContain('plan.md');
+    expect((await settings.macStatus()).everything).toBe(true);
+    await settings.setMac({ everything: false });
+    await expect(files.readText(path.join(home, 'outside.txt'))).rejects.toThrow(/outside the folders/);
+    await settings.setMac({ files: false });
+  });
+
+  it('is told to Duet', async () => {
+    const { connectedAppsLine } = await import('./connectors.js');
+    await settings.setMac({ files: true, everything: true });
+    expect(connectedAppsLine()).toMatch(/anywhere on the/);
+    await settings.setMac({ everything: false });
+    expect(connectedAppsLine()).toMatch(/in these folders only/);
+    await settings.setMac({ files: false });
+  });
+});
+
+describe('auto mode', () => {
+  it('allows every Mac tool, runs commands without a proposal, and is told to Duet', async () => {
+    await settings.setMac({ files: true, shell: true, browser: true, auto: true });
+    await store.writeWorkspaceConfig();
+    const rules = JSON.parse(await fs.readFile(path.join(home, 'workspace', 'kilo.json'), 'utf8')).agent.duet.permission;
+    for (const t of ['mac_files_write', 'mac_shell_run', 'mac_browser_open', 'mac_browser_click', 'mac_browser_type', 'mac_browser_press']) expect(decide(rules, t), t).toBe('allow');
+    shell.clearCommands();
+    expect(await shell.runShell('echo auto')).toContain('auto');
+    expect((await import('./connectors.js')).connectedAppsLine()).toMatch(/AUTO MODE/);
+    await settings.setMac({ auto: false });
+    await expect(shell.runShell('echo auto')).rejects.toThrow(/not in the proposal/);
+    await settings.setMac({ files: false, shell: false, browser: false });
+  });
+});
+
 describe('commands', () => {
   it('runs only commands that are in the approved text, exactly', async () => {
     await expect(shell.runShell('echo hi')).rejects.toThrow(/not in the proposal/);

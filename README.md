@@ -124,7 +124,7 @@ Notifications are native Windows toasts. They need the Start-menu shortcut the i
 
 `npm run dist:win` builds `release/OpenDuet-Setup-0.1.0.exe` (NSIS, x64) from any machine; `npm run release` also copies it into `builds/`.
 
-- **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it OpenDuet uses Kilo's hosted API.
+- **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it OpenDuet uses Kilo's hosted API, and the app no longer shows a "needs the Kilo CLI" dialog at launch.
 - **Unsigned:** the installer and app are not code-signed, so Windows SmartScreen warns on first run ("More info" > "Run anyway"). The exe has Electron's default icon because icon editing needs Wine or a Windows build machine.
 - **Your PC panel:** files work the same (folders, symlink checks, deny-list for `AppData` credential stores, Brave data, `NTUSER.DAT`). Commands run in PowerShell, and only the exact commands in an approved proposal.
 - **Browsers:** the cookie database is copied with Node's built-in sqlite. Chrome and Brave lock it while they run, so close the browser before the first use or press "Copy my sign-ins again". Newer Chromium builds can bind cookies to the original profile on Windows (app-bound encryption); the copy then opens signed out.
@@ -136,13 +136,15 @@ The **Your Mac** panel lets Duet use this computer. Each part is a separate swit
 
 | Part | On its own | After you approve a proposal |
 |---|---|---|
-| **Files** (`mac_files_*`) | list, read and search the folders you add | write a file in those folders |
+| **Files** (`mac_files_*`) | list, read and search the folders you add, or everything on the computer if you pick "Everything on this Mac/PC" | write a file in those folders |
 | **Browser** (`mac_browser_*`) | read the open page and screenshot it; open a page only if "Let Duet open web pages on its own" is on | click, type, press keys, submit, all as you |
 | **Commands** (`mac_shell_run`) | nothing | run a command, and only the exact commands shown in the approved proposal |
 
 - **Sign-ins (Brave, Chrome or Firefox):** pick whose sign-ins Duet browses with in the panel. For Brave and Chrome, OpenDuet copies the cookie database (a safe SQLite copy; the real profile is only read) into its private data folder and starts that browser out of sight on the copy. The browser opens the cookies with its own Keychain/DPAPI key, so Duet never sees a cookie value, only pages. Firefox keeps cookies unencrypted, so OpenDuet reads them (default profile, no container tabs) and loads them into Chrome or Brave, which it drives. The link to the browser is a pipe, not a network port. The copy is deleted when you turn the browser off, switch browser, press "Copy my sign-ins again", or quit.
 - **Known limit:** some sites tie a session to the original browser. Google rejects a copied Chrome session (Brave's copy is accepted), and newer Chromium on Windows can bind cookies to the profile (app-bound encryption). Those sites open signed out.
 - **Files:** paths are resolved through symlinks and must be inside an added folder. `~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, browser data, Claude/Codex/Kilo credentials and OpenDuet's own data folder stay off-limits even when a parent folder (such as your home) is added.
+- **Everything on this Mac/PC:** a second mode under Files. Any folder (and on Windows any drive) your account can open is allowed; the deny-list above still holds, and a search without a folder starts in your home folder. On macOS, Documents, Desktop and Downloads trigger the system's own "allow access" prompt the first time, and Mail, Messages, Safari and Time Machine data stay closed until you add OpenDuet under System Settings > Privacy & Security > Full Disk Access; the panel shows a button that opens that page while access is missing. Windows and Linux need no grant.
+- **Auto mode (allow all):** a switch at the bottom of the panel. Everything turned on above then runs without a proposal: `mac_files_write`, `mac_shell_run` (any command), `mac_browser_open`, `_click`, `_type`, `_press`. Duet is told to act directly and still not to delete, send or pay unasked, but only the prompt says so. Off by default.
 - **Commands:** while a proposal runs, the shell tool refuses any command that is not in one of its ``` blocks. A paired phone cannot approve a proposal that contains commands; that needs this computer.
 - **Risk you accept:** with files, Brave and commands connected, a malicious file, page or email could try to steer Duet. Duet treats what it reads as data, web fetching then needs approval, and anything that acts needs a click, but you should read each proposal before approving. Brave acts as you on every site you are signed in to.
 

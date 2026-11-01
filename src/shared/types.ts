@@ -182,14 +182,25 @@ export interface StateResponse {
   tasks: TaskItem[];
   /** False until the first-launch setup is finished or skipped. */
   setupDone: boolean;
+  /** The computer Duet runs on, so a paired phone names it right. */
+  os: OsId;
 }
+
+export type OsId = 'mac' | 'windows' | 'linux';
 
 /** What Duet may reach on this Mac. Managed from this computer only. */
 export interface MacStatus {
+  os: OsId;
   files: boolean;
+  /** Files anywhere on the computer (credential stores still excluded), instead of only the folders below. */
+  everything: boolean;
+  /** macOS: whether the app has Full Disk Access, which "everything" needs for Mail, Safari and the like. Null elsewhere. */
+  fullDisk: boolean | null;
   folders: string[];
   shell: boolean;
   browser: boolean;
+  /** Allow-all: Duet writes, runs commands and acts in the browser here without a proposal. */
+  auto: boolean;
   /** Whose sign-ins Duet browses with. */
   browserApp: 'auto' | BrowserId;
   browsers: BrowserChoice[];

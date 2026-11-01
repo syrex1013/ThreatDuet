@@ -58,7 +58,28 @@ export const PL_COMPUTER: Record<string, string> = {
   'Let Duet use this PC. Everything is off until you turn it on. Duet looks on its own; anything that changes something waits for your approval.':
     'Pozwól Duetowi korzystać z tego komputera. Wszystko jest wyłączone, dopóki tego nie włączysz. Duet sam przegląda; wszystko, co coś zmienia, czeka na Twoją zgodę.',
   Files: 'Pliki',
-  'Let Duet read and search files in folders I choose': 'Pozwól Duetowi czytać i przeszukiwać pliki w wybranych przeze mnie folderach',
+  'Let Duet read and search my files': 'Pozwól Duetowi czytać i przeszukiwać moje pliki',
+  "Writing a file always waits for approval. Folders with passwords and keys (AppData credential stores, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.":
+    'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (magazyny poświadczeń w AppData, dane przeglądarek, dane samego OpenDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
+  Where: 'Gdzie',
+  'Folders I choose': 'Wybrane foldery',
+  'Everything on this Mac': 'Wszystko na tym Macu',
+  'Everything on this PC': 'Wszystko na tym komputerze',
+  'Duet can open any folder on this Mac that you can, except the credential stores above. Searches without a folder start in your home folder.':
+    'Duet może otworzyć każdy folder na tym Macu, do którego Ty masz dostęp, poza wymienionymi wyżej magazynami poświadczeń. Wyszukiwanie bez podanego folderu zaczyna się w Twoim folderze domowym.',
+  'Duet can open any folder and drive on this PC that you can, except the credential stores above. Searches without a folder start in your user folder.':
+    'Duet może otworzyć każdy folder i dysk na tym komputerze, do którego Ty masz dostęp, poza wymienionymi wyżej magazynami poświadczeń. Wyszukiwanie bez podanego folderu zaczyna się w Twoim folderze użytkownika.',
+  'Open Privacy & Security settings': 'Otwórz ustawienia Prywatność i ochrona',
+  'macOS keeps Mail, Messages, Safari and backups closed until you add OpenDuet under Full Disk Access. Other folders ask the first time Duet opens them.':
+    'macOS nie udostępnia Poczty, Wiadomości, Safari ani kopii zapasowych, dopóki nie dodasz OpenDuet w sekcji Pełny dostęp do dysku. Inne foldery pytają o zgodę, gdy Duet otwiera je po raz pierwszy.',
+  'The first time Duet opens Documents, Desktop or Downloads, macOS asks you to allow it.':
+    'Gdy Duet po raz pierwszy otwiera Dokumenty, Biurko lub Pobrane, macOS prosi Cię o zgodę.',
+  'Let Duet propose PowerShell commands': 'Pozwól Duetowi proponować polecenia PowerShell',
+  'Auto mode': 'Tryb automatyczny',
+  'Let Duet act on this Mac without asking (allow all)': 'Pozwól Duetowi działać na tym Macu bez pytania (zezwól na wszystko)',
+  'Let Duet act on this PC without asking (allow all)': 'Pozwól Duetowi działać na tym komputerze bez pytania (zezwól na wszystko)',
+  'Everything turned on above runs on its own: writing files, running commands, opening pages, clicking and typing as you. No proposal, no approval. Duet is still told not to delete, send or pay unasked, but nothing enforces it.':
+    'Wszystko włączone powyżej działa samo: zapis plików, uruchamianie poleceń, otwieranie stron, klikanie i pisanie jako Ty. Bez propozycji, bez zatwierdzania. Duet nadal ma polecenie, by nie usuwać, nie wysyłać i nie płacić bez prośby, ale nic tego nie wymusza.',
   "Writing a file always waits for approval. Folders with passwords and keys (~/.ssh, Keychains, browser data, OpenDuet's own data) stay off-limits even inside a folder you add.":
     'Zapis pliku zawsze czeka na zgodę. Foldery z hasłami i kluczami (~/.ssh, pęki kluczy, dane przeglądarek, dane samego OpenDuet) pozostają niedostępne, nawet wewnątrz dodanego folderu.',
   Remove: 'Usuń',

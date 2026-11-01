@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Language, StateResponse } from '../../../src/shared/types';
 import { post } from '../api';
 import { t, tn } from '../i18n';
+import { deviceName } from './MacSheet';
 
 interface SetupProps {
   state: StateResponse;
@@ -36,7 +37,7 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
   const first = useRef(true);
   const focus = form.focus ?? t(s.focus);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
-  const device = /Mac/i.test(navigator.platform) ? 'Mac' : 'PC';
+  const device = deviceName(state.os);
 
   // Move focus to the new step's title, so keyboard and screen reader users land on it.
   useEffect(() => {

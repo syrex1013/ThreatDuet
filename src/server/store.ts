@@ -32,7 +32,7 @@ export interface Data {
   /** Connected apps. Holds credentials: the data folder is private (0700). */
   connectors: ConnectorRecord[];
   /** What Duet may reach on this Mac. Everything starts off. */
-  mac: { files: boolean; folders: string[]; shell: boolean; browser: boolean; browserApp: 'auto' | BrowserId };
+  mac: { files: boolean; everything: boolean; folders: string[]; shell: boolean; browser: boolean; browserApp: 'auto' | BrowserId; auto: boolean };
   /** Installed skills; the files live in data/skills. */
   skills: SkillRecord[];
   /** Duet's cloud computer (an Instabox machine). Holds the API key: the data folder is private (0700). */
@@ -65,15 +65,17 @@ export async function openStore(): Promise<void> {
     remote: { enabled: false, token: null, port: REMOTE_PORT },
     connectors: [],
     skills: [],
-    mac: { files: false, folders: [], shell: false, browser: false, browserApp: 'auto' },
+    mac: { files: false, everything: false, folders: [], shell: false, browser: false, browserApp: 'auto', auto: false },
     computer: null,
     computerOptOut: false,
   });
   db.data.connectors ??= [];
   db.data.channels ??= [];
   db.data.skills ??= [];
-  db.data.mac ??= { files: false, folders: [], shell: false, browser: false, browserApp: 'auto' };
+  db.data.mac ??= { files: false, everything: false, folders: [], shell: false, browser: false, browserApp: 'auto', auto: false };
   db.data.mac.browserApp ??= 'auto';
+  db.data.mac.everything ??= false;
+  db.data.mac.auto ??= false;
   db.data.computer ??= null;
   db.data.computerOptOut ??= false;
   db.data.remote ??= { enabled: false, token: null, port: REMOTE_PORT };
@@ -171,8 +173,10 @@ export function computerRules(openWebPages: boolean): Record<string, string> {
 /**
  * The Mac's tools. Looking is free; anything that changes a file, runs a command or acts on a signed-in
  * site needs an approved proposal. Opening a page in the signed-in browser follows the web-pages setting.
+ * Auto mode (the user's explicit choice) allows all of it without asking.
  */
-export function macRules(openWebPages: boolean): Record<string, string> {
+export function macRules(openWebPages: boolean, auto = false): Record<string, string> {
+  if (auto) return Object.fromEntries(Object.keys(macRules(true)).map((k) => [k, 'allow']));
   return {
     mac_files_list: 'allow',
     mac_files_read: 'allow',
@@ -239,7 +243,7 @@ export async function writeWorkspaceConfig(): Promise<void> {
   Object.assign(duet, connectorRules(apps.filter((c) => c.autoRead).map((c) => c.id)));
   // Duet's cloud computer: exact names, placed last so they win over the word rules above.
   if (db.data.computer) Object.assign(duet, computerRules(db.data.settings.openWebPages));
-  if (macOn()) Object.assign(duet, macRules(db.data.settings.openWebPages));
+  if (macOn()) Object.assign(duet, macRules(db.data.settings.openWebPages, db.data.mac.auto));
   for (const tool of ['bash', 'background_process', 'schedule_wakeup', 'cancel_wakeup', 'cron_*', 'agent_manager_*', 'link_pr', 'board_*', 'goal*', 'plan_*', 'doom_loop'])
     duet[tool] = 'deny';
   Object.assign(duet, { edit }, fence);

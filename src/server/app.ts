@@ -10,6 +10,7 @@ import { tr } from './i18n.js';
 import { browser, computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup, screen } from './computer/machine.js';
 import { handleComputerMcp, tokenOk } from './computer/mcp.js';
 import { handleMacMcp } from './mac/mcp.js';
+import { openPrivacySettings } from './mac/os.js';
 import { addFolder, macStatus, removeFolder, resyncBrowser, setMac } from './mac/settings.js';
 import { writeConnectorsConfig } from './connectors.js';
 import { installMcp, searchMcp } from './market.js';
@@ -137,7 +138,7 @@ app.post('/api/skills/remove', json(SkillName), async (c) => {
 // This Mac: files, commands and Brave. Managed from this computer only; the phone listener never mounts it.
 app.all('/mcp/mac', (c) => handleMacMcp(c.req.raw));
 app.get('/api/mac', async (c) => c.json(await macStatus()));
-app.post('/api/mac', json(z.object({ files: z.boolean().optional(), shell: z.boolean().optional(), browser: z.boolean().optional(), browserApp: z.enum(['auto', 'brave', 'chrome', 'firefox']).optional() })), async (c) => {
+app.post('/api/mac', json(z.object({ files: z.boolean().optional(), everything: z.boolean().optional(), shell: z.boolean().optional(), browser: z.boolean().optional(), browserApp: z.enum(['auto', 'brave', 'chrome', 'firefox']).optional(), auto: z.boolean().optional() })), async (c) => {
   await setMac(c.req.valid('json'));
   return c.json(await macStatus());
 });
@@ -151,6 +152,11 @@ app.post('/api/mac/folders/remove', json(z.object({ path: z.string().min(1).max(
 });
 app.post('/api/mac/browser/refresh', async (c) => {
   await resyncBrowser();
+  return c.json(await macStatus());
+});
+// macOS: the System Settings page for Full Disk Access. The grant itself is the user's click there.
+app.post('/api/mac/privacy', async (c) => {
+  await openPrivacySettings();
   return c.json(await macStatus());
 });
 

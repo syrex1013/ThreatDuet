@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, screen, session, shell, Tray, type Rectangle } from 'electron';
-import { execa } from 'execa';
 import fixPath from 'fix-path';
 
 // Apps opened from the Dock or Finder get a minimal PATH; kilo and git live in the user's shell PATH.
@@ -200,8 +199,6 @@ async function boot() {
     if (isMac) tray?.setTitle(n ? ` ${n}` : '');
     tray?.setContextMenu(menu());
   }, 3000);
-
-  await checkKilo();
 }
 
 function createWindow() {
@@ -287,21 +284,6 @@ function showWindow() {
   if (win.isMinimized()) win.restore();
   win.show();
   win.focus();
-}
-
-async function checkKilo() {
-  const r = await execa('kilo', ['--version'], { reject: false, timeout: 20_000, stdin: 'ignore' });
-  if (r.exitCode === 0) return;
-  const { response } = await dialog.showMessageBox({
-    type: 'warning',
-    message: tr('OpenDuet needs the Kilo CLI'),
-    detail:
-      tr('Duet does its work through Kilo. Install it with "npm install -g @kilocode/cli", sign in with "kilo auth", then restart OpenDuet.'),
-    buttons: [tr('Continue'), tr('Open Kilo docs'), tr('Quit')],
-    defaultId: 1,
-  });
-  if (response === 1) void shell.openExternal('https://kilo.ai/docs');
-  if (response === 2) app.quit();
 }
 
 function fatal(err: unknown) {

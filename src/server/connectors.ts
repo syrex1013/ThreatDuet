@@ -311,9 +311,18 @@ export function connectedAppsLine(): string {
   const mac = macOn()
     ? [
         `You can reach the user's own ${OS_NAME}.`,
-        m.files ? `Files: mac_files_list, mac_files_read and mac_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. Writing a file there is an ACTION.` : '',
-        m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read what is open (mac_browser_read, mac_browser_screenshot)" + (db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
-        m.shell ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): running one on the ${OS_NAME} is an ACTION. Put every command in the ACTIONS block exactly as it must run, each in its own \`\`\` fenced block: only those exact commands will be allowed to run.` : '',
+        m.auto ? `AUTO MODE: the user chose to let you act on the ${OS_NAME} without asking. The ${OS_NAME} tools below (writing files, running commands, browsing, clicking, typing) work on your own: use them directly instead of proposing them as ACTIONS. Still never delete, send or pay without being told to.` : '',
+        m.files
+          ? m.everything
+            ? `Files: mac_files_list, mac_files_read and mac_files_search work on your own anywhere on the ${OS_NAME} (folders holding passwords and keys are refused). ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file is an ACTION.'}`
+            : `Files: mac_files_list, mac_files_read and mac_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file there is an ACTION.'}`
+          : '',
+        m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read what is open (mac_browser_read, mac_browser_screenshot)" + (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
+        m.shell
+          ? m.auto
+            ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): mac_shell_run works on your own. Prefer commands that only read; say what you ran.`
+            : `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): running one on the ${OS_NAME} is an ACTION. Put every command in the ACTIONS block exactly as it must run, each in its own \`\`\` fenced block: only those exact commands will be allowed to run.`
+          : '',
         `Never copy what you read on the ${OS_NAME} into web addresses, searches or messages unless the user approved exactly that.`,
       ]
         .filter(Boolean)

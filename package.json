@@ -1,7 +1,7 @@
 {
   "name": "openduet",
   "productName": "OpenDuet",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",
@@ -94,7 +94,15 @@
       ],
       "icon": "build/icon.png",
       "identity": "-",
-      "hardenedRuntime": false
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "Duet reads and searches files in the folders you allow in the Your Mac panel.",
+        "NSDesktopFolderUsageDescription": "Duet reads and searches files in the folders you allow in the Your Mac panel.",
+        "NSDownloadsFolderUsageDescription": "Duet reads and searches files in the folders you allow in the Your Mac panel.",
+        "NSRemovableVolumesUsageDescription": "Duet reads and searches files on drives you allow in the Your Mac panel.",
+        "NSNetworkVolumesUsageDescription": "Duet reads and searches files on drives you allow in the Your Mac panel.",
+        "NSSystemAdministrationUsageDescription": "Duet reads files anywhere on this Mac only when you turn on Everything in the Your Mac panel."
+      }
     },
     "win": {
       "target": [

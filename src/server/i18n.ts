@@ -126,6 +126,7 @@ const PL: Record<string, string> = {
   "Can't reach the MCP Registry. Check your connection.": 'Nie można połączyć się z MCP Registry. Sprawdź połączenie.',
   'The MCP Registry answered {status}.': 'MCP Registry odpowiedział kodem {status}.',
   'Use a full path, like ~/Documents.': 'Podaj pełną ścieżkę, np. ~/Documents.',
+  'Use a full path, like C:\\Users\\you\\Documents or ~/Documents.': 'Podaj pełną ścieżkę, np. C:\\Users\\ty\\Documents lub ~/Documents.',
   'That folder does not exist.': 'Ten folder nie istnieje.',
   'Setup is already running.': 'Konfiguracja już trwa.',
   "Duet doesn't have a computer yet.": 'Duet nie ma jeszcze komputera.',
@@ -149,12 +150,6 @@ const PL: Record<string, string> = {
   'Open at login': 'Otwieraj po zalogowaniu',
   'Show workspace folder': 'Pokaż folder obszaru roboczego',
   'Quit OpenDuet': 'Zakończ OpenDuet',
-  'OpenDuet needs the Kilo CLI': 'OpenDuet potrzebuje Kilo CLI',
-  'Duet does its work through Kilo. Install it with "npm install -g @kilocode/cli", sign in with "kilo auth", then restart OpenDuet.':
-    'Duet pracuje przez Kilo. Zainstaluj je poleceniem "npm install -g @kilocode/cli", zaloguj się przez "kilo auth" i uruchom OpenDuet ponownie.',
-  Continue: 'Kontynuuj',
-  'Open Kilo docs': 'Otwórz dokumentację Kilo',
-  Quit: 'Zakończ',
 };
 
 /** Translates server text into the user's language; English text is the key, {name} marks a placeholder. */

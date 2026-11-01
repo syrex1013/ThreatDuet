@@ -15,18 +15,18 @@ const on = (what: 'files' | 'shell' | 'browser') => {
 export function buildMacServer(): McpServer {
   const server = new McpServer({ name: 'mac', version: '1.0.0' });
 
-  server.registerTool('files_list', { description: `Lists a folder on the user's ${OS_NAME} (only folders the user added).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
-  server.registerTool('files_read', { description: `Reads a text file on the user's ${OS_NAME} (only in folders the user added).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
+  server.registerTool('files_list', { description: `Lists a folder on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
+  server.registerTool('files_read', { description: `Reads a text file on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
     guard(() => readText(path), (c) => text(untrusted(`File ${path}`, c))),
   );
   server.registerTool(
     'files_search',
-    { description: "Finds files by name or content in the user's added folders. Optional folder to look in.", inputSchema: { query: z.string().min(1).max(200), folder: z.string().max(1000).optional() } },
+    { description: "Finds files by name or content where the user allowed (their home folder when everything is allowed). Optional folder to look in.", inputSchema: { query: z.string().min(1).max(200), folder: z.string().max(1000).optional() } },
     ({ query, folder }) => guard(() => searchFiles(query, folder), (c) => text(untrusted(`Search for "${query}"`, c))),
   );
   server.registerTool(
     'files_write',
-    { description: "Writes a text file in the user's added folders. Needs the user's approval.", inputSchema: { path: z.string().max(1000), content: z.string().max(1_000_000) } },
+    { description: "Writes a text file where the user allowed. Needs the user's approval.", inputSchema: { path: z.string().max(1000), content: z.string().max(1_000_000) } },
     ({ path, content }) => guard(() => writeText(path, content), text),
   );
 

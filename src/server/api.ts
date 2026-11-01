@@ -10,6 +10,7 @@ import { WORKSPACE } from './config.js';
 import { approve, cancelFollowup, chat, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, reject, routines, setRoutine, startTask } from './duet.js';
 import { computerBrief } from './computer/machine.js';
 import { SKIP } from './direct/tools.js';
+import { OS_ID } from './mac/os.js';
 import { onStateChange, stateVersion } from './events.js';
 import { nextRoutineRun } from './parse.js';
 import { routineDue, upcomingRoutines } from './scheduler.js';
@@ -71,6 +72,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
       channels: db.data.channels.map(({ id, name }) => ({ id, name })),
       tasks: db.data.tasks.slice(0, 40),
       setupDone: db.data.setupDone,
+      os: OS_ID,
     };
     return c.json(body);
   })

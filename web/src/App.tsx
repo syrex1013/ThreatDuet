@@ -6,7 +6,7 @@ import type { Language, Message, StateResponse } from '../../src/shared/types';
 import { getConnectors, post } from './api';
 import { AppsSheet } from './components/AppsSheet';
 import { ComputerSheet } from './components/ComputerSheet';
-import { MacSheet } from './components/MacSheet';
+import { deviceName, MacSheet } from './components/MacSheet';
 import { Channels } from './components/Channels';
 import { Composer } from './components/Composer';
 import { FileViewer } from './components/FileViewer';
@@ -216,7 +216,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
                   <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'computer' })} aria-label={t("Duet's computer")} title={t("Duet's computer")}>
                     <Monitor size={20} aria-hidden="true" />
                   </button>
-                  <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'mac' })} aria-label={t('Your {device}', { device: /Mac/i.test(navigator.platform) ? 'Mac' : 'PC' })} title={t('Your {device}', { device: /Mac/i.test(navigator.platform) ? 'Mac' : 'PC' })}>
+                  <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'mac' })} aria-label={t('Your {device}', { device: deviceName(data?.os) })} title={t('Your {device}', { device: deviceName(data?.os) })}>
                     <Laptop size={20} aria-hidden="true" />
                   </button>
                   <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'apps' })} aria-label={t('Apps')} title={t('Apps')}>

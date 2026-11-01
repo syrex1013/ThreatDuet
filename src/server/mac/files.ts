@@ -33,7 +33,7 @@ const real = async (p: string) => fs.realpath(p).catch(() => null);
 export async function resolveAllowed(raw: string, { forWrite = false } = {}): Promise<string> {
   if (!db.data.mac.files) throw new Error(`Access to files is turned off. The user can turn it on in the ${OS_PANEL} panel.`);
   const input = raw.startsWith('~') ? path.join(HOME(), raw.slice(1)) : raw;
-  if (!path.isAbsolute(input)) throw new Error('Use a full path, starting with / or ~.');
+  if (!path.isAbsolute(input)) throw new Error(process.platform === 'win32' ? 'Use a full path, starting with a drive letter (C:\\) or ~.' : 'Use a full path, starting with / or ~.');
   const abs = path.resolve(input);
   // A path that doesn't exist yet is judged by its nearest existing folder; links in either are followed.
   // The checks below come before any "does not exist" answer, so nothing outside the folders can be probed.
@@ -44,8 +44,11 @@ export async function resolveAllowed(raw: string, { forWrite = false } = {}): Pr
     while (!(await real(up)) && up !== path.dirname(up)) up = path.dirname(up);
     resolved = path.join((await real(up)) ?? up, path.relative(up, abs));
   }
-  const folders = (await Promise.all(db.data.mac.folders.map(real))).filter((f): f is string => Boolean(f));
-  if (!folders.some((f) => inside(resolved!, f))) throw new Error(`That is outside the folders Duet may use: ${db.data.mac.folders.join(', ') || '(none added yet)'}.`);
+  // "Everything": any folder on the computer, but the deny-list below still holds.
+  if (!db.data.mac.everything) {
+    const folders = (await Promise.all(db.data.mac.folders.map(real))).filter((f): f is string => Boolean(f));
+    if (!folders.some((f) => inside(resolved!, f))) throw new Error(`That is outside the folders Duet may use: ${db.data.mac.folders.join(', ') || '(none added yet)'}.`);
+  }
   const blocked = await Promise.all(sensitive().map(async (s) => (await real(s)) ?? s));
   if (blocked.some((s) => inside(resolved!, s))) throw new Error('That location holds passwords or keys, so Duet may not open it.');
   if (!existing && !forWrite) throw new Error(`${raw} does not exist.`);
@@ -81,15 +84,19 @@ export async function readText(p: string): Promise<string> {
   }
 }
 
-/** File-name and content search. shortcut: plain substring, first 20000 entries, files under 1 MB. */
+/**
+ * File-name and content search. shortcut: plain substring, first 20000 entries, files under 1 MB.
+ * With "everything" on and no folder given, it starts at the home folder: a whole disk is too big to walk.
+ */
 export async function searchFiles(query: string, within?: string): Promise<string> {
   if (!db.data.mac.files) throw new Error(`Access to files is turned off. The user can turn it on in the ${OS_PANEL} panel.`);
-  const roots = within ? [await resolveAllowed(within)] : (await Promise.all(db.data.mac.folders.map(real))).filter((f): f is string => Boolean(f));
+  const roots = within ? [await resolveAllowed(within)] : db.data.mac.everything ? [HOME()] : (await Promise.all(db.data.mac.folders.map(real))).filter((f): f is string => Boolean(f));
   const blocked = await Promise.all(sensitive().map(async (s) => (await real(s)) ?? s));
   const q = query.toLowerCase();
   const hits: string[] = [];
   let seen = 0;
-  const SKIP = new Set(['node_modules', '.git', '.Trash', 'Library']);
+  // System and cache trees: huge, and never what the user means.
+  const SKIP = new Set(['node_modules', '.git', '.Trash', 'Library', 'AppData', '$Recycle.Bin', 'System Volume Information', 'Windows', 'Program Files', 'Program Files (x86)', 'ProgramData', '.cache']);
   const walk = async (dir: string): Promise<void> => {
     if (hits.length >= 40 || seen > 20_000 || blocked.some((b) => inside(dir, b))) return;
     for (const e of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
