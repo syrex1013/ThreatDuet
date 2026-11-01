@@ -72,7 +72,11 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
     const specs: ToolSpec[] = [...tools.values()].map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } }));
 
     history.push({ role: 'user', content: run.prompt });
-    for (let step = 0; step < MAX_STEPS; step++) {
+    // Self-correction: the same failing call is nudged once and stopped the third time; an empty reply is nudged once.
+    const failures = new Map<string, number>();
+    let nudged = false;
+    let stuck: string | null = null;
+    for (let step = 0; step < MAX_STEPS && !stuck; step++) {
       trim(history);
       parts.push({ type: 'step-start' });
       const reply = await chat(run.model, [{ role: 'system', content: SYSTEM(run.agent) }, ...history], specs, ctl.signal);
@@ -81,7 +85,12 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         parts.push({ type: 'text', text: reply.content });
         run.onProgress?.('writing a reply');
       }
-      if (!reply.tool_calls) break;
+      if (!reply.tool_calls) {
+        if (reply.content?.trim() || nudged) break;
+        nudged = true;
+        history.push({ role: 'user', content: 'Your reply was empty. Answer in text, or call a tool.' });
+        continue;
+      }
       for (const call of reply.tool_calls) {
         const name = call.function.name;
         let args: Record<string, unknown> = {};
@@ -109,11 +118,17 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         } catch (e) {
           status = 'error';
           out = e instanceof Error ? e.message : String(e);
+          const key = `${name}:${call.function.arguments}`;
+          const n = (failures.get(key) ?? 0) + 1;
+          failures.set(key, n);
+          if (n === 2) out += '\n\nThis is the same call as before, failing the same way. Do not repeat it: change the arguments or the approach, or tell the user what blocks you.';
+          if (n >= 3) stuck = name;
         }
         parts.push({ type: 'tool', tool: name, state: { status, input: args, title: name === 'write' || name === 'edit' ? String(args.path ?? '') : describe(name, args) } });
         history.push({ role: 'tool', tool_call_id: call.id, content: out });
       }
-      if (step === MAX_STEPS - 1) errors.push(tr('Stopped after {n} steps.', { n: MAX_STEPS }));
+      if (stuck) errors.push(tr('Stopped: {tool} kept failing the same way.', { tool: stuck }));
+      else if (step === MAX_STEPS - 1) errors.push(tr('Stopped after {n} steps.', { n: MAX_STEPS }));
     }
   } catch (e) {
     errors.push(ctl.signal.aborted ? 'kilo timed out' : e instanceof Error ? e.message : String(e));

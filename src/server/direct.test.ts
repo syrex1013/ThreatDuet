@@ -83,6 +83,32 @@ describe("built-in agent rules and gateway", () => {
     expect(r.tools.map((t) => t.title)).toContain('notes/x.md');
   });
 
+  it('nudges a repeated failing call once, stops it the third time, and nudges an empty reply', async () => {
+    const { chat } = await import('./direct/gateway.js');
+    const { runDirect } = await import('./direct/runtime.js');
+    const call = (id: string) => ({ content: null, tool_calls: [{ id, type: 'function' as const, function: { name: 'read', arguments: '{"path":"missing/nope.md"}' } }] });
+    const mock = vi.mocked(chat);
+    mock.mockResolvedValueOnce(call('1')).mockResolvedValueOnce(call('2')).mockResolvedValueOnce(call('3')).mockResolvedValueOnce({ content: 'never reached' });
+    const r = await runDirect({ prompt: 'go', model: 'kilo/kilo-auto/free', agent: 'duet' }, () => '');
+    const tools = (mock.mock.calls.at(-1)![1] as { role: string; content: string }[]).filter((m) => m.role === 'tool').map((m) => m.content);
+    expect(tools[0]).not.toMatch(/same call/);
+    expect(tools[1]).toMatch(/same call as before/);
+    expect(r.errors).toEqual([expect.stringMatching(/read kept failing/)]);
+    expect(r.text).toBe('');
+    expect(mock).toHaveBeenCalledTimes(3);
+
+    mock.mockReset();
+    mock.mockResolvedValueOnce({ content: '' }).mockResolvedValueOnce({ content: 'ok now' });
+    const r2 = await runDirect({ prompt: 'go', model: 'kilo/kilo-auto/free', agent: 'duet' }, () => '');
+    expect(r2.text).toBe('ok now');
+    expect(r2.errors).toEqual([]);
+    expect((mock.mock.calls[1][1] as { role: string; content: string }[]).at(-1)).toMatchObject({ role: 'user', content: expect.stringMatching(/reply was empty/) });
+    mock.mockReset();
+    mock.mockResolvedValueOnce({ content: '' }).mockResolvedValueOnce({ content: null });
+    expect((await runDirect({ prompt: 'go', model: 'kilo/kilo-auto/free', agent: 'duet' }, () => '')).text).toBe('');
+    expect(mock).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps one long turn under the history cap', async () => {
     const { trim } = await import('./direct/runtime.js');
     const big = 'x'.repeat(100_000);

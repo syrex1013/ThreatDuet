@@ -94,8 +94,26 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
   return app ? tr('using {app}', { app }) : tr('working');
 }
 
-/** One turn: the Kilo program's HTTP server (default) or CLI, or Duet's own agent on Kilo's hosted API. */
+/**
+ * One turn, with one recovery: a run that dies without an answer (crash, timeout, gateway down, a step
+ * that kept failing) is resumed once in its session, told what stopped it. Approved actions are resumed
+ * only when the session survived, so nothing already done is done twice.
+ */
 export async function runKilo(run: KiloRun): Promise<KiloResult> {
+  const first = await runOnce(run).catch((e: Error) => ({ sessionID: run.session ?? null, text: '', finalText: '', tools: [], errors: [e.message] }) as KiloResult);
+  if (first.text || !first.errors.length) return first;
+  const session = first.sessionID ?? run.session ?? null;
+  if (run.agent === 'code' && !session) throw new Error(first.errors.join('; '));
+  log.warn({ errors: first.errors }, 'run stopped without an answer, resuming once');
+  const prompt = `Your previous attempt stopped before answering (${first.errors.join('; ')}). Continue from where you were${session ? '' : `. The task was:\n${run.prompt}`}. If the same problem blocks you, say in one or two sentences what it is and what you need, then stop.`;
+  const second = await runOnce({ ...run, prompt, session });
+  // A recovered run keeps only the first attempt's tool chips; its errors were handled.
+  second.tools = [...first.tools, ...second.tools];
+  if (!second.text) second.errors.unshift(...first.errors);
+  return second;
+}
+
+async function runOnce(run: KiloRun): Promise<KiloResult> {
   await resetSandbox();
   if (await useDirect()) return runDirect(run, describeTool);
   if (db.data.settings.kiloMode !== 'cli') {

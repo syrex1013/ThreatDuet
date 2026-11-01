@@ -117,6 +117,8 @@ By default OpenDuet starts one headless `kilo serve` (loopback only, random port
 
 **No Kilo program (the usual Windows case):** OpenDuet checks for `kilo` once and, if it is missing, runs its own agent loop on Kilo's hosted gateway (`https://api.kilo.ai/api/gateway`, OpenAI-compatible; free models work without an account, about 200 requests an hour per IP; set `KILO_API_KEY` for more). It offers the same tools (workspace files, `webfetch`, skills, your apps over MCP, the Mac/PC tools, the cloud computer) and obeys the same permission file, so approvals work the same. Apps sign in through your browser with OAuth handled by OpenDuet (loopback port 19877); tokens are kept in the private data folder. Not available in this mode: Kilo's built-in `websearch` and `codesearch`. Pick "Kilo hosted API" in Settings to use it even when `kilo` is installed.
 
+**Self-correction:** every run is a reason-act-observe loop: Duet sees each tool's result or error and decides the next step. In the built-in loop, the same call failing the same way is nudged once ("change the arguments or the approach") and stopped the third time, and an empty reply is nudged once. In every mode, a run that dies without an answer (crash, timeout, gateway down, a stuck step) is resumed once in its session, told what stopped it and asked to continue or say what blocks it. Approved actions are resumed only when the session survived, so nothing already done runs twice.
+
 ## Windows
 
 Notifications are native Windows toasts. They need the Start-menu shortcut the installer creates

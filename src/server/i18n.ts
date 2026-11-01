@@ -25,6 +25,7 @@ const PL: Record<string, string> = {
   '(no output)': '(brak wyniku)',
   'Started a fresh thread context.': 'Rozpoczęto nowy kontekst wątku.',
   'Stopped after {n} steps.': 'Zatrzymano po {n} krokach.',
+  'Stopped: {tool} kept failing the same way.': 'Zatrzymano: {tool} wciąż kończyło się tym samym błędem.',
 
   // What Duet is busy with (shown as "Duet …")
   'rewriting a blocked proposal': 'przepisuje zablokowaną propozycję',
