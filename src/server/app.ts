@@ -7,13 +7,15 @@ import { remoteInfo, setRemote } from './remote.js';
 import { addConnector, cancelSignIn, connectorsResponse, removeConnector, startSignIn, updateConnector } from './connectors.js';
 import { db, writeWorkspaceConfig } from './store.js';
 import { tr } from './i18n.js';
-import { browser, computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup, screen } from './computer/machine.js';
+import { computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup } from './computer/machine.js';
 import { handleComputerMcp, tokenOk } from './computer/mcp.js';
 import { handleDuetMcp } from './duet-mcp.js';
 import { handleMacMcp } from './mac/mcp.js';
 import { openPrivacySettings } from './mac/os.js';
 import { addFolder, macStatus, removeFolder, resyncBrowser, setMac } from './mac/settings.js';
+import { watchApi } from './watch.js';
 import { writeConnectorsConfig } from './connectors.js';
+import { pushSessionToComputer } from './browser-session.js';
 import { installMcp, searchMcp } from './market.js';
 import { discoverMcp, findByKeys, importServers, parseMcpConfig } from './mcp-import.js';
 import { installSkill, listSkills, previewSkill, removeSkill, updateSkill } from './skills.js';
@@ -33,7 +35,7 @@ app.use('*', async (c, next) => {
 
 // Pairing is managed from this computer only; the phone listener never mounts these routes.
 app.get('/api/remote', (c) => c.json(remoteInfo()));
-app.post('/api/remote', json(z.object({ enabled: z.boolean().optional(), rotate: z.boolean().optional() })), async (c) => {
+app.post('/api/remote', json(z.object({ enabled: z.boolean().optional(), rotate: z.boolean().optional(), phoneCommands: z.boolean().optional() })), async (c) => {
   const r = await setRemote(c.req.valid('json'));
   return 'error' in r ? c.json(r, 409) : c.json(r);
 });
@@ -151,6 +153,8 @@ app.post('/api/mac/folders/remove', json(z.object({ path: z.string().min(1).max(
   await removeFolder(c.req.valid('json').path);
   return c.json(await macStatus());
 });
+
+
 app.post('/api/mac/browser/refresh', async (c) => {
   await resyncBrowser();
   return c.json(await macStatus());
@@ -196,35 +200,17 @@ app.post('/api/computer/disconnect', async (c) => {
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });
-app.get('/api/computer/screen', async (c) => {
+
+app.post('/api/computer/session', async (c) => {
   try {
-    return c.json(await screen(c.req.query('wake') === '1'));
+    return c.json({ ok: true, message: await pushSessionToComputer() });
   } catch (e) {
-    return c.json({ error: (e as Error).message }, 502);
+    return c.json({ error: (e as Error).message }, 400);
   }
 });
-// The person taking over the browser: acts directly, no approval, because it is the person acting.
-app.post(
-  '/api/computer/act',
-  json(
-    z.discriminatedUnion('action', [
-      z.object({ action: z.literal('click'), x: z.number().min(0).max(10000), y: z.number().min(0).max(10000) }),
-      z.object({ action: z.literal('type'), text: z.string().max(5000), submit: z.boolean().optional() }),
-      z.object({ action: z.literal('press'), key: z.string().max(40) }),
-      z.object({ action: z.literal('open'), url: z.string().max(2000) }),
-    ]),
-  ),
-  async (c) => {
-    const { action, ...args } = c.req.valid('json');
-    try {
-      await browser(action, args);
-      return c.json({ ok: true });
-    } catch (e) {
-      return c.json({ error: (e as Error).message }, 502);
-    }
-  },
-);
 
+
+app.route('/api', watchApi);
 app.route('/api', api);
 app.use('*', serveStatic({ root: WEB_DIST }));
 app.get('*', serveStatic({ root: WEB_DIST, path: 'index.html' }));

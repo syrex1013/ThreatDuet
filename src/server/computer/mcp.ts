@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { computerToken } from './endpoint.js';
 import { browser, computerStatus, copyToWorkspace, readVmFile, runVmCommand, writeVmFile } from './machine.js';
+import { askAndFill, pushSessionToComputer } from '../browser-session.js';
 
 /**
  * Only public web addresses: no file:, chrome: or javascript: pages, and no address inside the machine's
@@ -139,6 +140,30 @@ export function buildComputerServer(): McpServer {
     ({ path, name }) => guard(() => copyToWorkspace(path, name), text),
   );
 
+
+  server.registerTool(
+    'browser_ask_input',
+    {
+      description:
+        "Asks the user for a password, one-time code or short text in a secure on-screen prompt (never in chat), then types it into a field by its number from browser_read on the cloud computer. Use when a site needs a sign-in. The value never reaches the model.",
+      inputSchema: {
+        ref: z.number().int().min(1).max(500),
+        kind: z.enum(['password', 'text', 'otp']).default('password'),
+        prompt: z.string().min(1).max(200),
+        submit: z.boolean().optional(),
+      },
+    },
+    ({ ref, kind, prompt, submit }) =>
+      guard(() => askAndFill({ target: 'computer', kind: kind ?? 'password', prompt, ref, submit }), text),
+  );
+  server.registerTool(
+    'browser_push_session',
+    {
+      description:
+        "Copies sign-in cookies from the user's local OpenDuet browser into this cloud computer's browser. Use when a session already exists on the Mac/PC and work should continue here.",
+    },
+    () => guard(() => pushSessionToComputer(), text),
+  );
   return server;
 }
 

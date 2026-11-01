@@ -101,8 +101,6 @@ export const PL_COMPUTER: Record<string, string> = {
     'Jeśli kopiowanie się nie uda, najpierw zamknij przeglądarkę. Użyj tego też po zalogowaniu się w nowym miejscu.',
   Commands: 'Polecenia',
   'Let Duet propose shell commands': 'Pozwól Duetowi proponować polecenia powłoki',
-  'Every command is shown to you in full first, and only the exact commands you approve can run. Commands can only be approved on this computer, never from a paired phone.':
-    'Każde polecenie najpierw zobaczysz w całości i uruchomić można tylko dokładnie te polecenia, które zatwierdzisz. Polecenia można zatwierdzać tylko na tym komputerze, nigdy ze sparowanego telefonu.',
   'With the Mac connected, text in a file, web page or email could try to steer Duet. Duet treats it as data and asks before it acts or sends anything, so read each proposal before you approve it.':
     'Gdy Mac jest podłączony, tekst w pliku, na stronie lub w e-mailu może próbować sterować Duetem. Duet traktuje go jako dane i pyta, zanim cokolwiek zrobi lub wyśle, więc czytaj każdą propozycję, zanim ją zatwierdzisz.',
   'With the PC connected, text in a file, web page or email could try to steer Duet. Duet treats it as data and asks before it acts or sends anything, so read each proposal before you approve it.':
@@ -114,5 +112,35 @@ export const PL_COMPUTER: Record<string, string> = {
   'Click the password field in the picture, then type here': 'Kliknij pole hasła na obrazku, potem wpisz je tutaj',
   'Password (sent only to the page, never to chat)': 'Hasło (tylko na stronę, nigdy do czatu)',
   'Fill password': 'Wypełnij hasło',
-  'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę, bez pytania o zgodę. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter klawiszem poniżej. Hasło nigdy nie trafia do rozmowy z Duetem (nadal przechodzi przez OpenDuet do przeglądarki w chmurze).'
+  'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę, bez pytania o zgodę. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter klawiszem poniżej. Hasło nigdy nie trafia do rozmowy z Duetem (nadal przechodzi przez OpenDuet do przeglądarki w chmurze).',
+
+  'Duet needs your input': 'Duet potrzebuje Twojego wpisu',
+  'Password': 'Hasło',
+  'One-time code': 'Kod jednorazowy',
+  'Your answer': 'Twoja odpowiedź',
+  'This goes into Duet\'s cloud browser, not into the chat.': 'To trafia do przeglądarki w chmurze Dueta, nie do czatu.',
+  'This goes into the browser on this computer, not into the chat.': 'To trafia do przeglądarki na tym komputerze, nie do czatu.',
+  'Fill and continue': 'Wypełnij i kontynuuj',
+  'Sending…': 'Wysyłanie…',
+  'Cancel': 'Anuluj',
+  'Copy sign-ins to Duet\'s computer': 'Skopiuj logowania na komputer Dueta',
+  'Copying…': 'Kopiowanie…',
+  'Sign-ins copied to the cloud browser.': 'Logowania skopiowane do przeglądarki w chmurze.',
+
+  'Moves the OpenDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.': 'Przenosi sesję przeglądarki OpenDuet z tego Maca/PC do przeglądarki w chmurze, żeby Duet pozostał tam zalogowany.',
+
+  'Waiting for your input': 'Czeka na Twój wpis',
+
+  'Live view of Duet\'s cloud browser. Click the page if you need to focus a field; your answer below is typed into it and never enters the chat.': 'Podgląd na żywo przeglądarki Dueta w chmurze. Kliknij stronę, jeśli trzeba ustawić pole; odpowiedź poniżej trafia tam i nigdy do czatu.',
+
+  'Live view of the browser on this computer. Your answer below is typed into the field and never enters the chat.': 'Podgląd na żywo przeglądarki na tym komputerze. Odpowiedź poniżej trafia do pola i nigdy do czatu.',
+
+  'The browser on this computer: {page}': 'Przeglądarka na tym komputerze: {page}',
+
+  'Live view of the browser on this computer (Mac, Windows or Linux). Click any site\'s fields, then enter your answer below — it never goes into the chat.': 'Podgląd na żywo przeglądarki na tym komputerze (Mac, Windows lub Linux). Kliknij pola dowolnej strony, a poniżej wpisz odpowiedź — nigdy nie trafia do czatu.',
+
+  'You are in control here: clicks and typing go straight to the page on this computer without asking. Works for any site. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet.': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę na tym komputerze, bez pytania. Działa na każdej stronie. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter poniżej. Nigdy nie trafia do czatu z Duetem.',
+
+
+  'Every command is shown to you in full first, and only the exact commands you approve can run. From a paired phone this needs “Use fully from phone” under Settings → Phone.': 'Każde polecenie jest najpierw pokazane w całości, a uruchomić można tylko dokładnie te, które zatwierdzisz. Z sparowanego telefonu wymaga to „Używaj w pełni z telefonu” w Ustawienia → Telefon.',
 };

@@ -31,6 +31,12 @@ describe('parseReply', () => {
     expect(r.priority).toBe('high');
     expect(r.followups).toEqual([{ at: Date.parse('2026-11-02T09:00'), what: 'check if Bob replied' }]);
   });
+
+  it('normalizes glued list fences and drops duplicate commands', () => {
+    const r = parseReply('Ok.\n<<ACTIONS\n- ```bash\nls a\n```\n- ```bash\nls a\n```\nACTIONS>>');
+    expect(r.actions).toBe('```bash\nls a\n```');
+  });
+
   it('keeps the last of several ACTIONS blocks and strips them all', () => {
     const r = parseReply('Plan <<ACTIONS\n- open x\nACTIONS>> then <<ACTIONS\n- open x\n- click accept\nACTIONS>> done');
     expect(r.actions).toBe('- open x\n- click accept');

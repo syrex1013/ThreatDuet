@@ -28,7 +28,7 @@ export interface Data {
   /** Low-priority findings held back for the next brief. */
   digest: { ts: number; text: string }[];
   /** Phone access: a second listener that only answers requests carrying this token. */
-  remote: { enabled: boolean; token: string | null; port: number };
+  remote: { enabled: boolean; token: string | null; port: number; phoneCommands: boolean };
   /** Connected apps. Holds credentials: the data folder is private (0700). */
   connectors: ConnectorRecord[];
   /** What Duet may reach on this Mac. Everything starts off. */
@@ -66,7 +66,7 @@ export async function openStore(): Promise<void> {
     tasks: [],
     setupDone: false,
     digest: [],
-    remote: { enabled: false, token: null, port: REMOTE_PORT },
+    remote: { enabled: false, token: null, port: REMOTE_PORT, phoneCommands: false },
     connectors: [],
     skills: [],
     mac: { files: false, everything: false, folders: [], shell: false, browser: false, browserApp: 'auto', auto: false },
@@ -88,7 +88,8 @@ export async function openStore(): Promise<void> {
   db.data.computerOptOut ??= false;
   db.data.computerAuto ??= false;
   db.data.recs ??= { at: 0, ids: [], seenAt: 0, nextAt: 0 };
-  db.data.remote ??= { enabled: false, token: null, port: REMOTE_PORT };
+  db.data.remote ??= { enabled: false, token: null, port: REMOTE_PORT, phoneCommands: false };
+  db.data.remote.phoneCommands ??= false;
   // Every save is a change the UI may need: announce it to live clients.
   const write = db.write.bind(db);
   db.write = async () => {
@@ -172,6 +173,8 @@ export function computerRules(openWebPages: boolean, auto = false): Record<strin
     computer_browser_screenshot: 'allow',
     computer_read_file: 'allow',
     computer_browser_open: openWebPages ? 'allow' : 'deny',
+    computer_browser_ask_input: 'allow',
+    computer_browser_push_session: 'allow',
     computer_browser_click: 'deny',
     computer_browser_type: 'deny',
     computer_browser_press: 'deny',
@@ -198,6 +201,8 @@ export function macRules(openWebPages: boolean, auto = false): Record<string, st
     local_browser_screenshot: 'allow',
     local_browser_scroll: 'allow',
     local_browser_reload_signins: 'allow',
+    local_browser_ask_input: 'allow',
+    local_browser_push_session: 'allow',
     local_browser_open: openWebPages ? 'allow' : 'deny',
     local_browser_click: 'deny',
     local_browser_type: 'deny',

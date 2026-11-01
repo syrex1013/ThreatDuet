@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
-import type { ComputerChoice, ComputerScreen, ComputerStatus } from '../../../src/shared/types';
-import { getComputer, getScreen, post } from '../api';
+import { useState, type FormEvent } from 'react';
+import type { ComputerChoice, ComputerStatus } from '../../../src/shared/types';
+import { getComputer, post } from '../api';
 import { t } from '../i18n';
+import { LiveBrowser } from './LiveBrowser';
 import { Sheet } from './Sheet';
 
 /** Duet's cloud computer: connect an Instabox machine, watch its browser, and take over when needed. */
@@ -150,7 +151,8 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
         </p>
       )}
 
-      {ready && <Watch asleep={s.machineState !== 'running'} />}
+      {ready && <SessionPush />}
+      {ready && <LiveBrowser wake={false} />}
 
       <section className="apps-section" aria-label={t('Auto mode')}>
         <h3>{t('Auto mode')}</h3>
@@ -184,119 +186,36 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
   );
 }
 
-/** The browser as Duet sees it, refreshed every couple of seconds. Clicking the picture clicks there. */
-function Watch({ asleep }: { asleep: boolean }) {
-  const [wake, setWake] = useState(false);
-  const [text, setText] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const img = useRef<HTMLImageElement>(null);
-  const live = !asleep || wake;
-  const shot = useQuery({
-    queryKey: ['screen', live],
-    queryFn: () => getScreen(wake),
-    enabled: live,
-    refetchInterval: 2500,
-    refetchIntervalInBackground: false,
-    retry: false,
-    staleTime: 0,
-  });
-  const qc = useQueryClient();
-  const send = useMutation({
-    mutationFn: (body: object) => post('/computer/act', body),
-    onSuccess: () => {
-      setError(null);
-      void qc.invalidateQueries({ queryKey: ['screen'] });
+
+function SessionPush() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const act = useMutation({
+    mutationFn: async () => {
+      const r = (await post('/computer/session', {})) as { message?: string };
+      return r;
     },
-    onError: (e) => setError(e.message),
+    onSuccess: (r) => {
+      setErr(null);
+      setMsg((r && r.message) || t('Sign-ins copied to the cloud browser.'));
+    },
+    onError: (e: Error) => {
+      setMsg(null);
+      setErr(e.message);
+    },
   });
-  useEffect(() => setError(shot.error ? shot.error.message : null), [shot.error]);
-
-  const d: ComputerScreen | undefined = shot.data;
-  const click = (e: MouseEvent<HTMLImageElement>) => {
-    const el = img.current;
-    if (!el || !el.naturalWidth) return;
-    const r = el.getBoundingClientRect();
-    send.mutate({ action: 'click', x: Math.round(((e.clientX - r.left) / r.width) * el.naturalWidth), y: Math.round(((e.clientY - r.top) / r.height) * el.naturalHeight) });
-  };
-
   return (
-    <section className="watch" aria-label={t('Watch the browser')}>
-      <h3>{t('Watch')}</h3>
-      {!live ? (
-        <div className="watch-asleep">
-          <p className="hint">{t('The computer is asleep. Looking at it wakes it up, and it keeps running until it has been idle for a while.')}</p>
-          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setWake(true)}>
-            {t('Wake it and look')}
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="watch-frame">
-            {d?.base64 ? (
-              <img ref={img} src={`data:${d.mime ?? 'image/jpeg'};base64,${d.base64}`} alt={t("The browser on Duet's computer: {page}", { page: d.title || d.url || t('blank page') })} onClick={click} />
-            ) : (
-              <div className="skeleton watch-skeleton" aria-label={t('Loading the screen')} />
-            )}
-          </div>
-          <p className="watch-where">{d?.title ? `${d.title} · ` : ''}{d?.url ?? ''}</p>
-          <form
-            className="watch-type"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!text) return;
-              send.mutate({ action: 'type', text, submit: true });
-              setText('');
-            }}
-          >
-            <label htmlFor="watch-text" className="sr-only">
-              {t('Type into the page')}
-            </label>
-            <input id="watch-text" value={text} placeholder={t('Click a field in the picture, then type here')} onChange={(e) => setText(e.target.value)} autoComplete="off" />
-            <button type="submit" className="btn btn-quiet btn-sm" disabled={!text}>
-              {t('Type and press Enter')}
-            </button>
-          </form>
-          <div className="watch-keys">
-            {['Tab', 'Enter', 'Escape', 'PageDown', 'Backspace'].map((k) => (
-              <button key={k} type="button" className="btn btn-text btn-sm" onClick={() => send.mutate({ action: 'press', key: k })}>
-                {k}
-              </button>
-            ))}
-          </div>
-          <form
-            className="watch-type watch-password"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!password) return;
-              // Never press Enter: the wrong field may be focused. Use the Enter key button after.
-              send.mutate({ action: 'type', text: password, submit: false });
-              setPassword('');
-            }}
-          >
-            <label htmlFor="watch-password" className="sr-only">
-              {t('Password for this page')}
-            </label>
-            <input
-              id="watch-password"
-              type="password"
-              value={password}
-              placeholder={t('Click the password field in the picture, then type here')}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-            <button type="submit" className="btn btn-quiet btn-sm" disabled={!password || send.isPending}>
-              {t('Fill password')}
-            </button>
-          </form>
-          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).')}</p>
-        </>
-      )}
-      {error && (
+    <div className="session-push">
+      <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => act.mutate()}>
+        {act.isPending ? t('Copying…') : t("Copy sign-ins to Duet's computer")}
+      </button>
+      <p className="hint">{t('Moves the OpenDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.')}</p>
+      {msg && <p className="hint">{msg}</p>}
+      {err && (
         <p className="is-error" role="alert">
-          {error}
+          {err}
         </p>
       )}
-    </section>
+    </div>
   );
 }

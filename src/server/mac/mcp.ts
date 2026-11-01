@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { checkBrowseUrl, fail, guard, text, untrusted } from '../computer/mcp.js';
 import { db } from '../store.js';
 import { browse } from './browser.js';
+import { askAndFill, pushSessionToComputer } from '../browser-session.js';
 import { listFolder, readText, searchFiles, writeText } from './files.js';
 import { OS_NAME, OS_PANEL } from './os.js';
 import { runShell } from './shell.js';
@@ -17,7 +18,7 @@ export function buildMacServer(): McpServer {
   const server = new McpServer({ name: 'local', version: '1.0.0' });
 
   server.registerTool('files_list', { description: `Lists a folder on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
-  server.registerTool('files_read', { description: `Reads a text file on the user's ${OS_NAME} (only where the user allowed).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
+  server.registerTool('files_read', { description: `Reads a text file or PDF on the user's ${OS_NAME} (only where the user allowed). Prefer this for PDFs instead of installing Python libraries.`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
     guard(() => readText(path), (c) => text(untrusted(`File ${path}`, c))),
   );
   server.registerTool(
@@ -98,6 +99,30 @@ export function buildMacServer(): McpServer {
     'browser_scroll',
     { description: "Scrolls the current page in the user's own browser. Positive pixels scrolls down, negative scrolls up. Use to reveal more content.", inputSchema: { pixels: z.number().int().min(-5000).max(5000).optional() } },
     ({ pixels }) => web(() => browse('scroll', { pixels }), (r) => text(`Scrolled. Still at ${r.url}. Call browser_read to see newly visible content.`)),
+  );
+
+  server.registerTool(
+    'browser_ask_input',
+    {
+      description:
+        "Asks the user for a password, one-time code or short text in a secure on-screen prompt (never in chat), then types it into a field by its number from browser_read. Use when a site needs a sign-in the user must enter. The value never reaches the model.",
+      inputSchema: {
+        ref: z.number().int().min(1).max(500),
+        kind: z.enum(['password', 'text', 'otp']).default('password'),
+        prompt: z.string().min(1).max(200),
+        submit: z.boolean().optional(),
+      },
+    },
+    ({ ref, kind, prompt, submit }) =>
+      web(() => askAndFill({ target: 'local', kind: kind ?? 'password', prompt, ref, submit }), text),
+  );
+  server.registerTool(
+    'browser_push_session',
+    {
+      description:
+        "Copies the current sign-in cookies from this computer's OpenDuet browser into Duet's cloud computer browser, so the cloud browser can use the same sessions. Call when work should continue on the Instabox machine.",
+    },
+    () => web(() => pushSessionToComputer(), text),
   );
   return server;
 }

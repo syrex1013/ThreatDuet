@@ -75,6 +75,27 @@ describe('what Duet may do on its own with the Mac tools', () => {
 });
 
 describe('files', () => {
+  it('reads text out of a PDF', async () => {
+    await settings.setMac({ files: true });
+    expect(await settings.addFolder(docs)).toEqual({ ok: true });
+    // Minimal one-page PDF with the literal string "Invoice 42 for Acme".
+    const pdf = Buffer.from(
+      '%PDF-1.1\n' +
+        '1 0 obj<< /Type /Catalog /Pages 2 0 R >>endobj\n' +
+        '2 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1 >>endobj\n' +
+        '3 0 obj<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R /Resources<< /Font<< /F1 5 0 R >> >> >>endobj\n' +
+        '4 0 obj<< /Length 68 >>stream\nBT /F1 24 Tf 20 100 Td (Invoice 42 for Acme) Tj ET\nendstream\nendobj\n' +
+        '5 0 obj<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>endobj\n' +
+        'xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000266 00000 n \n0000000385 00000 n \n' +
+        'trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n462\n%%EOF\n',
+    );
+    const pdfPath = path.join(docs, 'invoice.pdf');
+    await fs.writeFile(pdfPath, pdf);
+    expect(await files.readText(pdfPath)).toMatch(/Invoice 42 for Acme/);
+    await settings.removeFolder(docs);
+    await settings.setMac({ files: false });
+  });
+
   it('stays inside the added folders, follows links, and keeps credentials out', async () => {
     await expect(files.listFolder(docs)).rejects.toThrow(/turned off/);
     await settings.setMac({ files: true });
@@ -181,6 +202,8 @@ describe('commands', () => {
     expect(shell.commandsIn('```bash\nls -la\n```')).toContain('ls -la');
     // A block nested under a list item renders as code too, so it counts.
     expect(shell.commandsIn('- Close it:\n    ```bash\n    echo one\n    echo two\n    ```')).toEqual(['echo one\necho two', 'echo one', 'echo two']);
+    expect(shell.commandsIn('- ```bash\necho one\n```')).toEqual(['echo one', 'echo one']);
+    expect(shell.normalizeActions('- ```bash\nls a\n```\n- ```bash\nls a\n```')).toBe('```bash\nls a\n```');
     expect(shell.commandsIn('- Close it: ```bash\necho one\n```')).toEqual([]);
     // Smart quotes or a fence around the command still find the approved text, which is what runs.
     shell.allowCommands("```\necho 'quoted  text'\n```");
@@ -190,12 +213,15 @@ describe('commands', () => {
     shell.clearCommands();
   });
 
-  it('a paired phone cannot approve a proposal that runs commands', async () => {
+  it('a paired phone cannot approve command proposals unless phone commands are on', async () => {
     const id = '11111111-1111-4111-8111-111111111111';
     store.db.data.messages.push({ id, ts: Date.now(), role: 'duet', kind: 'chat', text: 'x', proposal: { actions: '```\nls ~\n```', status: 'pending' } } as never);
-    expect(await duet.approve(id, true)).toEqual({ error: expect.stringContaining('only be approved on this computer'), status: 403 });
+    store.db.data.remote.phoneCommands = false;
+    expect(await duet.approve(id, true)).toEqual({ error: expect.stringContaining('Use fully from phone'), status: 403 });
     expect(store.db.data.messages.find((m) => m.id === id)?.proposal?.status).toBe('pending');
-    await duet.reject(id);
+    store.db.data.remote.phoneCommands = true;
+    expect(await duet.approve(id, true)).toEqual({ ok: true });
+    expect(store.db.data.messages.find((m) => m.id === id)?.proposal?.status).toBe('approved');
   });
 });
 

@@ -1,0 +1,60 @@
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+import { browser, screen } from './computer/machine.js';
+import { browse as localBrowse } from './mac/browser.js';
+import { db } from './store.js';
+import { tr } from './i18n.js';
+
+const json = <T extends z.ZodType>(schema: T) =>
+  zValidator('json', schema, (r, c) => {
+    if (!r.success) return c.json({ error: r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400);
+  });
+
+const Act = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('click'), x: z.number().min(0).max(10000), y: z.number().min(0).max(10000) }),
+  z.object({ action: z.literal('type'), text: z.string().max(5000), submit: z.boolean().optional() }),
+  z.object({ action: z.literal('press'), key: z.string().max(40) }),
+  z.object({ action: z.literal('open'), url: z.string().max(2000) }),
+]);
+
+/**
+ * Live browser watch/control. Mounted on the local app and on the phone listener so a paired
+ * phone can sign into sites (with the secure input prompt) while this computer does the work.
+ */
+export const watchApi = new Hono()
+  .get('/mac/screen', async (c) => {
+    try {
+      if (!db.data.mac.browser) return c.json({ error: tr('The browser on this computer is turned off. Turn it on in the Your Mac / Your PC panel.') }, 400);
+      const r = await localBrowse('screenshot');
+      return c.json({ asleep: false, url: r.url, title: r.title, mime: r.mime, base64: r.base64 });
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  })
+  .post('/mac/act', json(Act), async (c) => {
+    if (!db.data.mac.browser) return c.json({ error: tr('The browser on this computer is turned off. Turn it on in the Your Mac / Your PC panel.') }, 400);
+    const { action, ...args } = c.req.valid('json');
+    try {
+      await localBrowse(action, args);
+      return c.json({ ok: true });
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  })
+  .get('/computer/screen', async (c) => {
+    try {
+      return c.json(await screen(c.req.query('wake') === '1'));
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  })
+  .post('/computer/act', json(Act), async (c) => {
+    const { action, ...args } = c.req.valid('json');
+    try {
+      await browser(action, args);
+      return c.json({ ok: true });
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  });

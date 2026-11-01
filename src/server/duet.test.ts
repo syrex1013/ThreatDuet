@@ -310,6 +310,14 @@ describe("Duet's own tasks", () => {
 
     expect((await duet.dismissTask(inbox.id))).toBe(true);
     expect(await duet.startTask(inbox.id)).toBe(false);
+
+    // Dismissed and done titles must not come back.
+    ask('<<SUGGEST: Clean inbox | archive newsletters again>>\n<<TASK: Prep Acme brief | do it again>>\n<<SUGGEST: Brand new idea | something else>>');
+    await duet.chat('more');
+    await duet.idle();
+    expect(store.db.data.tasks.filter((x) => x.title.toLowerCase() === 'clean inbox')).toHaveLength(1);
+    expect(store.db.data.tasks.filter((x) => x.title === 'Prep Acme brief')).toHaveLength(1);
+    expect(store.db.data.tasks.some((x) => x.title === 'Brand new idea' && x.status === 'suggested')).toBe(true);
   });
 
   it('caps how many run at once: the rest become suggestions', async () => {
@@ -334,6 +342,22 @@ describe("Duet's own tasks", () => {
     await duet.idle();
     expect(store.db.data.tasks.find((t) => t.title === 'Another')?.status).toBe('suggested');
     expect(kilo).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets the user mark a suggested task already done without running it', async () => {
+    store.db.data.tasks = [{ id: 's2', title: 'Book flights', details: 'London', status: 'suggested', createdAt: 0, startedAt: null, doneAt: null }];
+    expect(await duet.completeTask('s2')).toBe(true);
+    const task = store.db.data.tasks.find((x) => x.id === 's2');
+    expect(task).toMatchObject({ status: 'done' });
+    expect(task?.doneAt).toEqual(expect.any(Number));
+    expect(await duet.completeTask('s2')).toBe(false);
+    expect(await duet.startTask('s2')).toBe(false);
+    // Already-done titles must not come back.
+    ask('<<SUGGEST: Book flights | again>>\n<<SUGGEST: Pack bag | new>>');
+    await duet.chat('more');
+    await duet.idle();
+    expect(store.db.data.tasks.filter((x) => x.title === 'Book flights')).toHaveLength(1);
+    expect(store.db.data.tasks.some((x) => x.title === 'Pack bag' && x.status === 'suggested')).toBe(true);
   });
 
   it('runs a suggested task when the user starts it', async () => {

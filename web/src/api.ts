@@ -24,3 +24,5 @@ export const getConnectors = (refresh = false) => request<ConnectorsResponse>(`/
 export const getComputer = () => request<ComputerStatus>('/computer');
 
 export const getScreen = (wake = false) => request<ComputerScreen>(`/computer/screen${wake ? '?wake=1' : ''}`);
+
+export const getLocalScreen = () => request<ComputerScreen>('/mac/screen');

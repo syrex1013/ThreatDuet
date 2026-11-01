@@ -150,4 +150,14 @@ export const PL_THREAD: Record<string, string> = {
   'Duet has some ideas': 'Duet ma kilka pomysłów',
   "Things Duet could do for you now. Pick any to start; the rest stay under Duet's tasks.":
     'Rzeczy, które Duet może teraz dla Ciebie zrobić. Wybierz dowolne, by zacząć; reszta zostanie w Zadaniach Dueta.',
+
+  'Already done': 'Już zrobione',
+
+  'Already done: {what}': 'Już zrobione: {what}',
+
+  'Use fully from phone': 'Używaj w pełni z telefonu',
+
+  'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave OpenDuet running here. Anyone with a paired phone can act as you.': 'Zatwierdzaj polecenia na tym komputerze, oglądaj jego przeglądarkę i loguj się do stron z telefonu. OpenDuet musi tu działać. Każdy sparowany telefon może działać w Twoim imieniu.',
+
+  'This runs commands on your computer. Turn on “Use fully from phone” under Settings → Phone, or approve it on this computer.': 'To uruchamia polecenia na Twoim komputerze. Włącz „Używaj w pełni z telefonu” w Ustawienia → Telefon albo zatwierdź to na tym komputerze.',
 };

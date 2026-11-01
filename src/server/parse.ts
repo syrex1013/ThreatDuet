@@ -1,4 +1,5 @@
 import { Cron } from 'croner';
+import { normalizeActions } from '../shared/actions.js';
 import type { ToolUse } from '../shared/types.js';
 
 export interface FollowUp {
@@ -81,6 +82,7 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
     return '';
   });
   if (!actions || /^none\.?$/i.test(actions)) actions = null;
+  else actions = normalizeActions(actions);
   return { text: text.trim(), actions, remember, continue: cont, followups, priority, routines, tasks };
 }
 
