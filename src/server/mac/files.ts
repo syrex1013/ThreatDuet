@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import { OS_PANEL } from './os.js';
 import os from 'node:os';
 import path from 'node:path';
-import { DATA_DIR } from '../config.js';
-import { db } from '../store.js';
+import { DATA_DIR, WORKSPACE } from '../config.js';
+import { db, PROTECTED } from '../store.js';
 
 const HOME = () => os.homedir();
 
@@ -12,6 +12,7 @@ const sensitive = (): string[] => {
   const h = HOME();
   return [
     DATA_DIR, // OpenDuet's own keys, app credentials and the copied browser profile
+    ...PROTECTED.map((f) => path.join(WORKSPACE, f)), // Duet's own permission file and instructions: never rewritten through this door
     ...['.ssh', '.gnupg', '.aws', '.kube', '.azure', '.config/gcloud', '.config/gh', '.docker', '.claude', '.claude.json', '.codex', '.netrc', '.npmrc', '.git-credentials', '.config/kilo', '.local/share/kilo', '.config/opencode', '.local/share/opencode'].map((p) => path.join(h, p)),
     ...(process.platform === 'win32' ? ['C:\\Windows\\System32\\config'] : ['/Library/Keychains', '/private/var/db', '/private/var/root', '/private/etc/sudoers', '/private/etc/master.passwd']),
     ...(process.platform === 'win32'

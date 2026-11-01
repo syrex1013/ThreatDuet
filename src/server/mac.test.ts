@@ -123,6 +123,7 @@ describe('everything', () => {
     expect(await files.readText(path.join(home, 'outside.txt'))).toBe('secret');
     expect(await files.listFolder(os.homedir())).toContain('dir');
     await expect(files.readText(path.join(home, 'data', 'state.json'))).rejects.toThrow(/passwords or keys/);
+    await expect(files.writeText(path.join(home, 'workspace', 'kilo.json'), '{}')).rejects.toThrow(/passwords or keys/);
     await expect(files.listFolder(path.join(os.homedir(), '.ssh'))).rejects.toThrow(/passwords or keys|does not exist/);
     expect(await files.searchFiles('quarterly', docs)).toContain('plan.md');
     expect((await settings.macStatus()).everything).toBe(true);
