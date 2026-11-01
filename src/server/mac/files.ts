@@ -12,7 +12,6 @@ const sensitive = (): string[] => {
   const h = HOME();
   return [
     DATA_DIR, // OpenDuet's own keys, app credentials and the copied browser profile
-    ...PROTECTED.map((f) => path.join(WORKSPACE, f)), // Duet's own permission file and instructions: never rewritten through this door
     ...['.ssh', '.gnupg', '.aws', '.kube', '.azure', '.config/gcloud', '.config/gh', '.docker', '.claude', '.claude.json', '.codex', '.netrc', '.npmrc', '.git-credentials', '.config/kilo', '.local/share/kilo', '.config/opencode', '.local/share/opencode'].map((p) => path.join(h, p)),
     ...(process.platform === 'win32' ? ['C:\\Windows\\System32\\config'] : ['/Library/Keychains', '/private/var/db', '/private/var/root', '/private/etc/sudoers', '/private/etc/master.passwd']),
     ...(process.platform === 'win32'
@@ -52,6 +51,9 @@ export async function resolveAllowed(raw: string, { forWrite = false } = {}): Pr
   }
   const blocked = await Promise.all(sensitive().map(async (s) => (await real(s)) ?? s));
   if (blocked.some((s) => inside(resolved!, s))) throw new Error('That location holds passwords or keys, so Duet may not open it.');
+  // Same rule as the workspace edit permissions: a protected name at any depth inside the workspace.
+  const ws = (await real(WORKSPACE)) ?? WORKSPACE;
+  if (inside(resolved, ws) && path.relative(ws, resolved).split(path.sep).some((part) => PROTECTED.includes(part))) throw new Error('That is one of Duet\'s own configuration files, so Duet may not open it.');
   if (!existing && !forWrite) throw new Error(`${raw} does not exist.`);
   return resolved;
 }
