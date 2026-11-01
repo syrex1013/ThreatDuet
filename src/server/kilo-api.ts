@@ -181,6 +181,9 @@ export async function runKiloApi(run: KiloRun, describe: (tool: string, input: R
   const slash = run.model.indexOf('/');
   const model = { providerID: run.model.slice(0, slash), modelID: run.model.slice(slash + 1) };
   const ctl = new AbortController();
+  const abort = () => ctl.abort();
+  run.signal?.addEventListener('abort', abort, { once: true });
+  if (run.signal?.aborted) ctl.abort();
   const timer = setTimeout(() => ctl.abort(), RUN_TIMEOUT_MS);
   let sessionID = '';
   try {
@@ -206,6 +209,7 @@ export async function runKiloApi(run: KiloRun, describe: (tool: string, input: R
     return { sessionID: sessionID || null, text: '', finalText: '', tools: [], errors: [msg] };
   } finally {
     clearTimeout(timer);
+    run.signal?.removeEventListener('abort', abort);
     ctl.abort();
   }
 }

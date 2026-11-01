@@ -1,0 +1,17 @@
+.work-tabs, .work-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.work-tabs [aria-pressed="true"] { outline: 2px solid currentColor; }
+.work-field { display: grid; gap: .4rem; margin-block: .8rem; font-size: .9rem; }
+.work-field input, .work-field textarea, .work-field select { width: 100%; box-sizing: border-box; border: 1px solid #8886; border-radius: 4px; padding: .6rem; font: inherit; color: inherit; background: transparent; }
+.work-field textarea { resize: vertical; }
+.work-form { margin-block: 1.25rem; padding-block: .5rem; border-block: 1px solid #8884; }
+.work-card { padding-block: 1rem; border-bottom: 1px solid #8884; overflow-wrap: anywhere; }
+.work-card p { white-space: pre-wrap; }
+.work-card h3 { margin-block: .25rem; }
+.work-card pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; }
+.work-check { display: flex; gap: .5rem; padding-block: .4rem; }
+.project-strip { margin: .5rem 1rem; padding: .8rem; border: 1px solid #8884; border-radius: 4px; }
+.project-strip p { margin-block: .3rem; }
+.revision-diff { max-height: 24rem; overflow: auto; white-space: pre-wrap; }
+.upload-zone { padding: 1rem; border: 1px dashed #8888; margin-block: 1rem; }
+
+.stream-draft { white-space: pre-wrap; margin: 1rem; opacity: .7; }

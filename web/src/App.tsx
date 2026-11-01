@@ -11,6 +11,7 @@ import { deviceName, MacSheet } from './components/MacSheet';
 import { Channels } from './components/Channels';
 import { Composer } from './components/Composer';
 import { FileViewer } from './components/FileViewer';
+import { WorkSpace } from './components/WorkSpace';
 import { Make } from './components/Make';
 import { PairScreen } from './components/PairScreen';
 import { Recommendations } from './components/Recommendations';
@@ -96,7 +97,7 @@ function useCompact() {
   return compact;
 }
 
-type Sheet = { kind: 'settings' } | { kind: 'file'; path: string } | { kind: 'panel' } | { kind: 'apps' } | { kind: 'computer' } | { kind: 'mac' } | { kind: 'make' };
+type Sheet = { kind: 'work' } | { kind: 'settings' } | { kind: 'file'; path: string } | { kind: 'panel' } | { kind: 'apps' } | { kind: 'computer' } | { kind: 'mac' } | { kind: 'make' };
 
 function Workspace({ onUnpair }: { onUnpair: () => void }) {
   const qc = useQueryClient();
@@ -211,6 +212,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
               <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'report' })}>
                 {t('Write report')}
               </button>
+              <button type="button" className="btn btn-quiet btn-sm" onClick={() => setSheet({ kind: 'work' })}>{t('Work')}</button>
               <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'make' })} aria-label={t('Made by Duet')} title={t('Made by Duet')}>
                 <FolderOpen size={20} aria-hidden="true" />
               </button>
@@ -283,10 +285,12 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
               }
               onDelete={(id) => run('/channels/delete', { id })}
             />
+            {data.projects?.filter((p) => p.channel === channel).map((project) => <section key={project.id} className="project-strip"><strong>{project.name} · {t(project.status)}</strong><p>{project.objective}</p><p className="muted">{project.criteria}</p><button className="btn btn-quiet btn-sm" onClick={() => setSheet({ kind: 'work' })}>{t('Manage project')}</button></section>)}
             <Timeline
               messages={shown!}
               busy={data.busy}
               busyDetail={data.busyDetail}
+              busyText={data.busyText}
               briefAt={data.settings.briefAt}
               acting={acting}
               onApprove={(id) => decide('/approve', id)}
@@ -303,6 +307,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
         <SettingsSheet state={data} fromCache={fromCache} onClose={() => setSheet(null)} onSave={(path, body) => run(path, path === '/new-thread' ? { channel } : body)} onSaveSettings={(body) => act.mutateAsync(['/settings', body])} onUnpair={onUnpair} onOpenApps={() => setSheet({ kind: 'apps' })} />
       )}
       {sheet?.kind === 'file' && <FileViewer path={sheet.path} onClose={() => setSheet(null)} onAsk={(text) => send.mutate(text)} />}
+      {sheet?.kind === 'work' && data && <WorkSpace state={data} channel={channel} onSelect={setChannel} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'make' && <Make onOpen={(path) => setSheet({ kind: 'file', path })} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'computer' && <ComputerSheet onClose={() => setSheet(null)} />}
       {sheet?.kind === 'mac' && <MacSheet onClose={() => setSheet(null)} />}

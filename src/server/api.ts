@@ -3,11 +3,13 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { zValidator } from '@hono/zod-validator';
+import { json } from './validation.js';
+import { workApi } from './work-api.js';
+export { json } from './validation.js';
 import { z } from 'zod';
 import type { StateResponse } from '../shared/types.js';
 import { WORKSPACE } from './config.js';
-import { approve, cancelFollowup, chat, completeTask, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, openRecs, reject, routines, setRoutine, startTask } from './duet.js';
+import { approve, cancelFollowup, chat, completeTask, currentDraft, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, openRecs, reject, routines, setRoutine, startTask } from './duet.js';
 import { cancelInput, openInput, respondInput } from './input.js';
 import { computerBrief } from './computer/machine.js';
 import { SKIP } from './direct/tools.js';
@@ -45,24 +47,27 @@ function recent(perChannel: number) {
     .filter((m) => {
       const n = (seen.get(m.channel) ?? 0) + 1;
       seen.set(m.channel, n);
-      return n <= perChannel;
+      return n <= perChannel || ['pending', 'approved', 'waiting', 'interrupted'].includes(m.proposal?.status ?? '');
     })
     .reverse();
 }
-
-export const json = <T extends z.ZodType>(schema: T) =>
-  zValidator('json', schema, (r, c) => {
-    if (!r.success) return c.json({ error: r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400);
-  });
 
 /** Everything the UI needs. Mounted by the local app and, behind a token, by the phone listener. */
 export const api = new Hono<{ Variables: { phone?: boolean } }>()
   .get('/state', async (c) => {
     const body: StateResponse = {
+      projects: db.data.projects,
+      runs: db.data.runs.slice(-100),
+      receipts: [...db.data.receipts.filter((r) => ['running', 'uncertain'].includes(r.status)), ...db.data.receipts.filter((r) => !['running', 'uncertain'].includes(r.status)).slice(-100)],
+      watches: db.data.watches,
+      workflows: db.data.workflows,
+      provider: db.data.provider,
+      usage: db.data.usage.slice(-100),
       settings: db.data.settings,
       messages: recent(200),
       busy: currentWork(),
       busyDetail: currentDetail(),
+      busyText: currentDraft(),
       computer: computerBrief(),
       version: stateVersion(),
       followups: [...db.data.followups].sort((a, b) => a.at - b.at),
@@ -71,7 +76,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
       digestCount: db.data.digest.length,
       memory: await readMemory(),
       channels: db.data.channels.map(({ id, name }) => ({ id, name })),
-      tasks: db.data.tasks.slice(0, 40),
+      tasks: [...db.data.tasks.filter((t) => !['done', 'dismissed', 'cancelled'].includes(t.status)), ...db.data.tasks.filter((t) => ['done', 'dismissed', 'cancelled'].includes(t.status)).slice(0, 30)],
       setupDone: db.data.setupDone,
       os: OS_ID,
       recs: openRecs(),
@@ -147,6 +152,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   .post('/channels/delete', json(Id), async (c) => {
     const { id } = c.req.valid('json');
     if (!hasChannel(id)) return c.json({ error: tr('not found') }, 404);
+    if (db.data.projects.some((p) => p.channel === id)) return c.json({ error: 'Project channels keep their history. Cancel or complete the project instead.' }, 409);
     db.data.channels = db.data.channels.filter((ch) => ch.id !== id);
     for (const m of db.data.messages) if (m.channel === id) delete m.channel;
     await db.write();
@@ -191,7 +197,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
     const { name, about, skip, ...settings } = c.req.valid('json');
     Object.assign(db.data.settings, settings);
     const facts = [name && `The user's name is ${name}.`, about && `About the user and their work: ${about}`].filter(Boolean) as string[];
-    if (facts.length) await appendMemory(facts);
+    if (facts.length) await appendMemory(facts, 'setup');
     db.data.setupDone = true;
     // Duet's introduction stands in for today's brief; the first scheduled one comes tomorrow.
     if (!skip) db.data.lastBrief = new Date().toLocaleDateString('sv');
@@ -231,4 +237,5 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
     else db.data.threadSession = null;
     await post({ role: 'system', kind: 'info', text: tr('Started a fresh thread context.'), channel });
     return c.json({ ok: true });
-  });
+  })
+  .route('/', workApi);

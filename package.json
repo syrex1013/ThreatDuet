@@ -1,7 +1,7 @@
 {
   "name": "threatduet",
   "productName": "ThreatDuet",
-  "version": "0.2.12",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",
@@ -23,6 +23,7 @@
     "android:release": "bun run android:sync && cd android && ./gradlew assembleRelease",
     "release": "bash scripts/release.sh",
     "smoke:computer": "node scripts/smoke-computer.mjs",
+    "smoke:daily-work": "bun run build && vitest run --config scripts/daily-work.vitest.ts",
     "smoke:task": "tsx scripts/smoke-task.mts",
     "emulate:windows": "tsx scripts/emulate-windows.mts",
     "dist:win": "bun run build && electron-builder --win --x64"

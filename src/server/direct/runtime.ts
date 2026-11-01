@@ -1,3 +1,6 @@
+import { permittedCall, recordCall, sameCall } from '../receipts.js';
+import { db, macRules, computerRules } from '../store.js';
+import type { ExactCall } from '../../shared/types.js';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -61,14 +64,22 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
   const { id, history } = await load(run.session);
   const parts: Part[] = [];
   const errors: string[] = [];
+  const usage: import('../../shared/types.js').Usage[] = [];
+  let tokens = 0;
+  const pendingCalls: ExactCall[] = [];
   const ctl = new AbortController();
+  const abort = () => ctl.abort();
+  run.signal?.addEventListener('abort', abort, { once: true });
+  if (run.signal?.aborted) ctl.abort();
   const timer = setTimeout(() => ctl.abort(), RUN_TIMEOUT_MS);
   const policy = await policyFor(run.agent, Boolean(run.auto));
   const handle = await openTools().catch(() => ({ tools: [] as Tool[], close: async () => undefined }));
   try {
     // Only what the rules allow is offered: Duet doesn't even see the tools it may not use.
+    const readPolicy = await policyFor('duet', false);
+    const external = new Set(handle.tools.map((t) => t.name));
     const all = [...builtinTools(), ...handle.tools].filter((t, i, a) => a.findIndex((x) => x.name === t.name) === i);
-    const tools = new Map(all.filter((t) => policy.tool(t.name) === 'allow').map((t) => [t.name, t]));
+    const tools = new Map(all.filter((t) => policy.tool(t.name) === 'allow' || (external.has(t.name) && db.data.permissions.some((p) => p.tool === t.name && p.expiresAt > Date.now()))).map((t) => [t.name, t]));
     const specs: ToolSpec[] = [...tools.values()].map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } }));
 
     history.push({ role: 'user', content: run.prompt });
@@ -76,10 +87,23 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
     const failures = new Map<string, number>();
     let nudged = false;
     let stuck: string | null = null;
-    for (let step = 0; step < MAX_STEPS && !stuck; step++) {
+    for (let step = 0; step < Math.min(MAX_STEPS, db.data.provider.maxRequests) && !stuck; step++) {
+      ctl.signal.throwIfAborted();
       trim(history);
       parts.push({ type: 'step-start' });
-      const reply = await chat(run.model, [{ role: 'system', content: SYSTEM(run.agent) }, ...history], specs, ctl.signal);
+      if (db.data.provider.maxTokens && tokens >= db.data.provider.maxTokens) { errors.push('Token budget reached.'); break; }
+      const used: import('../../shared/types.js').Usage = { at: Date.now(), model: run.model, requests: 1, promptTokens: null, completionTokens: null };
+      usage.push(used);
+      db.data.usage.push(used);
+      await db.write();
+      const reply = await chat(run.model, [{ role: 'system', content: SYSTEM(run.agent) }, ...history], specs, ctl.signal, db.data.provider.maxTokens ? db.data.provider.maxTokens - tokens : undefined, run.onText);
+      used.promptTokens = reply.usage?.prompt_tokens ?? null;
+      used.completionTokens = reply.usage?.completion_tokens ?? null;
+      tokens += (used.promptTokens ?? 0) + (used.completionTokens ?? 0);
+      await db.write();
+      if (db.data.provider.maxTokens && (used.promptTokens === null || used.completionTokens === null)) {
+        errors.push('Provider did not report usage; token budget cannot be enforced.'); break;
+      }
       history.push({ role: 'assistant', content: reply.content, ...(reply.tool_calls ? { tool_calls: reply.tool_calls } : {}), ...(reply.reasoning_details ? { reasoning_details: reply.reasoning_details } : {}) });
       if (reply.content?.trim()) {
         parts.push({ type: 'text', text: reply.content });
@@ -107,14 +131,24 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         let status = 'completed';
         try {
           const tool = tools.get(name);
-          if (!tool || policy.tool(name) !== 'allow') throw new Error(`${name} is not available to you.`);
+          if (!tool || (policy.tool(name) !== 'allow' && !permittedCall({ tool: name, arguments: args }))) throw new Error(`${name} is not available to you.`);
           if (bad) throw new Error(bad);
           const required = (tool.schema as { required?: unknown }).required;
           const missing = Array.isArray(required) ? required.filter((k) => args[k] === undefined) : [];
           if (missing.length) throw new Error(`Missing required argument(s): ${missing.join(', ')}`);
           // File-changing tools are also judged by path, so config and instruction files stay untouchable.
           if (name === 'write' || name === 'edit') if (policy.edit(await relPath(String(args.path))) !== 'allow') throw new Error('That file is protected.');
-          out = (await tool.call(args)).slice(0, MAX_TOOL_CHARS);
+          ctl.signal.throwIfAborted();
+          const exact = { tool: name, arguments: args };
+          const effect = name.startsWith('local_') ? macRules(false)[name] !== 'allow' : name.startsWith('computer_') ? computerRules(false)[name] !== 'allow' : readPolicy.tool(name) !== 'allow';
+          if (external.has(name) && effect) {
+            if (readPolicy.tool(name) !== 'allow' && !permittedCall(exact) && !run.approvedCalls?.some((approved) => sameCall(approved, exact))) {
+              pendingCalls.push(exact);
+              out = 'Approval required for these exact arguments. No action was executed.';
+            } else out = await recordCall(exact, () => tool.call(args), run.taskId, run.proposalId);
+          } else out = await tool.call(args);
+          if (db.data.receipts.some((r) => r.status === 'uncertain' && r.tool === name && JSON.stringify(r.arguments) === JSON.stringify(args))) stuck = name;
+          out = out.slice(0, MAX_TOOL_CHARS);
         } catch (e) {
           status = 'error';
           out = e instanceof Error ? e.message : String(e);
@@ -127,17 +161,21 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         parts.push({ type: 'tool', tool: name, state: { status, input: args, title: name === 'write' || name === 'edit' ? String(args.path ?? '') : describe(name, args) } });
         history.push({ role: 'tool', tool_call_id: call.id, content: out });
       }
+      if (pendingCalls.length) break;
       if (stuck) errors.push(tr('Stopped: {tool} kept failing the same way.', { tool: stuck }));
-      else if (step === MAX_STEPS - 1) errors.push(tr('Stopped after {n} steps.', { n: MAX_STEPS }));
+      else if (step === Math.min(MAX_STEPS, db.data.provider.maxRequests) - 1) errors.push(tr('Stopped after {n} steps.', { n: Math.min(MAX_STEPS, db.data.provider.maxRequests) }));
     }
   } catch (e) {
     errors.push(ctl.signal.aborted ? 'kilo timed out' : e instanceof Error ? e.message : String(e));
   } finally {
+    run.signal?.removeEventListener('abort', abort);
     clearTimeout(timer);
     await handle.close();
     await save(id, history).catch(() => undefined);
   }
   const result = parseKiloEvents(asEvents(id, parts, null));
+  result.usage = usage;
+  result.pendingCalls = pendingCalls;
   result.sessionID = id;
   result.errors.push(...errors);
   return result;

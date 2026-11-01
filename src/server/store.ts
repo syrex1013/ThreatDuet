@@ -3,14 +3,27 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execa } from 'execa';
 import { JSONFilePreset } from 'lowdb/node';
+import { guard } from './policy.js';
 import { stateChanged } from './events.js';
 import type { Low } from 'lowdb';
-import type { BrowserId, FollowUpItem, Message, RoutineItem, Settings, TaskItem } from '../shared/types.js';
+import type { ArtifactRevision, Knowledge, PermissionRule, Project, ProviderSettings, Receipt, TaskRun, Usage, Watch, Workflow, BrowserId, FollowUpItem, Message, RoutineItem, Settings, TaskItem } from '../shared/types.js';
 import type { ConnectorRecord } from './connectors.js';
 import type { SkillRecord } from './skills.js';
 import { DATA_DIR, DEFAULT_SETTINGS, MEMORY_FILE, REMOTE_PORT, STATE_FILE, WORKSPACE } from './config.js';
 
 export interface Data {
+  knowledgeMigrated: boolean;
+  knowledgeVersion: number;
+  projects: Project[];
+  runs: TaskRun[];
+  knowledge: Knowledge[];
+  permissions: PermissionRule[];
+  receipts: Receipt[];
+  watches: Watch[];
+  workflows: Workflow[];
+  revisions: ArtifactRevision[];
+  provider: ProviderSettings;
+  usage: Usage[];
   settings: Settings;
   messages: Message[];
   threadSession: string | null;
@@ -45,7 +58,13 @@ export interface Data {
   recs: { at: number; ids: string[]; seenAt: number; nextAt: number };
 }
 
-const MAX_MESSAGES = 500;
+const initialWorkflows = (): Workflow[] => [
+  { name: 'Meeting preparation', instructions: 'Read the meeting agenda and relevant connected correspondence. Research open questions. Save a sourced meeting brief with attendees, decisions needed and an agenda. Ask before contacting anyone.', criteria: 'Saved meeting brief reviewed by the user.' },
+  { name: 'Client follow-up', instructions: 'Read the client thread and commitments. Identify the next action and draft a complete response in a workspace file. Ask for fresh approval before sending or changing any external record.', criteria: 'Draft response and its source references reviewed by the user.' },
+  { name: 'Weekly project review', instructions: 'Review this project objective, milestones, tasks, decisions and execution receipts. Save a weekly summary of progress, blockers and next steps. Propose external actions separately.', criteria: 'Saved weekly project review checked against current project records.' },
+].map((workflow) => ({ ...workflow, id: randomUUID(), connections: [], createdAt: Date.now() }));
+
+// History remains searchable; /state returns only the newest messages per channel.
 export let db: Low<Data>;
 
 export async function openStore(): Promise<void> {
@@ -54,6 +73,9 @@ export async function openStore(): Promise<void> {
   await fs.chmod(DATA_DIR, 0o700);
   await fs.mkdir(WORKSPACE, { recursive: true });
   db = await JSONFilePreset<Data>(STATE_FILE, {
+    knowledgeMigrated: false, knowledgeVersion: 0,
+    projects: [], runs: [], knowledge: [], permissions: [], receipts: [], watches: [], workflows: initialWorkflows(), revisions: [], usage: [],
+    provider: { baseUrl: '', keyEnv: 'OPENAI_API_KEY', chatModel: '', taskModel: '', maxRequests: 40, maxTokens: 0 },
     settings: DEFAULT_SETTINGS,
     messages: [],
     threadSession: null,
@@ -75,6 +97,17 @@ export async function openStore(): Promise<void> {
     computerAuto: false,
     recs: { at: 0, ids: [], seenAt: 0, nextAt: 0 },
   });
+  db.data.knowledgeVersion ??= 0;
+  db.data.projects ??= [];
+  db.data.runs ??= [];
+  db.data.knowledge ??= [];
+  db.data.permissions ??= [];
+  db.data.receipts ??= [];
+  db.data.watches ??= [];
+  db.data.workflows ??= initialWorkflows();
+  db.data.revisions ??= [];
+  db.data.usage ??= [];
+  db.data.provider ??= { baseUrl: '', keyEnv: 'OPENAI_API_KEY', chatModel: '', taskModel: '', maxRequests: 40, maxTokens: 0 };
   db.data.connectors ??= [];
   // 'local' now names Duet's tools on the user's own computer; an app that had that id would clash with them.
   for (const c of db.data.connectors) if (c.id === 'local') c.id = 'local-app';
@@ -101,14 +134,27 @@ export async function openStore(): Promise<void> {
   db.data.tasks ??= [];
   // Someone who already used ThreatDuet before setup existed doesn't need it.
   db.data.setupDone ??= db.data.messages.length > 0;
-  // Cut off by a restart: start it again (its work stays inside the workspace).
-  for (const t of db.data.tasks) if (t.status === 'running') t.status = 'queued';
+  // A crash can leave external effects uncertain. Resume only after explicit review.
+  for (const t of db.data.tasks) if (t.status === 'running' || (t.status === 'queued' && t.startedAt)) {
+    t.status = 'interrupted';
+    t.reason = 'Restart interrupted this run. Review results before resuming.';
+  }
+  for (const r of db.data.runs) if (!r.endedAt) { r.status = 'interrupted'; r.endedAt = Date.now(); }
+  for (const r of db.data.receipts) if (r.status === 'running') { r.status = 'uncertain'; r.endedAt = Date.now(); }
+
   db.data.digest ??= [];
   db.data.settings = { ...DEFAULT_SETTINGS, ...db.data.settings };
   // A task cut off by a restart may be half done: never re-run it silently.
   for (const m of db.data.messages) if (m.proposal?.status === 'approved') m.proposal.status = 'interrupted';
   await db.write();
   await fs.writeFile(MEMORY_FILE, '# What Duet remembers about you\n', { flag: 'wx' }).catch(() => {});
+  if (!db.data.knowledgeMigrated) {
+    const legacy = await readMemory();
+    const facts = legacy.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
+    if (facts.length) await appendMemory(facts.map((line) => line.replace(/^- /, '')), 'legacy memory');
+    db.data.knowledgeMigrated = true;
+    await db.write();
+  }
   // Kilo's "external" boundary is the git worktree root. Without its own repo, workspace/ would
   // inherit an enclosing repo's root and data/ would count as inside the sandbox.
   await execa('git', ['init', '-q'], { cwd: WORKSPACE });
@@ -122,19 +168,34 @@ export async function post(msg: Omit<Message, 'id' | 'ts'>): Promise<Message> {
   // A channel closed while Duet was still working: its history went to main, so does this.
   if (m.channel && !db.data.channels.some((c) => c.id === m.channel)) delete m.channel;
   db.data.messages.push(m);
-  // Per channel, so a busy main thread never evicts a quiet channel's history.
-  const same = db.data.messages.filter((x) => x.channel === m.channel);
-  if (same.length > MAX_MESSAGES) {
-    const drop = new Set(same.slice(0, same.length - MAX_MESSAGES));
-    db.data.messages = db.data.messages.filter((x) => !drop.has(x));
-  }
   await db.write();
   return m;
 }
 
+export function invalidateKnowledge(): void {
+  db.data.knowledgeVersion++;
+  db.data.threadSession = null;
+  for (const channel of db.data.channels) channel.session = null;
+  for (const task of db.data.tasks) task.session = null;
+}
+
 export const readMemory = () => fs.readFile(MEMORY_FILE, 'utf8');
-export const writeMemory = (text: string) => fs.writeFile(MEMORY_FILE, text);
-export const appendMemory = (facts: string[]) => fs.appendFile(MEMORY_FILE, facts.map((f) => `- ${f}\n`).join(''));
+export async function writeMemory(text: string): Promise<void> {
+  await fs.writeFile(MEMORY_FILE, text);
+  db.data.knowledge = [];
+  invalidateKnowledge();
+  await appendMemory(text.split('\n').filter((line) => line.trim() && !line.startsWith('#')).map((line) => line.replace(/^- /, '')), 'user');
+}
+
+export async function appendMemory(facts: string[], source = 'conversation', scope = 'personal'): Promise<void> {
+  for (const text of facts) {
+    if (guard(text)?.startsWith('contains')) continue;
+    if (db.data.knowledge.some((k) => k.text === text && k.scope === scope)) continue;
+    db.data.knowledge.push({ id: randomUUID(), text, kind: source === 'setup' ? 'fact' : 'claim', source, scope, pinned: source === 'setup', createdAt: Date.now(), updatedAt: Date.now() });
+  }
+  await fs.writeFile(MEMORY_FILE, '# What Duet remembers about you\n' + db.data.knowledge.map((k) => `- ${k.text}\n`).join(''));
+  await db.write();
+}
 
 // MCP tools are named `<app>_<tool>`. Autonomous work gets only an app's tools whose name starts
 // a word with a read verb (get_issue, notion-search, getJiraIssue, GMAIL_FETCH_EMAILS), and never

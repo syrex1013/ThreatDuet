@@ -19,7 +19,7 @@ interface PanelProps {
   onDismissTask: (id: string) => void;
 }
 
-const OPEN_ORDER: Partial<Record<TaskStatus, number>> = { running: 0, queued: 1, suggested: 2 };
+const OPEN_ORDER: Partial<Record<TaskStatus, number>> = { running: 0, waiting: 1, verification: 2, interrupted: 3, paused: 4, queued: 5, suggested: 6 };
 
 /** Done or failed, today as a time, earlier as a day. */
 function finishedAt(ts: number): string {
@@ -35,7 +35,7 @@ export function TaskList({ tasks, onStart, onComplete, onDismiss }: { tasks: Tas
     .sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0))
     .slice(0, 3);
   if (!open.length && !finished.length) return <p className="tasks-empty">{t('Duet will come up with tasks as it learns about your work.')}</p>;
-  const label: Partial<Record<TaskStatus, string>> = { running: t('Working on it'), queued: t('Up next'), suggested: t('Suggested') };
+  const label: Partial<Record<TaskStatus, string>> = { running: t('Working on it'), queued: t('Up next'), suggested: t('Suggested'), waiting: t('Waiting'), verification: t('Verify outcome'), interrupted: t('Interrupted'), paused: t('Paused') };
   return (
     <ul className="upcoming tasks">
       {open.map((x) => (
@@ -45,6 +45,7 @@ export function TaskList({ tasks, onStart, onComplete, onDismiss }: { tasks: Tas
             {label[x.status]}
           </span>
           <div className="task-body">
+            {x.reason && <p className="task-details">{x.reason}</p>}
             {x.details ? (
               <details>
                 <summary>{x.title}</summary>
@@ -55,13 +56,13 @@ export function TaskList({ tasks, onStart, onComplete, onDismiss }: { tasks: Tas
             )}
             {x.status !== 'running' && (
               <span className="task-actions">
-                {x.status === 'suggested' && (
+                {['suggested', 'verification', 'paused', 'interrupted'].includes(x.status) && (
                   <>
-                    <button type="button" className="btn btn-send btn-sm" onClick={() => onStart(x.id)} aria-label={t('Do it: {what}', { what: x.title })}>
-                      {t('Do it')}
+                    <button type="button" hidden={x.status === 'verification'} className="btn btn-send btn-sm" onClick={() => onStart(x.id)} aria-label={t('Do it: {what}', { what: x.title })}>
+                      {t(x.status === 'suggested' ? 'Do it' : 'Resume')}
                     </button>
-                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => onComplete(x.id)} aria-label={t('Already done: {what}', { what: x.title })}>
-                      {t('Already done')}
+                    <button type="button" hidden={!['suggested', 'verification'].includes(x.status)} className="btn btn-quiet btn-sm" onClick={() => onComplete(x.id)} aria-label={t('Already done: {what}', { what: x.title })}>
+                      {t(x.status === 'verification' ? 'Confirm outcome' : 'Already done')}
                     </button>
                   </>
                 )}

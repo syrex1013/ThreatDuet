@@ -140,7 +140,8 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 }
 .wordmark span { padding: 0.32rem 0.12rem 0.3rem 0; }
 .wordmark .wordmark-block { background: var(--signal); color: #fff; padding: 0.32rem 0.4rem 0.3rem; }
-.topbar-actions { display: flex; align-items: center; gap: 0.15rem; }
+.topbar-actions { display: flex; align-items: center; gap: 0.15rem; min-width: 0; overflow-x: auto; }
+.topbar-actions > button { flex-shrink: 0; white-space: nowrap; }
 
 /* ---------- connection banner ---------- */
 .banner {

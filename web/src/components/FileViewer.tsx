@@ -1,6 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { getFile } from '../api';
+import type { ArtifactRevision } from '../../../src/shared/types';
+import { revisionDiff } from '../revisionDiff';
+import { downloadFile, fileBlob, getFile, post, request } from '../api';
 import { previewDoc } from '../previewDoc';
 import { Markdown } from './Markdown';
 import { Sheet } from './Sheet';
@@ -9,6 +11,13 @@ import { t } from '../i18n';
 const BINARY = /\.(xlsx?|pptx?|docx?|key|numbers|pages|pdf|png|jpe?g|gif|webp|heic|zip|mp[34]|mov)$/i;
 
 export function FileViewer({ path, onClose, onAsk }: { path: string; onClose: () => void; onAsk: (text: string) => void }) {
+  const qc = useQueryClient();
+  const [revisionId, setRevisionId] = useState('');
+  const [error, setError] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [restoring, setRestoring] = useState(false);
+  const revisions = useQuery({ queryKey: ['revisions', path], queryFn: () => request<{ revisions: ArtifactRevision[] }>(`/artifacts/revisions?path=${encodeURIComponent(path)}`) });
+  const revision = useQuery({ queryKey: ['revision', revisionId], queryFn: () => request<{ text: string }>(`/artifacts/revision?id=${encodeURIComponent(revisionId)}`), enabled: Boolean(revisionId) });
   const binary = BINARY.test(path);
   const html = /\.html?$/i.test(path);
   const file = useQuery({ queryKey: ['file', path], queryFn: () => getFile(path), retry: false, enabled: !binary });
@@ -16,6 +25,24 @@ export function FileViewer({ path, onClose, onAsk }: { path: string; onClose: ()
   const [selection, setSelection] = useState('');
   const [ask, setAsk] = useState('');
   const view = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!/\.(png|jpe?g|gif|webp)$/i.test(path)) return;
+    let active = true;
+    let url = '';
+    void fileBlob(path).then((blob) => { url = URL.createObjectURL(blob); if (active) setImageUrl(url); else URL.revokeObjectURL(url); }, (e) => { if (active) setError(e.message); });
+    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+  }, [path]);
+
+  async function restore() {
+    setRestoring(true); setError('');
+    try {
+      await post('/artifacts/restore', { id: revisionId });
+      await Promise.all([qc.invalidateQueries({ queryKey: ['file', path] }), qc.invalidateQueries({ queryKey: ['revisions', path] })]);
+      setRevisionId('');
+    } catch (e) { setError((e as Error).message); }
+    finally { setRestoring(false); }
+  }
 
   // Focusing the input moves the page selection, so remember the last one made inside the viewer.
   useEffect(() => {
@@ -41,6 +68,11 @@ export function FileViewer({ path, onClose, onAsk }: { path: string; onClose: ()
 
   return (
     <Sheet title={path} wide onClose={onClose}>
+      <button className="btn btn-quiet btn-sm" onClick={() => void downloadFile(path).catch((e) => setError(e.message))}>{t('Download')}</button>
+      {(error || revisions.error || revision.error) && <p role="alert" className="is-error">{error || revisions.error?.message || revision.error?.message}</p>}
+      {revisions.data && <label className="work-field"><span>{t('Revision history')}</span><select aria-label={t('Revision history')} value={revisionId} onChange={(e) => setRevisionId(e.target.value)}><option value="">{t('Current file')}</option>{[...revisions.data.revisions].reverse().map((r) => <option key={r.id} value={r.id}>{new Date(r.createdAt).toLocaleString()} · {r.source}</option>)}</select></label>}
+      {revisionId && <><button className="btn btn-quiet btn-sm" disabled={restoring} onClick={() => void restore()}>{t('Restore selected revision')}</button>{revision.data && file.data && <details open><summary>{t('Selected revision compared with current file')}</summary><pre className="revision-diff">{revisionDiff(revision.data.text, file.data.text)}</pre></details>}</>}
+      {imageUrl && <img src={imageUrl} alt={path} style={{ maxWidth: '100%' }} />}
       <div ref={view}>
         {binary && <p className="muted">{t("This file can't be previewed here. Open it from the workspace folder.")}</p>}
         {file.isPending && !binary && <p className="muted">{t('Opening {path}…', { path })}</p>}

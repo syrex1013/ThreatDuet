@@ -38,10 +38,11 @@ mkdir -p "$OUT"
 cp android/app/build/outputs/apk/release/app-release.apk "$OUT/ThreatDuet-$VERSION.apk"
 ditto release/mac-arm64/ThreatDuet.app "$OUT/ThreatDuet.app" # ditto keeps the bundle's signature intact
 cp "release/ThreatDuet-$VERSION-arm64.dmg" "$OUT/"
+cp "release/ThreatDuet-$VERSION-arm64.zip" "$OUT/"
 cp scripts/install-android.sh "$OUT/"
 chmod +x "$OUT/install-android.sh"
 
-SUMS=("ThreatDuet-$VERSION.apk" "ThreatDuet-$VERSION-arm64.dmg")
+SUMS=("ThreatDuet-$VERSION.apk" "ThreatDuet-$VERSION-arm64.dmg" "ThreatDuet-$VERSION-arm64.zip")
 if [ -f "release/ThreatDuet-Setup-$VERSION.exe" ]; then
   cp "release/ThreatDuet-Setup-$VERSION.exe" "$OUT/"
   SUMS+=("ThreatDuet-Setup-$VERSION.exe")

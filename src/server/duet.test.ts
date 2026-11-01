@@ -183,12 +183,12 @@ describe('channels', () => {
     expect(last().channel).toBe(id);
   });
 
-  it('trims history per channel', async () => {
+  it('retains searchable history while bounding state per channel', async () => {
     const id = await sales();
     await store.post({ role: 'user', kind: 'chat', text: 'quiet', channel: id });
     for (let i = 0; i < 501; i++) await store.post({ role: 'user', kind: 'chat', text: `m${i}` });
     expect(store.db.data.messages.filter((m) => m.channel === id).map((m) => m.text)).toEqual(['quiet']);
-    expect(store.db.data.messages.filter((m) => !m.channel)).toHaveLength(500);
+    expect(store.db.data.messages.filter((m) => !m.channel)).toHaveLength(501);
     const state = (await (await api.request('/state')).json()) as { messages: { channel?: string }[]; channels: unknown[] };
     expect(state.messages.filter((m) => m.channel === id)).toHaveLength(1);
     expect(state.channels).toEqual([{ id, name: 'sales' }]);
@@ -302,7 +302,7 @@ describe("Duet's own tasks", () => {
     await duet.idle();
     const [inbox, acme] = store.db.data.tasks;
     expect(store.db.data.tasks).toHaveLength(2);
-    expect(acme).toMatchObject({ title: 'Prep Acme brief', status: 'done' });
+    expect(acme).toMatchObject({ title: 'Prep Acme brief', status: 'verification' });
     expect(inbox).toMatchObject({ title: 'Clean inbox', status: 'suggested', startedAt: null });
     expect(kilo).toHaveBeenCalledTimes(2);
     expect(kilo.mock.calls[1][0].prompt).toContain('Title: Prep Acme brief');
@@ -365,6 +365,8 @@ describe("Duet's own tasks", () => {
     ask('Plan in plan.md.');
     expect(await duet.startTask('s1')).toBe(true);
     await duet.idle();
+    expect(store.db.data.tasks[0].status).toBe('verification');
+    expect(await duet.completeTask('s1')).toBe(true);
     expect(store.db.data.tasks[0].status).toBe('done');
   });
 });
