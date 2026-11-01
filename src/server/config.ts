@@ -22,7 +22,7 @@ export const REMOTE_PORT = Number(process.env.OPENDUET_REMOTE_PORT ?? 4320);
 export const RUN_TIMEOUT_MS = 15 * 60 * 1000;
 
 export const DEFAULT_SETTINGS: Settings = {
-  model: 'kilo/kilo-auto/free',
+  model: 'nim/nvidia/nemotron-3-ultra-550b-a55b',
   briefAt: '08:00',
   reportAt: '18:00',
   checkEveryHours: 3,

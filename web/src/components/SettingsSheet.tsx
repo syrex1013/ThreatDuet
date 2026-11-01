@@ -148,7 +148,7 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
 
       <fieldset>
         <legend>{t('Advanced')}</legend>
-        <Field id="model" label={t('Model')} hint={t('Any Kilo model id. The default costs nothing.')} value={form.model} onChange={set('model')} />
+        <Field id="model" label={t('Model')} hint={t('Any Kilo model id, or nim/<model> for NVIDIA NIM (built-in key). The default costs nothing.')} value={form.model} onChange={set('model')} />
         <div className="field">
           <label htmlFor="kiloMode">{t('How Duet talks to Kilo')}</label>
           <select id="kiloMode" value={form.kiloMode} onChange={(e) => setForm({ ...form, kiloMode: e.target.value as 'api' | 'cli' | 'direct' })} aria-describedby="kiloMode-hint">

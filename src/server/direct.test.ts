@@ -195,3 +195,16 @@ setTimeout(() => s.connect(new StdioServerTransport()), 500);`,
   }, 20_000);
 });
 
+
+describe('NVIDIA NIM models', () => {
+  it('are named nim/<catalog id> and always run on the built-in agent', async () => {
+    const { gatewayModel, isNim } = await import('./direct/gateway.js');
+    expect(gatewayModel('nim/nvidia/nemotron-3-ultra-550b-a55b')).toBe('nvidia/nemotron-3-ultra-550b-a55b');
+    expect(isNim('kilo/kilo-auto/free')).toBe(false);
+    const store = await import('./store.js');
+    const { useDirect } = await import('./direct/available.js');
+    store.db.data.settings.kiloMode = 'api';
+    store.db.data.settings.model = 'nim/nvidia/nemotron-3-ultra-550b-a55b';
+    expect(await useDirect()).toBe(true);
+  });
+});
