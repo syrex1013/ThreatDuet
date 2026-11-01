@@ -250,7 +250,7 @@ export async function writeWorkspaceConfig(): Promise<void> {
   for (const f of PROTECTED) Object.assign(edit, { [f]: 'deny', [`${f}/*`]: 'deny', [`*/${f}`]: 'deny' });
 
   const duet: Record<string, unknown> = { '*': 'deny' };
-  for (const tool of ['invalid', 'read', 'glob', 'grep', 'list', 'websearch', 'codesearch', 'todowrite', 'todoread', 'skill'])
+  for (const tool of ['invalid', 'read', 'glob', 'grep', 'list', 'websearch', 'codesearch', 'todowrite', 'todoread', 'skill', 'duet_search_chats'])
     duet[tool] = 'allow';
   duet.webfetch = webOnItsOwn ? 'allow' : 'deny';
   Object.assign(duet, connectorRules(apps.filter((c) => c.autoRead).map((c) => c.id)));

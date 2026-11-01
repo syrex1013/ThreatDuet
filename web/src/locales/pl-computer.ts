@@ -110,4 +110,8 @@ export const PL_COMPUTER: Record<string, string> = {
   'Let Duet use its cloud computer without asking (allow all)': 'Pozwól Duetowi używać komputera w chmurze bez pytania (zezwól na wszystko)',
   'Opening pages, clicking, typing, running commands and writing files on the cloud computer run on their own. No proposal, no approval. Your own computer keeps its own setting. Text in a page or file could steer Duet there, and it can open any page even with web pages off, so anything signed in on that machine is exposed.':
     'Otwieranie stron, klikanie, pisanie, uruchamianie poleceń i zapis plików na komputerze w chmurze działają same. Bez propozycji, bez zatwierdzania. Twój własny komputer ma osobne ustawienie. Tekst na stronie lub w pliku może tam sterować Duetem, a Duet może otworzyć każdą stronę nawet przy wyłączonych stronach WWW, więc wszystko, co jest zalogowane na tej maszynie, jest narażone.',
+  'Password for this page': 'Hasło do tej strony',
+  'Password (sent only to the page, never to chat)': 'Hasło (tylko na stronę, nigdy do czatu)',
+  'Fill password': 'Wypełnij hasło',
+  'You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, type it in the password field above — it goes to the browser only, never into the chat with Duet.': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę, bez pytania o zgodę. Gdy strona prosi o hasło, wpisz je w polu hasła powyżej — trafia tylko do przeglądarki, nigdy do rozmowy z Duetem.'
 };

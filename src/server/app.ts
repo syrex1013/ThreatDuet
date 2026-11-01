@@ -9,6 +9,7 @@ import { db, writeWorkspaceConfig } from './store.js';
 import { tr } from './i18n.js';
 import { browser, computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup, screen } from './computer/machine.js';
 import { handleComputerMcp, tokenOk } from './computer/mcp.js';
+import { handleDuetMcp } from './duet-mcp.js';
 import { handleMacMcp } from './mac/mcp.js';
 import { openPrivacySettings } from './mac/os.js';
 import { addFolder, macStatus, removeFolder, resyncBrowser, setMac } from './mac/settings.js';
@@ -25,7 +26,7 @@ export const app = new Hono();
 app.use('*', async (c, next) => {
   if (!/^(127\.0\.0\.1|localhost):\d+$/.test(c.req.header('host') ?? '')) return c.json({ error: 'bad host' }, 403);
   // Kilo can't send the UI's header; its endpoint is protected by a bearer token instead.
-  if (c.req.path === '/mcp/computer' || c.req.path === '/mcp/mac') return tokenOk(c.req.header('authorization')) ? next() : c.json({ error: 'unauthorized' }, 401);
+  if (c.req.path === '/mcp/computer' || c.req.path === '/mcp/mac' || c.req.path === '/mcp/duet') return tokenOk(c.req.header('authorization')) ? next() : c.json({ error: 'unauthorized' }, 401);
   if (c.req.method !== 'GET' && c.req.header('x-duet') !== '1') return c.json({ error: 'missing x-duet header' }, 403);
   await next();
 });
@@ -162,6 +163,7 @@ app.post('/api/mac/privacy', async (c) => {
 
 // Duet's cloud computer. Like apps, it is managed from this computer only.
 app.all('/mcp/computer', (c) => handleComputerMcp(c.req.raw));
+app.all('/mcp/duet', (c) => handleDuetMcp(c.req.raw));
 app.get('/api/computer', async (c) => c.json(await computerStatus()));
 app.post('/api/computer/machines', json(z.object({ apiKey: z.string().trim().min(8).max(500).optional() })), async (c) => {
   try {

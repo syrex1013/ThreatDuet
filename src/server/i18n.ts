@@ -48,6 +48,8 @@ const PL: Record<string, string> = {
   'searching the workspace': 'przeszukuje obszar roboczy',
   'searching the web for “{query}”': 'szuka w sieci „{query}”',
   'searching the web': 'szuka w sieci',
+  'searching past chats for “{query}”': 'przeszukuje wcześniejsze rozmowy pod kątem „{query}”',
+  'searching past chats': 'przeszukuje wcześniejsze rozmowy',
   'reading a web page': 'czyta stronę internetową',
   'running a command': 'uruchamia polecenie',
   planning: 'planuje',

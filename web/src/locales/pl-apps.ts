@@ -120,4 +120,8 @@ export const PL_APPS: Record<string, string> = {
   'How to design and write a good MCP server': 'Jak zaprojektować i napisać dobry serwer MCP',
   'Skill creator': 'Kreator umiejętności',
   'Write and improve skills of your own': 'Pisz i ulepszaj własne umiejętności',
+  'Payments': 'Płatności',
+  'Buy things with Link or Shop Pay. Duet confirms the item with you here; Link or Shop asks you again before charging, and pays with a one-time card so your real card number is never shared with Duet.': 'Kupuj z Link lub Shop Pay. Duet potwierdza u Ciebie towar; Link lub Shop pyta ponownie przed obciążeniem i płaci jednorazową kartą, więc prawdziwy numer karty nigdy nie trafia do Dueta.',
+  'Pay for purchases you approve with a one-time virtual card (Stripe Link)': 'Płać za zatwierdzone zakupy jednorazową wirtualną kartą (Stripe Link)',
+  'Search products and check out with Shop Pay after you approve': 'Szukaj produktów i finalizuj zakup przez Shop Pay po Twojej zgodzie'
 };

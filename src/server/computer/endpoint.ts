@@ -19,3 +19,7 @@ export const computerEndpoint = (): { url: string; headers: Record<string, strin
 /** The Mac's own tools (files, shell, Brave) share the token and the server, on another path. */
 export const macEndpoint = (): { url: string; headers: Record<string, string> } | null =>
   port === null ? null : { url: `http://127.0.0.1:${port}/mcp/mac`, headers: { Authorization: `Bearer ${token}` } };
+
+/** Past-chat search and other meta tools that live inside this process. */
+export const duetEndpoint = (): { url: string; headers: Record<string, string> } | null =>
+  port === null ? null : { url: `http://127.0.0.1:${port}/mcp/duet`, headers: { Authorization: `Bearer ${token}` } };

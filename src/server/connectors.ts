@@ -3,11 +3,12 @@ import { OS_NAME } from './mac/os.js';
 import { execa, execaSync, type ResultPromise } from 'execa';
 import type { ConnectorInfo, ConnectorsResponse, ConnectorState } from '../shared/types.js';
 import { CONNECTORS_FILE, log, WORKSPACE } from './config.js';
-import { computerEndpoint, macEndpoint } from './computer/endpoint.js';
+import { computerEndpoint, duetEndpoint, macEndpoint } from './computer/endpoint.js';
 import { useDirect } from './direct/available.js';
 import { connectorStatuses, directLogout, directSignIn, dropConnections } from './direct/mcp-client.js';
 import { stateChanged } from './events.js';
 import { db, macOn } from './store.js';
+import { PRESETS } from '../shared/connectors.js';
 import { tr } from './i18n.js';
 
 /** A connected app as stored on this computer. `url` and `headers` may hold credentials. */
@@ -47,6 +48,8 @@ export async function writeConnectorsConfig(): Promise<void> {
   if (db.data.computer && computer) Object.assign(mcp, { computer: { type: 'remote', url: computer.url, headers: computer.headers, enabled: true } });
   const mac = macEndpoint();
   if (macOn() && mac) Object.assign(mcp, { local: { type: 'remote', url: mac.url, headers: mac.headers, enabled: true } });
+  const meta = duetEndpoint();
+  if (meta) Object.assign(mcp, { duet: { type: 'remote', url: meta.url, headers: meta.headers, enabled: true } });
   await fs.writeFile(CONNECTORS_FILE, JSON.stringify({ $schema: 'https://app.kilo.ai/config.json', mcp }, null, 2), { mode: 0o600 });
   await fs.chmod(CONNECTORS_FILE, 0o600);
   status = null;
@@ -123,7 +126,7 @@ export function connectorId(name: string): string {
   const base = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24) || 'app';
   let id = base;
   // "computer" and "mac" belong to Duet's own tools.
-  for (let n = 2; id === 'computer' || id === 'mac' || id === 'local' || db.data.connectors.some((c) => c.id === id); n++) id = `${base}${n}`;
+  for (let n = 2; id === 'computer' || id === 'mac' || id === 'local' || id === 'duet' || db.data.connectors.some((c) => c.id === id); n++) id = `${base}${n}`;
   return id;
 }
 
@@ -179,6 +182,12 @@ export async function addConnector(input: {
   db.data.connectors.push(record);
   await db.write();
   await writeConnectorsConfig();
+  const skillUrl = PRESETS.find((x) => x.id === record.presetId)?.skillUrl;
+  if (skillUrl) {
+    const skill = await (await import('./skills.js')).installSkill({ url: skillUrl }).catch((e) => ({ error: String(e) }));
+    if ('error' in skill) log.warn({ app: record.id, err: skill.error }, 'payment skill not installed');
+    else await (await import('./store.js')).writeWorkspaceConfig().catch(() => undefined);
+  }
   return { id: record.id };
 }
 
@@ -350,6 +359,9 @@ export function connectedAppsLine(): string {
     free.length ? `You may use the read-only tools of ${free.join(', ')} on your own.` : '',
     ask.length ? `For ${ask.join(', ')}, even reading needs the user's approval: propose it.` : '',
     'Tools that change something in an app are hidden from you: propose those as ACTIONS, naming the app.',
+    on.some((c) => c.presetId === 'link' || c.presetId === 'shop' || /^(link|shop)/i.test(c.id))
+      ? 'Purchases: Link and/or Shop Pay are connected. Propose the buy as ACTIONS first; after approval use those tools and never put card numbers in ACTIONS or replies.'
+      : '',
   ]
     .filter(Boolean)
     .join(' ');

@@ -82,7 +82,14 @@ export async function previewSkill(src: { url?: string; text?: string }): Promis
     const p = parseSkillMd(src.text);
     return 'error' in p ? p : { ...p, source: 'pasted' };
   }
-  const g = parseGithubUrl(src.url ?? '');
+  const raw = (src.url ?? '').trim();
+  if (/^https:\/\//i.test(raw) && /skill\.md(\?|$)/i.test(raw)) {
+    const got = await fetchRemoteSkill(raw);
+    if ('error' in got) return got;
+    const p = parseSkillMd(got.text);
+    return 'error' in p ? p : { ...p, source: got.source };
+  }
+  const g = parseGithubUrl(raw);
   if ('error' in g) return g;
   const r = await fetchOk(`https://raw.githubusercontent.com/${g.repo}/${g.ref}/${g.path ? `${g.path}/` : ''}SKILL.md`);
   if ('error' in r) return r;
@@ -131,6 +138,23 @@ async function fetchFolder(g: GithubSource, tmp: string): Promise<string | { err
   return dir;
 }
 
+
+/** Fetches a public SKILL.md (and optional references/) over https. Used for Shop and similar. */
+async function fetchRemoteSkill(url: string): Promise<{ text: string; source: string } | { error: string }> {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return { error: tr('That is not a link.') };
+  }
+  if (u.protocol !== 'https:') return { error: tr('Use an https:// address for the skill.') };
+  const r = await fetchOk(u.toString());
+  if ('error' in r) return r;
+  const text = (await r.text()).slice(0, 200_000);
+  if (!text.includes('---')) return { error: tr('SKILL.md must start with a --- header holding name and description.') };
+  return { text, source: u.hostname + u.pathname };
+}
+
 export async function installSkill(src: { url?: string; text?: string }): Promise<{ name: string } | { error: string }> {
   await fs.mkdir(SKILLS_DIR, { recursive: true });
   const tmp = await fs.mkdtemp(path.join(SKILLS_DIR, '.tmp-'));
@@ -143,12 +167,22 @@ export async function installSkill(src: { url?: string; text?: string }): Promis
       await fs.writeFile(path.join(dir, 'SKILL.md'), src.text.slice(0, MAX_SKILL_BYTES));
       source = 'pasted';
     } else {
-      const g = parseGithubUrl(src.url ?? '');
-      if ('error' in g) return g;
-      const got = await fetchFolder(g, tmp);
-      if (typeof got !== 'string') return got;
-      dir = got;
-      source = sourceText(g);
+      const raw = (src.url ?? '').trim();
+      if (/^https:\/\//i.test(raw) && /skill\.md(\?|$)/i.test(raw)) {
+        const got = await fetchRemoteSkill(raw);
+        if ('error' in got) return got;
+        dir = path.join(tmp, 'skill');
+        await fs.mkdir(dir);
+        await fs.writeFile(path.join(dir, 'SKILL.md'), got.text.slice(0, MAX_SKILL_BYTES));
+        source = got.source;
+      } else {
+        const g = parseGithubUrl(raw);
+        if ('error' in g) return g;
+        const got = await fetchFolder(g, tmp);
+        if (typeof got !== 'string') return got;
+        dir = got;
+        source = sourceText(g);
+      }
     }
     const bad = await walk(dir, { bytes: 0, files: 0 });
     if (bad) return { error: bad };

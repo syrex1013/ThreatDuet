@@ -188,6 +188,7 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
 function Watch({ asleep }: { asleep: boolean }) {
   const [wake, setWake] = useState(false);
   const [text, setText] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const img = useRef<HTMLImageElement>(null);
   const live = !asleep || wake;
@@ -263,7 +264,31 @@ function Watch({ asleep }: { asleep: boolean }) {
               </button>
             ))}
           </div>
-          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. Use it to sign in to a site for Duet.')}</p>
+          <form
+            className="watch-type watch-password"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!password) return;
+              send.mutate({ action: 'type', text: password, submit: true });
+              setPassword('');
+            }}
+          >
+            <label htmlFor="watch-password" className="sr-only">
+              {t('Password for this page')}
+            </label>
+            <input
+              id="watch-password"
+              type="password"
+              value={password}
+              placeholder={t('Password (sent only to the page, never to chat)')}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <button type="submit" className="btn btn-quiet btn-sm" disabled={!password || send.isPending}>
+              {t('Fill password')}
+            </button>
+          </form>
+          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, type it in the password field above — it goes to the browser only, never into the chat with Duet.')}</p>
         </>
       )}
       {error && (
