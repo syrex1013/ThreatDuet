@@ -16,7 +16,7 @@ const { runKilo } = await import('../src/server/kilo.js');
 const { osLine } = await import('../src/server/mac/os.js');
 
 const win = process.platform === 'win32';
-const prompt = `${osLine()}\n\nDo these two things with the tools, then report:\n1. With mac_shell_run, run a ${win ? 'PowerShell' : 'shell'} command that prints the current user name and the OS version.\n2. With mac_files_list, list the user's home folder.\nAnswer with the exact command you ran, its output, and the first three entries of the home folder. No <<ACTIONS>> are needed: everything is allowed.`;
+const prompt = `${osLine()}\n\nDo these two things with the tools, then report:\n1. With local_shell_run, run a ${win ? 'PowerShell' : 'shell'} command that prints the current user name and the OS version.\n2. With local_files_list, list the user's home folder.\nAnswer with the exact command you ran, its output, and the first three entries of the home folder. No <<ACTIONS>> are needed: everything is allowed.`;
 const t = Date.now();
 const r = await runKilo({ prompt, model, agent: 'duet', onProgress: (d) => console.log('  …', d) });
 const used = r.tools.map((x) => `${x.tool}:${x.status}`);
@@ -25,8 +25,8 @@ const user = os.userInfo().username;
 const problems = [
   ...r.errors.map((e) => `run error: ${e}`),
   ...r.tools.filter((x) => x.status === 'error').map((x) => `tool failed: ${x.tool}`),
-  used.some((u) => u.startsWith('mac_shell_run:')) ? '' : 'mac_shell_run was not used',
-  used.some((u) => u.startsWith('mac_files_list:')) ? '' : 'mac_files_list was not used',
+  used.some((u) => u.startsWith('local_shell_run:')) ? '' : 'local_shell_run was not used',
+  used.some((u) => u.startsWith('local_files_list:')) ? '' : 'local_files_list was not used',
   r.finalText.toLowerCase().includes(user.toLowerCase()) ? '' : `answer does not mention the user name ${user}`,
 ].filter(Boolean);
 if (problems.length) {

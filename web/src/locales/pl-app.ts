@@ -18,6 +18,7 @@ export const PL_APP: Record<string, string> = {
   'searched the web': 'przeszukano internet',
   'opened {n} web pages': 'otwarto {n} stronę|otwarto {n} strony|otwarto {n} stron',
   'used its computer': 'użyto komputera Duet',
+  'used your computer': 'użyto Twojego komputera',
   'used {app}': 'użyto {app}',
   No: 'Zero',
   One: 'Jedna',

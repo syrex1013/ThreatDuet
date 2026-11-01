@@ -76,6 +76,8 @@ export async function openStore(): Promise<void> {
     recs: { at: 0, ids: [], seenAt: 0, nextAt: 0 },
   });
   db.data.connectors ??= [];
+  // 'local' now names Duet's tools on the user's own computer; an app that had that id would clash with them.
+  for (const c of db.data.connectors) if (c.id === 'local') c.id = 'local-app';
   db.data.channels ??= [];
   db.data.skills ??= [];
   db.data.mac ??= { files: false, everything: false, folders: [], shell: false, browser: false, browserApp: 'auto', auto: false };
@@ -187,19 +189,19 @@ export function computerRules(openWebPages: boolean, auto = false): Record<strin
 export function macRules(openWebPages: boolean, auto = false): Record<string, string> {
   if (auto) return Object.fromEntries(Object.keys(macRules(true)).map((k) => [k, 'allow']));
   return {
-    mac_files_list: 'allow',
-    mac_files_read: 'allow',
-    mac_files_search: 'allow',
-    mac_files_write: 'deny',
-    mac_shell_run: 'deny',
-    mac_browser_read: 'allow',
-    mac_browser_screenshot: 'allow',
-    mac_browser_scroll: 'allow',
-    mac_browser_reload_signins: 'allow',
-    mac_browser_open: openWebPages ? 'allow' : 'deny',
-    mac_browser_click: 'deny',
-    mac_browser_type: 'deny',
-    mac_browser_press: 'deny',
+    local_files_list: 'allow',
+    local_files_read: 'allow',
+    local_files_search: 'allow',
+    local_files_write: 'deny',
+    local_shell_run: 'deny',
+    local_browser_read: 'allow',
+    local_browser_screenshot: 'allow',
+    local_browser_scroll: 'allow',
+    local_browser_reload_signins: 'allow',
+    local_browser_open: openWebPages ? 'allow' : 'deny',
+    local_browser_click: 'deny',
+    local_browser_type: 'deny',
+    local_browser_press: 'deny',
   };
 }
 

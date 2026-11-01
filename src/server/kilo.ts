@@ -50,21 +50,21 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
     case 'skill':
       return tr('loading a skill');
   }
-  if (tool.startsWith('mac_')) {
+  if (tool.startsWith('local_')) {
     const known: Record<string, string> = {
-      mac_files_list: 'looking in a folder on your computer',
-      mac_files_read: 'reading a file on your computer',
-      mac_files_search: 'searching your files',
-      mac_files_write: 'writing a file on your computer',
-      mac_shell_run: 'running a command on your computer',
-      mac_browser_open: 'opening a page in your browser',
-      mac_browser_read: 'reading the page in your browser',
-      mac_browser_screenshot: 'looking at the page in your browser',
-      mac_browser_click: 'clicking in your browser',
-      mac_browser_type: 'typing in your browser',
-      mac_browser_press: 'typing in your browser',
-      mac_browser_scroll: 'scrolling the page in your browser',
-      mac_browser_reload_signins: 'picking up your browser sign-ins',
+      local_files_list: 'looking in a folder on your computer',
+      local_files_read: 'reading a file on your computer',
+      local_files_search: 'searching your files',
+      local_files_write: 'writing a file on your computer',
+      local_shell_run: 'running a command on your computer',
+      local_browser_open: 'opening a page in your browser',
+      local_browser_read: 'reading the page in your browser',
+      local_browser_screenshot: 'looking at the page in your browser',
+      local_browser_click: 'clicking in your browser',
+      local_browser_type: 'typing in your browser',
+      local_browser_press: 'typing in your browser',
+      local_browser_scroll: 'scrolling the page in your browser',
+      local_browser_reload_signins: 'picking up your browser sign-ins',
     };
     return tr(known[tool] ?? 'using your computer');
   }
