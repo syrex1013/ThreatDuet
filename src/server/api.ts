@@ -7,13 +7,14 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import type { StateResponse } from '../shared/types.js';
 import { WORKSPACE } from './config.js';
-import { approve, cancelFollowup, chat, currentDetail, currentWork, deleteRoutine, reject, routines, setRoutine } from './duet.js';
+import { approve, cancelFollowup, chat, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, reject, routines, setRoutine, startTask } from './duet.js';
 import { computerBrief } from './computer/machine.js';
 import { SKIP } from './direct/tools.js';
 import { onStateChange, stateVersion } from './events.js';
 import { nextRoutineRun } from './parse.js';
 import { routineDue, upcomingRoutines } from './scheduler.js';
-import { db, post, PROTECTED, readMemory, writeMemory, writeWorkspaceConfig } from './store.js';
+import { appendMemory, db, post, PROTECTED, readMemory, writeMemory, writeWorkspaceConfig } from './store.js';
+import { tr } from './i18n.js';
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'expected HH:MM');
 const SettingsPatch = z
@@ -26,6 +27,7 @@ const SettingsPatch = z
     quietEnd: time,
     focus: z.string().max(2000),
     kiloMode: z.enum(['api', 'cli', 'direct']),
+    language: z.enum(['en', 'pl']),
     memory: z.string().max(200_000),
   })
   .partial();
@@ -67,6 +69,8 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
       digestCount: db.data.digest.length,
       memory: await readMemory(),
       channels: db.data.channels.map(({ id, name }) => ({ id, name })),
+      tasks: db.data.tasks.slice(0, 40),
+      setupDone: db.data.setupDone,
     };
     return c.json(body);
   })
@@ -94,13 +98,13 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   .get('/file', async (c) => {
     const root = await fs.realpath(WORKSPACE);
     const abs = await fs.realpath(path.resolve(root, c.req.query('path') ?? '')).catch(() => null);
-    if (!abs) return c.json({ error: 'That file no longer exists.' }, 404);
+    if (!abs) return c.json({ error: tr('That file no longer exists.') }, 404);
     const rel = path.relative(root, abs);
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || rel.split(path.sep)[0] === '.git')
-      return c.json({ error: 'Only files in the workspace can be opened.' }, 400);
+      return c.json({ error: tr('Only files in the workspace can be opened.') }, 400);
     const stat = await fs.stat(abs);
-    if (!stat.isFile()) return c.json({ error: 'That is a folder, not a file.' }, 400);
-    if (stat.size > 1_000_000) return c.json({ error: 'The file is larger than 1 MB. Open it from the workspace folder.' }, 413);
+    if (!stat.isFile()) return c.json({ error: tr('That is a folder, not a file.') }, 400);
+    if (stat.size > 1_000_000) return c.json({ error: tr('The file is larger than 1 MB. Open it from the workspace folder.') }, 413);
     return c.json({ path: rel, text: await fs.readFile(abs, 'utf8') });
   })
   // Everything Duet made, newest first. Same confinement as /file: symlinks and Kilo's own config are never listed.
@@ -124,7 +128,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   })
   .post('/message', json(ChannelRef.extend({ text: z.string().trim().min(1).max(20_000) })), async (c) => {
     const { text, channel } = c.req.valid('json');
-    if (!hasChannel(channel)) return c.json({ error: 'That channel no longer exists.' }, 400);
+    if (!hasChannel(channel)) return c.json({ error: tr('That channel no longer exists.') }, 400);
     await chat(text, channel);
     return c.json({ ok: true });
   })
@@ -137,7 +141,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   // Nothing is lost: the channel's history moves to the main thread.
   .post('/channels/delete', json(Id), async (c) => {
     const { id } = c.req.valid('json');
-    if (!hasChannel(id)) return c.json({ error: 'not found' }, 404);
+    if (!hasChannel(id)) return c.json({ error: tr('not found') }, 404);
     db.data.channels = db.data.channels.filter((ch) => ch.id !== id);
     for (const m of db.data.messages) if (m.channel === id) delete m.channel;
     await db.write();
@@ -148,19 +152,41 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
     return 'error' in r ? c.json({ error: r.error }, r.status) : c.json(r);
   })
   .post('/reject', json(Id), async (c) =>
-    (await reject(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: 'not pending' }, 409),
+    (await reject(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('not pending') }, 409),
   )
   .post('/followups/cancel', json(Id), async (c) =>
-    (await cancelFollowup(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404),
+    (await cancelFollowup(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('not found') }, 404),
   )
   .post('/routines/toggle', json(Id.extend({ enabled: z.boolean() })), async (c) => {
     const { id, enabled } = c.req.valid('json');
     // A routine runs unattended turns forever; only someone at this computer may start one.
-    if (enabled && c.get('phone')) return c.json({ error: 'Routines can only be turned on on this computer.' }, 403);
-    return (await setRoutine(id, enabled)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404);
+    if (enabled && c.get('phone')) return c.json({ error: tr('Routines can only be turned on on this computer.') }, 403);
+    return (await setRoutine(id, enabled)) ? c.json({ ok: true }) : c.json({ error: tr('not found') }, 404);
+  })
+  .post('/tasks/start', json(Id), async (c) =>
+    (await startTask(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('That task is no longer waiting.') }, 409),
+  )
+  .post('/tasks/dismiss', json(Id), async (c) =>
+    (await dismissTask(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('That task is no longer waiting.') }, 409),
+  )
+  .post('/setup', json(SettingsPatch.omit({ memory: true, kiloMode: true, model: true }).extend({ name: z.string().trim().max(200).optional(), about: z.string().trim().max(4000).optional(), skip: z.boolean().optional() })), async (c) => {
+    // First-launch setup belongs to whoever sits at this computer, not to a paired phone.
+    if (c.get('phone')) return c.json({ error: tr('Finish setup on your computer.') }, 403);
+    if (db.data.setupDone) return c.json({ error: tr('Setup is already done.') }, 409);
+    const { name, about, skip, ...settings } = c.req.valid('json');
+    Object.assign(db.data.settings, settings);
+    const facts = [name && `The user's name is ${name}.`, about && `About the user and their work: ${about}`].filter(Boolean) as string[];
+    if (facts.length) await appendMemory(facts);
+    db.data.setupDone = true;
+    // Duet's introduction stands in for today's brief; the first scheduled one comes tomorrow.
+    if (!skip) db.data.lastBrief = new Date().toLocaleDateString('sv');
+    await db.write();
+    await writeWorkspaceConfig();
+    if (!skip) kickoff();
+    return c.json({ ok: true });
   })
   .post('/routines/delete', json(Id), async (c) =>
-    (await deleteRoutine(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404),
+    (await deleteRoutine(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('not found') }, 404),
   )
   .post('/run', json(z.object({ kind: z.enum(['brief', 'check', 'report']) })), (c) => {
     routines[c.req.valid('json').kind]();
@@ -177,9 +203,9 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   .post('/new-thread', json(ChannelRef), async (c) => {
     const { channel } = c.req.valid('json');
     const ch = db.data.channels.find((x) => x.id === channel);
-    if (channel && !ch) return c.json({ error: 'That channel no longer exists.' }, 400);
+    if (channel && !ch) return c.json({ error: tr('That channel no longer exists.') }, 400);
     if (ch) ch.session = null;
     else db.data.threadSession = null;
-    await post({ role: 'system', kind: 'info', text: 'Started a fresh thread context.', channel });
+    await post({ role: 'system', kind: 'info', text: tr('Started a fresh thread context.'), channel });
     return c.json({ ok: true });
   });

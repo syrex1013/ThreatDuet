@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { normalizeUrl, type Connection } from '../connection';
+import { t } from '../i18n';
 
 interface PairScreenProps {
   error: string | null;
@@ -16,29 +17,28 @@ export function PairScreen({ error, busy, onPair }: PairScreenProps) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const url = normalizeUrl(address);
-    if (!url) return setFormError('Enter the address shown on your computer, like 100.64.0.10:4320.');
-    if (!code.trim()) return setFormError('Enter the pairing code shown on your computer.');
+    if (!url) return setFormError(t('Enter the address shown on your computer, like 100.64.0.10:4320.'));
+    if (!code.trim()) return setFormError(t('Enter the pairing code shown on your computer.'));
     setFormError(null);
     onPair({ url, token: code.trim() });
   };
 
   return (
     <main className="pair">
-      <h1 className="pair-title">Pair with your computer.</h1>
+      <h1 className="pair-title">{t('Pair with your computer.')}</h1>
       <p className="pair-text">
-        Duet works on your computer. This app shows you its briefs, asks you for approvals and lets you hand it tasks from
-        anywhere.
+        {t('Duet works on your computer. This app shows you its briefs, asks you for approvals and lets you hand it tasks from anywhere.')}
       </p>
       <ol className="pair-steps">
-        <li>On your computer, open OpenDuet, then Settings, then Phone.</li>
-        <li>Turn on phone access.</li>
-        <li>Scan the code with your phone's camera.</li>
+        <li>{t('On your computer, open OpenDuet, then Settings, then Phone.')}</li>
+        <li>{t('Turn on phone access.')}</li>
+        <li>{t("Scan the code with your phone's camera.")}</li>
       </ol>
 
       <form className="pair-form" onSubmit={submit}>
-        <h2>Or enter it by hand</h2>
+        <h2>{t('Or enter it by hand')}</h2>
         <div className="field">
-          <label htmlFor="pair-address">Computer address</label>
+          <label htmlFor="pair-address">{t('Computer address')}</label>
           <input
             id="pair-address"
             inputMode="url"
@@ -50,7 +50,7 @@ export function PairScreen({ error, busy, onPair }: PairScreenProps) {
           />
         </div>
         <div className="field">
-          <label htmlFor="pair-code">Pairing code</label>
+          <label htmlFor="pair-code">{t('Pairing code')}</label>
           <input
             id="pair-code"
             autoCapitalize="off"
@@ -61,7 +61,7 @@ export function PairScreen({ error, busy, onPair }: PairScreenProps) {
           />
         </div>
         <button type="submit" className="btn btn-send" disabled={busy}>
-          {busy ? 'Pairing…' : 'Pair phone'}
+          {busy ? t('Pairing…') : t('Pair phone')}
         </button>
         {(formError ?? error) && (
           <p className="is-error pair-error" role="alert">

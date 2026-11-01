@@ -7,6 +7,7 @@ import { useDirect } from './direct/available.js';
 import { connectorStatuses, directLogout, directSignIn, dropConnections } from './direct/mcp-client.js';
 import { stateChanged } from './events.js';
 import { db, macOn } from './store.js';
+import { tr } from './i18n.js';
 
 /** A connected app as stored on this computer. `url` and `headers` may hold credentials. */
 export interface ConnectorRecord {
@@ -154,12 +155,12 @@ export async function addConnector(input: {
   let url = '';
   if (input.command) {
     const cmd = input.command;
-    if (!cmd.length || cmd.length > 40 || cmd.some((p) => !p || p.length > 500)) return { error: 'The command is empty or too long.' };
-    if (Object.keys(input.env ?? {}).some((k) => !ENV_NAME.test(k))) return { error: 'An environment variable name is not valid.' };
-    if (!input.confirmed) return { error: 'Confirm that this program may run on your computer.' };
+    if (!cmd.length || cmd.length > 40 || cmd.some((p) => !p || p.length > 500)) return { error: tr('The command is empty or too long.') };
+    if (Object.keys(input.env ?? {}).some((k) => !ENV_NAME.test(k))) return { error: tr('An environment variable name is not valid.') };
+    if (!input.confirmed) return { error: tr('Confirm that this program may run on your computer.') };
   } else {
     const checked = checkUrl(input.url ?? '');
-    if (!checked) return { error: 'Use an https:// address for the app.' };
+    if (!checked) return { error: tr('Use an https:// address for the app.') };
     url = checked;
   }
   const record: ConnectorRecord = {
@@ -207,8 +208,8 @@ export async function removeConnector(id: string) {
  */
 export async function startSignIn(id: string): Promise<{ ok: true } | { error: string }> {
   const c = db.data.connectors.find((x) => x.id === id);
-  if (!c) return { error: 'That app is not connected.' };
-  if (signIn) return { error: 'Finish or cancel the sign-in that is already open first.' };
+  if (!c) return { error: tr('That app is not connected.') };
+  if (signIn) return { error: tr('Finish or cancel the sign-in that is already open first.') };
   lastError = null;
   if (await useDirect()) {
     // No Kilo program: Duet runs the browser sign-in itself.
@@ -226,7 +227,7 @@ export async function startSignIn(id: string): Promise<{ ok: true } | { error: s
       clearTimeout(timer);
       if (signIn?.id === id) signIn = null;
       status = null;
-      if (!ok && reason !== 'cancel') lastError = { id, message: reason === 'timeout' ? 'Sign-in timed out after 5 minutes.' : `Sign-in to ${c.name} didn't finish. Try again.` };
+      if (!ok && reason !== 'cancel') lastError = { id, message: reason === 'timeout' ? tr('Sign-in timed out after 5 minutes.') : tr("Sign-in to {name} didn't finish. Try again.", { name: c.name }) };
       log.info({ app: id, connected: ok }, 'app sign-in ended');
       stateChanged();
     });
@@ -254,7 +255,7 @@ export async function startSignIn(id: string): Promise<{ ok: true } | { error: s
     const st = await connectorStatus(true);
     const connected = st?.[id]?.state === 'connected';
     if (!connected && reason !== 'cancel')
-      lastError = { id, message: reason === 'timeout' ? 'Sign-in timed out after 5 minutes.' : `Sign-in to ${c.name} didn't finish. Try again.` };
+      lastError = { id, message: reason === 'timeout' ? tr('Sign-in timed out after 5 minutes.') : tr("Sign-in to {name} didn't finish. Try again.", { name: c.name }) };
     log.info({ app: id, connected }, 'app sign-in ended');
     stateChanged();
   });

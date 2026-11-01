@@ -1,5 +1,5 @@
 export type Role = 'user' | 'duet' | 'system';
-export type Kind = 'chat' | 'brief' | 'check' | 'report' | 'followup' | 'done' | 'error' | 'info';
+export type Kind = 'chat' | 'brief' | 'check' | 'report' | 'followup' | 'task' | 'done' | 'error' | 'info';
 export type ProposalStatus = 'pending' | 'approved' | 'done' | 'failed' | 'rejected' | 'blocked' | 'interrupted';
 
 export interface ToolUse {
@@ -45,7 +45,11 @@ export interface Settings {
   openWebPages: boolean;
   /** How Duet reaches Kilo: its local HTTP server, one `kilo run` per turn, or Kilo's hosted API with Duet's own agent. */
   kiloMode: 'api' | 'cli' | 'direct';
+  /** Language of the app and of everything Duet writes. */
+  language: Language;
 }
+
+export type Language = 'en' | 'pl';
 
 /**
  * connected: Duet can use it. needs-sign-in: OAuth not done yet. signing-in: browser flow running.
@@ -90,6 +94,22 @@ export interface RoutineItem {
   enabled: boolean;
   createdAt: number;
   lastRun: number | null;
+}
+
+/**
+ * Work Duet came up with itself. 'queued' ones it starts on its own (workspace-only work; anything that
+ * affects others still becomes a proposal); 'suggested' ones wait for the user to start or dismiss them.
+ */
+export type TaskStatus = 'suggested' | 'queued' | 'running' | 'done' | 'failed' | 'dismissed';
+export interface TaskItem {
+  id: string;
+  title: string;
+  details: string;
+  status: TaskStatus;
+  createdAt: number;
+  startedAt: number | null;
+  doneAt: number | null;
+  channel?: string;
 }
 
 export interface UpcomingRoutine {
@@ -158,6 +178,10 @@ export interface StateResponse {
   memory: string;
   /** Topic channels besides the main thread. They share Duet's memory but each keeps its own context. */
   channels: { id: string; name: string }[];
+  /** Duet's own tasks, newest first: open ones plus the last few finished. */
+  tasks: TaskItem[];
+  /** False until the first-launch setup is finished or skipped. */
+  setupDone: boolean;
 }
 
 /** What Duet may reach on this Mac. Managed from this computer only. */

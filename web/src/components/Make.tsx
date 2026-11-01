@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getFiles } from '../api';
 import { clock, dayLabel } from '../lib';
 import { Sheet } from './Sheet';
+import { t } from '../i18n';
 
 export function Make({ onOpen, onClose }: { onOpen: (path: string) => void; onClose: () => void }) {
   const files = useQuery({ queryKey: ['files'], queryFn: getFiles });
@@ -12,10 +13,10 @@ export function Make({ onOpen, onClose }: { onOpen: (path: string) => void; onCl
     else groups.push({ label, items: [f] });
   }
   return (
-    <Sheet title="Made by Duet" onClose={onClose}>
-      {files.isPending && <p className="muted">Looking in the workspace…</p>}
+    <Sheet title={t('Made by Duet')} onClose={onClose}>
+      {files.isPending && <p className="muted">{t('Looking in the workspace…')}</p>}
       {files.error && <p className="is-error">{files.error.message}</p>}
-      {files.data && !files.data.files.length && <p className="muted">Nothing yet. Files Duet writes in its workspace show up here.</p>}
+      {files.data && !files.data.files.length && <p className="muted">{t('Nothing yet. Files Duet writes in its workspace show up here.')}</p>}
       {groups.map((g) => (
         <section key={g.label} className="apps-section">
           <h3>{g.label}</h3>

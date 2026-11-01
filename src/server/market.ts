@@ -1,6 +1,7 @@
 import { execa } from 'execa';
 import { buildInstall, type McpField, type McpListing, type McpPlan, type McpSearch } from '../shared/market.js';
 import { addConnector } from './connectors.js';
+import { tr } from './i18n.js';
 
 const REGISTRY = 'https://registry.modelcontextprotocol.io/v0/servers';
 
@@ -108,8 +109,8 @@ const listing = (s: RegistryServer): McpListing | null => {
 
 async function registry(url: string): Promise<any> {
   const r = await fetch(url, { headers: { 'user-agent': 'OpenDuet' }, signal: AbortSignal.timeout(15_000) }).catch(() => null);
-  if (!r) throw new Error("Can't reach the MCP Registry. Check your connection.");
-  if (!r.ok) throw new Error(`The MCP Registry answered ${r.status}.`);
+  if (!r) throw new Error(tr("Can't reach the MCP Registry. Check your connection."));
+  if (!r.ok) throw new Error(tr('The MCP Registry answered {status}.', { status: r.status }));
   return r.json();
 }
 
@@ -133,13 +134,13 @@ export async function installMcp(input: { name: string; values: Record<string, s
   } catch (e) {
     return { error: (e as Error).message };
   }
-  if (!entry) return { error: "This server can't be installed from here." };
+  if (!entry) return { error: tr("This server can't be installed from here.") };
   const built = buildInstall(entry.plan, input.values);
   if ('error' in built) return built;
   if (built.command) {
     const runner = built.command[0];
     const found = await execa(process.platform === 'win32' ? 'where' : 'which', [runner], { reject: false });
-    if (found.exitCode !== 0) return { error: `This needs ${runner === 'npx' ? 'Node.js (npx)' : runner === 'uvx' ? 'uv (uvx)' : 'Docker'} installed on this computer.` };
+    if (found.exitCode !== 0) return { error: tr('This needs {runner} installed on this computer.', { runner: runner === 'npx' ? 'Node.js (npx)' : runner === 'uvx' ? 'uv (uvx)' : 'Docker' }) };
   }
   const header = built.headers && Object.entries(built.headers).length ? built.headers : undefined;
   return addConnector({ name: entry.title, url: built.url, headers: header, command: built.command, env: built.env, confirmed: input.confirmed });

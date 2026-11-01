@@ -36,6 +36,7 @@ const call = (app: { request: Hono['request'] }, path: string, body: unknown) =>
 
 beforeAll(async () => {
   await store.openStore();
+  store.db.data.setupDone = true;
 });
 
 beforeEach(() => {

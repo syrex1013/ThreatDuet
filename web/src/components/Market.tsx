@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { buildInstall, type McpListing, type McpSearch } from '../../../src/shared/market';
 import { CURATED_SKILLS, type SkillInfo, type SkillPreview } from '../../../src/shared/skills';
 import { post, request } from '../api';
+import { t } from '../i18n';
 
 const LOCAL_WARNING =
   'This runs on your computer with your permissions. Duet reads on its own only through read-only tools; anything that changes something waits for your approval.';
@@ -33,15 +34,15 @@ export function Browse() {
     <div className="market">
       <form className="market-search" onSubmit={submit}>
         <label htmlFor="market-q" className="sr-only">
-          Search the MCP Registry
+          {t('Search the MCP Registry')}
         </label>
-        <input id="market-q" type="search" placeholder="Search servers: email, calendar, files…" value={text} onChange={(e) => setText(e.target.value)} />
+        <input id="market-q" type="search" placeholder={t('Search servers: email, calendar, files…')} value={text} onChange={(e) => setText(e.target.value)} />
         <button type="submit" className="btn btn-quiet btn-sm">
-          Search
+          {t('Search')}
         </button>
       </form>
       <p className="hint">
-        From the official MCP Registry. Anyone can publish there and nothing is checked for you: install only what you trust.
+        {t('From the official MCP Registry. Anyone can publish there and nothing is checked for you: install only what you trust.')}
       </p>
       {list.error && (
         <p className="is-error apps-error" role="alert">
@@ -53,11 +54,11 @@ export function Browse() {
           <McpCard key={s.name} s={s} />
         ))}
       </div>
-      {list.isFetching && <p className="muted">Looking…</p>}
-      {!list.isFetching && !list.error && servers.length === 0 && <p className="hint">Nothing here can be installed from this search.</p>}
+      {list.isFetching && <p className="muted">{t('Looking…')}</p>}
+      {!list.isFetching && !list.error && servers.length === 0 && <p className="hint">{t('Nothing here can be installed from this search.')}</p>}
       {list.hasNextPage && !list.isFetching && (
         <button type="button" className="btn btn-text btn-sm" onClick={() => list.fetchNextPage()}>
-          Show more
+          {t('Show more')}
         </button>
       )}
     </div>
@@ -108,7 +109,7 @@ function McpCard({ s }: { s: McpListing }) {
               <>
                 {' · '}
                 <a href={s.repo} target="_blank" rel="noreferrer noopener">
-                  Source <ExternalLink size={12} aria-hidden="true" />
+                  {t('Source')} <ExternalLink size={12} aria-hidden="true" />
                 </a>
               </>
             )}
@@ -117,7 +118,7 @@ function McpCard({ s }: { s: McpListing }) {
             <div key={f.key} className="field">
               <label htmlFor={`m-${s.name}-${f.key}`}>
                 {f.label}
-                {f.required ? '' : ' (optional)'}
+                {f.required ? '' : ` (${t('optional')})`}
               </label>
               <input
                 id={`m-${s.name}-${f.key}`}
@@ -132,11 +133,11 @@ function McpCard({ s }: { s: McpListing }) {
           ))}
           {local ? (
             <>
-              <p className="warning">{LOCAL_WARNING}</p>
-              <code className="command">{shown?.command ? shown.command.join(' ') : 'Fill in the fields above to see the command.'}</code>
+              <p className="warning">{t(LOCAL_WARNING)}</p>
+              <code className="command">{shown?.command ? shown.command.join(' ') : t('Fill in the fields above to see the command.')}</code>
             </>
           ) : (
-            <p className="hint">Connects to a server run by its publisher. If it needs you to sign in, the button appears in Your apps.</p>
+            <p className="hint">{t('Connects to a server run by its publisher. If it needs you to sign in, the button appears in Your apps.')}</p>
           )}
           {error && (
             <p className="is-error" role="alert">
@@ -144,10 +145,10 @@ function McpCard({ s }: { s: McpListing }) {
             </p>
           )}
           {done ? (
-            <p className="hint">Installed. Find it under Your apps.</p>
+            <p className="hint">{t('Installed. Find it under Your apps.')}</p>
           ) : (
             <button type="submit" className="btn btn-send btn-sm" disabled={install.isPending || !shown}>
-              {install.isPending ? 'Installing…' : local ? 'Run on this computer and install' : 'Install'}
+              {install.isPending ? t('Installing…') : local ? t('Run on this computer and install') : t('Install')}
             </button>
           )}
         </form>
@@ -174,7 +175,7 @@ export function Import() {
   const run = useMutation({
     mutationFn: () => post<{ added: number; errors: string[] }>('/connectors/import', { keys: [...picked], text: text.trim() || undefined, confirmed: true }),
     onSuccess: (r) => {
-      setMsg({ ok: !r.errors.length, text: `Added ${r.added}.${r.errors.length ? ` ${r.errors.join(' ')}` : ''}` });
+      setMsg({ ok: !r.errors.length, text: `${t('Added {n}.', { n: r.added })}${r.errors.length ? ` ${r.errors.join(' ')}` : ''}` });
       setPicked(new Set());
       setText('');
       void after();
@@ -186,10 +187,10 @@ export function Import() {
   const anyLocal = servers.some((s) => picked.has(s.key) && !/^https?:\/\//.test(s.line)) || /"command"|command\s*=/.test(text);
   return (
     <div className="market">
-      <p className="hint">Use the servers you already have in Claude or Codex, with the same settings.</p>
+      <p className="hint">{t('Use the servers you already have in Claude or Codex, with the same settings.')}</p>
       {servers.length > 0 && (
         <fieldset className="machines">
-          <legend>Found on this computer</legend>
+          <legend>{t('Found on this computer')}</legend>
           {servers.map((s) => (
             <label key={s.key} className="check">
               <input type="checkbox" checked={picked.has(s.key)} onChange={() => toggle(s.key)} />
@@ -197,26 +198,26 @@ export function Import() {
                 {s.name} <span className="muted">{s.source}</span>
                 <span className="hint">
                   <code>{s.line}</code>
-                  {s.envKeys.length > 0 && ` · uses ${s.envKeys.join(', ')}`}
+                  {s.envKeys.length > 0 && ` · ${t('uses {keys}', { keys: s.envKeys.join(', ') })}`}
                 </span>
               </span>
             </label>
           ))}
         </fieldset>
       )}
-      {found.data && servers.length === 0 && <p className="hint">No Claude or Codex servers found on this computer.</p>}
+      {found.data && servers.length === 0 && <p className="hint">{t('No Claude or Codex servers found on this computer.')}</p>}
       <div className="field">
-        <label htmlFor="import-text">Or paste a config (.mcp.json or Codex config.toml)</label>
+        <label htmlFor="import-text">{t('Or paste a config (.mcp.json or Codex config.toml)')}</label>
         <textarea id="import-text" rows={5} spellCheck={false} value={text} onChange={(e) => setText(e.target.value)} placeholder={'{ "mcpServers": { "mail": { "command": "npx", "args": ["-y", "mail-mcp"] } } }'} />
       </div>
-      {anyLocal && <p className="warning">{LOCAL_WARNING}</p>}
+      {anyLocal && <p className="warning">{t(LOCAL_WARNING)}</p>}
       {msg && (
         <p className={msg.ok ? 'hint' : 'is-error'} role={msg.ok ? 'status' : 'alert'}>
           {msg.text}
         </p>
       )}
       <button type="button" className="btn btn-send btn-sm" disabled={run.isPending || (!picked.size && !text.trim())} onClick={() => run.mutate()}>
-        {run.isPending ? 'Importing…' : anyLocal ? 'Run on this computer and import' : 'Import'}
+        {run.isPending ? t('Importing…') : anyLocal ? t('Run on this computer and import') : t('Import')}
       </button>
     </div>
   );
@@ -258,11 +259,12 @@ export function SkillsSection() {
   const have = new Set(skills.data?.skills.map((s) => s.name));
 
   return (
-    <section className="apps-section" aria-label="Skills">
-      <h3>Skills</h3>
+    <section className="apps-section" aria-label={t('Skills')}>
+      <h3>{t('Skills')}</h3>
       <p className="hint">
-        A skill is a set of instructions Duet follows when it fits the job. Duet has no shell, so skills that run scripts won't work. A skill steers what Duet
-        does: install them only from sources you trust.
+        {t(
+          "A skill is a set of instructions Duet follows when it fits the job. Duet has no shell, so skills that run scripts won't work. A skill steers what Duet does: install them only from sources you trust.",
+        )}
       </p>
       {error && (
         <p className="is-error apps-error" role="alert">
@@ -284,21 +286,21 @@ export function SkillsSection() {
                 <div className="app-controls">
                   <label className="check check-inline">
                     <input type="checkbox" checked={s.enabled} onChange={(e) => act.mutate(['/skills/update', { name: s.name, enabled: e.target.checked }])} />
-                    <span>On</span>
+                    <span>{t('On')}</span>
                   </label>
                   {confirming === s.name ? (
                     <span className="confirm">
-                      Remove {s.name}?
+                      {t('Remove {name}?', { name: s.name })}
                       <button type="button" className="btn btn-quiet btn-sm" onClick={() => act.mutate(['/skills/remove', { name: s.name }], { onSettled: () => setConfirming(null) })}>
-                        Remove
+                        {t('Remove')}
                       </button>
                       <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(null)}>
-                        Keep
+                        {t('Keep')}
                       </button>
                     </span>
                   ) : (
                     <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(s.name)}>
-                      Remove…
+                      {t('Remove…')}
                     </button>
                   )}
                 </div>
@@ -312,11 +314,11 @@ export function SkillsSection() {
           <div key={c.id} className="preset">
             <button type="button" className="preset-head" disabled={look.isPending || act.isPending} onClick={() => look.mutate({ url: `https://github.com/${c.repo}/tree/${c.ref}/${c.path}` })}>
               <span className="app-badge" aria-hidden="true">
-                {c.name.slice(0, 1)}
+                {t(c.name).slice(0, 1)}
               </span>
               <span className="preset-text">
-                <span className="preset-name">{c.name}</span>
-                <span className="preset-blurb">{c.blurb}</span>
+                <span className="preset-name">{t(c.name)}</span>
+                <span className="preset-blurb">{t(c.blurb)}</span>
               </span>
               <Plus size={16} aria-hidden="true" className="preset-plus" />
             </button>
@@ -325,16 +327,16 @@ export function SkillsSection() {
       </div>
 
       {preview && source && (
-        <div className="custom-app" role="region" aria-label="Skill preview">
+        <div className="custom-app" role="region" aria-label={t('Skill preview')}>
           <strong>{preview.name}</strong> <span className="muted">{preview.source}</span>
           <p className="hint">{preview.description}</p>
           <pre className="skill-body">{preview.body.slice(0, 1500)}{preview.body.length > 1500 ? '\n…' : ''}</pre>
           <div className="reset">
             <button type="button" className="btn btn-send btn-sm" disabled={act.isPending} onClick={() => install(source)}>
-              {act.isPending ? 'Installing…' : `Install ${preview.name}`}
+              {act.isPending ? t('Installing…') : t('Install {name}', { name: preview.name })}
             </button>
             <button type="button" className="btn btn-text btn-sm" onClick={() => setPreview(null)}>
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </div>
@@ -348,16 +350,16 @@ export function SkillsSection() {
         }}
       >
         <label htmlFor="skill-url" className="sr-only">
-          GitHub link to a skill folder
+          {t('GitHub link to a skill folder')}
         </label>
-        <input id="skill-url" inputMode="url" placeholder="Link to a skill folder on GitHub" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <input id="skill-url" inputMode="url" placeholder={t('Link to a skill folder on GitHub')} value={url} onChange={(e) => setUrl(e.target.value)} />
         <button type="submit" className="btn btn-quiet btn-sm" disabled={look.isPending || (!url.trim() && !pasted.trim())}>
-          {look.isPending ? 'Looking…' : 'Preview'}
+          {look.isPending ? t('Looking…') : t('Preview')}
         </button>
       </form>
       <details className="custom-key">
-        <summary>Or paste a SKILL.md</summary>
-        <textarea aria-label="SKILL.md contents" rows={6} spellCheck={false} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={'---\nname: my-skill\ndescription: When to use it\n---\nWhat to do…'} />
+        <summary>{t('Or paste a SKILL.md')}</summary>
+        <textarea aria-label={t('SKILL.md contents')} rows={6} spellCheck={false} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={t('---\nname: my-skill\ndescription: When to use it\n---\nWhat to do…')} />
       </details>
     </section>
   );

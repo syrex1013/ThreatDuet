@@ -4,6 +4,7 @@ import { getFile } from '../api';
 import { previewDoc } from '../previewDoc';
 import { Markdown } from './Markdown';
 import { Sheet } from './Sheet';
+import { t } from '../i18n';
 
 const BINARY = /\.(xlsx?|pptx?|docx?|key|numbers|pages|pdf|png|jpe?g|gif|webp|heic|zip|mp[34]|mov)$/i;
 
@@ -30,24 +31,28 @@ export function FileViewer({ path, onClose, onAsk }: { path: string; onClose: ()
     e.preventDefault();
     const instruction = ask.trim();
     if (!instruction) return;
-    onAsk(selection ? `In ${path}, change only this part:\n> ${selection.replace(/\n/g, '\n> ')}\n\n${instruction}` : `In ${path}: ${instruction}`);
+    onAsk(
+      selection
+        ? t('In {path}, change only this part:', { path }) + `\n> ${selection.replace(/\n/g, '\n> ')}\n\n${instruction}`
+        : t('In {path}: {instruction}', { path, instruction }),
+    );
     onClose();
   };
 
   return (
     <Sheet title={path} wide onClose={onClose}>
       <div ref={view}>
-        {binary && <p className="muted">This file can't be previewed here. Open it from the workspace folder.</p>}
-        {file.isPending && !binary && <p className="muted">Opening {path}…</p>}
+        {binary && <p className="muted">{t("This file can't be previewed here. Open it from the workspace folder.")}</p>}
+        {file.isPending && !binary && <p className="muted">{t('Opening {path}…', { path })}</p>}
         {file.error && <p className="is-error">{file.error.message}</p>}
         {file.data && html && (
           <button type="button" className="btn btn-quiet btn-sm file-toggle" onClick={() => setSource(!source)}>
-            {source ? 'Preview' : 'Source'}
+            {source ? t('Preview') : t('Source')}
           </button>
         )}
         {file.data &&
           (html && !source ? (
-            <iframe className="file-frame" title={`Preview of ${path}`} sandbox="" srcDoc={previewDoc(file.data.text)} />
+            <iframe className="file-frame" title={t('Preview of {path}', { path })} sandbox="" srcDoc={previewDoc(file.data.text)} />
           ) : /\.(md|markdown)$/i.test(path) ? (
             <Markdown text={file.data.text} />
           ) : (
@@ -56,11 +61,11 @@ export function FileViewer({ path, onClose, onAsk }: { path: string; onClose: ()
       </div>
       {file.data && (
         <form className="file-ask" onSubmit={submit}>
-          <label htmlFor="file-ask">{selection ? 'Ask Duet to change the selected part' : 'Ask Duet to change this'}</label>
-          <input id="file-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={selection ? `“${selection.slice(0, 60)}”` : 'Select text first to change only that part'} />
+          <label htmlFor="file-ask">{selection ? t('Ask Duet to change the selected part') : t('Ask Duet to change this')}</label>
+          <input id="file-ask" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={selection ? `“${selection.slice(0, 60)}”` : t('Select text first to change only that part')} />
         </form>
       )}
-      <p className="muted file-where">Saved in Duet's workspace folder as {path}.</p>
+      <p className="muted file-where">{t("Saved in Duet's workspace folder as {path}.", { path })}</p>
     </Sheet>
   );
 }

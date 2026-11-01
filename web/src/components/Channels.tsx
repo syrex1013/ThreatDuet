@@ -1,6 +1,7 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Message, StateResponse } from '../../../src/shared/types';
+import { t } from '../i18n';
 
 interface ChannelsProps {
   channels: StateResponse['channels'];
@@ -31,7 +32,7 @@ export function Channels({ channels, messages, active, onSelect, onCreate, onDel
   const chip = (id: string | undefined, label: string) => (
     <button key={id ?? ''} type="button" className={`channel ${id === active ? 'is-active' : ''}`} aria-pressed={id === active} onClick={() => onSelect(id)}>
       {label}
-      {id !== active && unread(id) && <span className="channel-dot" aria-label="new reply" />}
+      {id !== active && unread(id) && <span className="channel-dot" aria-label={t('new reply')} />}
     </button>
   );
 
@@ -43,11 +44,11 @@ export function Channels({ channels, messages, active, onSelect, onCreate, onDel
   };
 
   return (
-    <nav className="channels" aria-label="Channels">
-      {chip(undefined, 'Main')}
+    <nav className="channels" aria-label={t('Channels')}>
+      {chip(undefined, t('Main'))}
       {channels.map((c) => chip(c.id, `#${c.name}`))}
       {active && (
-        <button type="button" className="icon-btn icon-btn-sm" onClick={() => onDelete(active)} aria-label="Close this channel (its messages move to Main)" title="Close channel, messages move to Main">
+        <button type="button" className="icon-btn icon-btn-sm" onClick={() => onDelete(active)} aria-label={t('Close this channel (its messages move to Main)')} title={t('Close channel, messages move to Main')}>
           <X size={15} aria-hidden="true" />
         </button>
       )}
@@ -57,8 +58,8 @@ export function Channels({ channels, messages, active, onSelect, onCreate, onDel
           autoFocus
           maxLength={40}
           value={name}
-          placeholder="Channel name"
-          aria-label="New channel name"
+          placeholder={t('Channel name')}
+          aria-label={t('New channel name')}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => !name.trim() && setAdding(false)}
           onKeyDown={(e) => {
@@ -70,7 +71,7 @@ export function Channels({ channels, messages, active, onSelect, onCreate, onDel
           }}
         />
       ) : (
-        <button type="button" className="icon-btn icon-btn-sm" onClick={() => setAdding(true)} aria-label="New channel" title="New channel">
+        <button type="button" className="icon-btn icon-btn-sm" onClick={() => setAdding(true)} aria-label={t('New channel')} title={t('New channel')}>
           <Plus size={15} aria-hidden="true" />
         </button>
       )}

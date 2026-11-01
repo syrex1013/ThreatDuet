@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { StateResponse } from '../../../src/shared/types';
+import type { Language, StateResponse } from '../../../src/shared/types';
 import { connection, isPhone } from '../connection';
+import { t } from '../i18n';
 import { settingsPatch, type SettingsForm } from '../settingsPatch';
 import { PhoneAccess } from './PhoneAccess';
 import { Sheet } from './Sheet';
@@ -41,15 +42,15 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
 
   return (
     <Sheet
-      title="Settings"
+      title={t('Settings')}
       onClose={onClose}
       footer={
         <>
           <button type="button" className="btn btn-quiet" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </button>
           <button type="button" className="btn btn-send" onClick={() => void save()} disabled={saving}>
-            Save settings
+            {t('Save settings')}
           </button>
         </>
       }
@@ -60,14 +61,31 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
         </p>
       )}
       <fieldset>
-        <legend>Schedule</legend>
+        <div className="field">
+          <label htmlFor="language">{t('Language')}</label>
+          <select id="language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value as Language })} aria-describedby="language-hint">
+            <option value="en" lang="en">
+              English
+            </option>
+            <option value="pl" lang="pl">
+              Polski
+            </option>
+          </select>
+          <p className="hint" id="language-hint">
+            {t('For this app. Duet will also write to you in this language.')}
+          </p>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>{t('Schedule')}</legend>
         <div className="field-grid">
-          <Field id="briefAt" label="Morning brief" type="time" value={form.briefAt} onChange={set('briefAt')} />
-          <Field id="reportAt" label="Evening report" type="time" value={form.reportAt} onChange={set('reportAt')} />
+          <Field id="briefAt" label={t('Morning brief')} type="time" value={form.briefAt} onChange={set('briefAt')} />
+          <Field id="reportAt" label={t('Evening report')} type="time" value={form.reportAt} onChange={set('reportAt')} />
           <Field
             id="checkEveryHours"
-            label="Check in every (hours)"
-            hint="0 turns check-ins off."
+            label={t('Check in every (hours)')}
+            hint={t('0 turns check-ins off.')}
             type="number"
             min="0"
             step="0.5"
@@ -75,29 +93,29 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
             onChange={set('checkEveryHours')}
           />
           <div />
-          <Field id="quietStart" label="Quiet from" type="time" value={form.quietStart} onChange={set('quietStart')} />
-          <Field id="quietEnd" label="Quiet until" type="time" value={form.quietEnd} onChange={set('quietEnd')} />
+          <Field id="quietStart" label={t('Quiet from')} type="time" value={form.quietStart} onChange={set('quietStart')} />
+          <Field id="quietEnd" label={t('Quiet until')} type="time" value={form.quietEnd} onChange={set('quietEnd')} />
         </div>
-        <p className="hint">During quiet hours Duet doesn't check in or send notifications.</p>
+        <p className="hint">{t("During quiet hours Duet doesn't check in or send notifications.")}</p>
       </fieldset>
 
       <fieldset>
-        <legend>What Duet tells you about</legend>
+        <legend>{t('What Duet tells you about')}</legend>
         <label htmlFor="focus" className="sr-only">
-          What Duet tells you about
+          {t('What Duet tells you about')}
         </label>
         <textarea id="focus" rows={3} value={form.focus} onChange={set('focus')} />
-        <p className="hint">Anything else it notices waits for your morning brief.</p>
+        <p className="hint">{t('Anything else it notices waits for your morning brief.')}</p>
       </fieldset>
 
       <fieldset>
-        <legend>{isPhone ? 'This phone' : 'Phone'}</legend>
+        <legend>{isPhone ? t('This phone') : t('Phone')}</legend>
         {isPhone ? (
           <>
-            <p className="phone-text">Paired with {connection()?.url}.</p>
+            <p className="phone-text">{t('Paired with {url}.', { url: connection()?.url ?? '' })}</p>
             <div className="reset">
               <button type="button" className="btn btn-quiet" onClick={onUnpair}>
-                Unpair this phone
+                {t('Unpair this phone')}
               </button>
             </div>
           </>
@@ -107,43 +125,47 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
       </fieldset>
 
       <fieldset>
-        <legend>Apps</legend>
+        <legend>{t('Apps')}</legend>
         {isPhone ? (
-          <p className="hint">Connect apps from OpenDuet on your computer, in Apps.</p>
+          <p className="hint">{t('Connect apps from OpenDuet on your computer, in Apps.')}</p>
         ) : (
           <button type="button" className="btn btn-quiet" onClick={onOpenApps}>
-            Manage connected apps
+            {t('Manage connected apps')}
           </button>
         )}
       </fieldset>
 
       <fieldset>
-        <legend>Memory</legend>
+        <legend>{t('Memory')}</legend>
         <label htmlFor="memory" className="sr-only">
-          What Duet remembers about you
+          {t('What Duet remembers about you')}
         </label>
         <textarea id="memory" rows={7} value={form.memory} onChange={set('memory')} readOnly={memoryLocked} />
-        <p className="hint">{memoryLocked ? 'Reopen Settings once your computer is reachable to edit this.' : 'Duet reads this before every task. Edit or delete anything.'}</p>
+        <p className="hint">
+          {memoryLocked ? t('Reopen Settings once your computer is reachable to edit this.') : t('Duet reads this before every task. Edit or delete anything.')}
+        </p>
       </fieldset>
 
       <fieldset>
-        <legend>Advanced</legend>
-        <Field id="model" label="Model" hint="Any Kilo model id. The default costs nothing." value={form.model} onChange={set('model')} />
+        <legend>{t('Advanced')}</legend>
+        <Field id="model" label={t('Model')} hint={t('Any Kilo model id. The default costs nothing.')} value={form.model} onChange={set('model')} />
         <div className="field">
-          <label htmlFor="kiloMode">How Duet talks to Kilo</label>
+          <label htmlFor="kiloMode">{t('How Duet talks to Kilo')}</label>
           <select id="kiloMode" value={form.kiloMode} onChange={(e) => setForm({ ...form, kiloMode: e.target.value as 'api' | 'cli' | 'direct' })} aria-describedby="kiloMode-hint">
-            <option value="api">Kilo server (HTTP API)</option>
-            <option value="cli">Command line (one kilo run per task)</option>
-            <option value="direct">Kilo hosted API (no Kilo program needed)</option>
+            <option value="api">{t('Kilo server (HTTP API)')}</option>
+            <option value="cli">{t('Command line (one kilo run per task)')}</option>
+            <option value="direct">{t('Kilo hosted API (no Kilo program needed)')}</option>
           </select>
           <p className="hint" id="kiloMode-hint">
-            If the Kilo program isn't installed (common on Windows), Duet uses the hosted API on its own. Otherwise the server stays running between tasks, and the command line is the fallback.
+            {t(
+              "If the Kilo program isn't installed (common on Windows), Duet uses the hosted API on its own. Otherwise the server stays running between tasks, and the command line is the fallback.",
+            )}
           </p>
         </div>
         <div className="reset">
           {confirmReset ? (
             <>
-              <p>Duet will forget this conversation's context. Your messages stay on screen.</p>
+              <p>{t("Duet will forget this conversation's context. Your messages stay on screen.")}</p>
               <button
                 type="button"
                 className="btn btn-quiet"
@@ -152,15 +174,15 @@ export function SettingsSheet({ state, fromCache = false, onClose, onSave, onSav
                   onClose();
                 }}
               >
-                Start new thread
+                {t('Start new thread')}
               </button>
               <button type="button" className="btn btn-quiet" onClick={() => setConfirmReset(false)}>
-                Keep context
+                {t('Keep context')}
               </button>
             </>
           ) : (
             <button type="button" className="btn btn-quiet" onClick={() => setConfirmReset(true)}>
-              Start a new thread…
+              {t('Start a new thread…')}
             </button>
           )}
         </div>

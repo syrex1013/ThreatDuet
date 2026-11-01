@@ -65,6 +65,12 @@ function setCompact(compact: boolean) {
   tray?.setContextMenu(trayMenu?.() ?? null);
 }
 let trayMenu: (() => Menu) | null = null;
+// Swapped for the server's translator once its modules load in boot().
+let tr = (en: string, _vars?: Record<string, string | number>) => en;
+
+// Windows shows toasts only for an app with an AppUserModelID; it must match the installer's Start-menu
+// shortcut, which electron-builder tags with build.appId.
+if (process.platform === 'win32') app.setAppUserModelId('tech.threatvector.openduet');
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -86,6 +92,7 @@ async function boot() {
   // Keep the namespace: `db` is assigned when the server starts, and destructuring would copy `undefined`.
   const store = await import('../server/store.js');
   const { WORKSPACE } = await import('../server/config.js');
+  ({ tr } = await import('../server/i18n.js'));
 
   const server = await startServer({ port: 0 });
   origin = `http://127.0.0.1:${server.port}`;
@@ -97,9 +104,19 @@ async function boot() {
     void server.close().finally(() => app.exit(0));
   });
 
+  // Held until closed: on Windows a collected notification loses its click handler.
+  const toasts = new Set<Notification>();
+  const toastIcon = isMac ? undefined : nativeImage.createFromPath(path.join(app.getAppPath(), 'build', 'icon.png'));
   setNotifier((title, body) => {
-    const n = new Notification({ title, body });
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body, icon: toastIcon, timeoutType: 'default' });
+    toasts.add(n);
     n.on('click', showWindow);
+    n.on('close', () => toasts.delete(n));
+    n.on('failed', (_e, error) => {
+      toasts.delete(n);
+      console.error(`OpenDuet notification failed: ${error}`);
+    });
     n.show();
   });
 
@@ -114,14 +131,14 @@ async function boot() {
     if (e.sender === win?.webContents) e.sender.send('compact', Boolean(winState.compact));
   });
   app.on('before-quit', saveWindowState);
-  Menu.setApplicationMenu(
+  const appMenu = () =>
     Menu.buildFromTemplate([
       ...(isMac ? [{ role: 'appMenu' as const }] : [{ role: 'fileMenu' as const }]),
       { role: 'editMenu' },
       {
-        label: 'View',
+        label: tr('View'),
         submenu: [
-          { label: 'Compact window', accelerator: 'CmdOrCtrl+Shift+M', click: () => setCompact(!winState.compact) },
+          { label: tr('Compact window'), accelerator: 'CmdOrCtrl+Shift+M', click: () => setCompact(!winState.compact) },
           { type: 'separator' },
           { role: 'resetZoom' },
           { role: 'zoomIn' },
@@ -132,18 +149,18 @@ async function boot() {
         ],
       },
       { role: 'windowMenu' },
-    ]),
-  );
+    ]);
+  Menu.setApplicationMenu(appMenu());
   createWindow();
 
   const pending = () => store.db.data.messages.filter((m) => m.proposal?.status === 'pending').length;
   const menu = () =>
     Menu.buildFromTemplate([
-      { label: pending() ? `${pending()} waiting for your approval` : 'Nothing needs you right now', enabled: false },
+      { label: pending() ? tr('{n} waiting for your approval', { n: pending() }) : tr('Nothing needs you right now'), enabled: false },
       { type: 'separator' },
-      { label: 'Open OpenDuet', click: showWindow },
+      { label: tr('Open OpenDuet'), click: showWindow },
       {
-        label: 'Compact window',
+        label: tr('Compact window'),
         type: 'checkbox',
         checked: Boolean(winState.compact),
         click: (item) => {
@@ -151,18 +168,18 @@ async function boot() {
           setCompact(item.checked);
         },
       },
-      { label: 'Brief me now', click: () => routines.brief() },
-      { label: 'Check in now', click: () => routines.check() },
+      { label: tr('Brief me now'), click: () => routines.brief() },
+      { label: tr('Check in now'), click: () => routines.check() },
       { type: 'separator' },
       {
-        label: 'Open at login',
+        label: tr('Open at login'),
         type: 'checkbox',
         checked: app.getLoginItemSettings().openAtLogin,
         click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked, args: ['--hidden'] }),
       },
-      { label: 'Show workspace folder', click: () => void shell.openPath(WORKSPACE) },
+      { label: tr('Show workspace folder'), click: () => void shell.openPath(WORKSPACE) },
       { type: 'separator' },
-      { label: 'Quit OpenDuet', click: () => app.quit() },
+      { label: tr('Quit OpenDuet'), click: () => app.quit() },
     ]);
   trayMenu = menu;
 
@@ -172,11 +189,13 @@ async function boot() {
   tray.setContextMenu(menu());
 
   // Approvals waiting: Dock badge, menu-bar count and tray menu stay in step with the thread.
-  let shown = -1;
+  let shown = '';
   setInterval(() => {
     const n = pending();
-    if (n === shown) return;
-    shown = n;
+    const lang = store.db.data.settings.language;
+    if (`${n}|${lang}` === shown) return;
+    if (!shown.endsWith(`|${lang}`)) Menu.setApplicationMenu(appMenu());
+    shown = `${n}|${lang}`;
     app.setBadgeCount(n);
     if (isMac) tray?.setTitle(n ? ` ${n}` : '');
     tray?.setContextMenu(menu());
@@ -275,10 +294,10 @@ async function checkKilo() {
   if (r.exitCode === 0) return;
   const { response } = await dialog.showMessageBox({
     type: 'warning',
-    message: 'OpenDuet needs the Kilo CLI',
+    message: tr('OpenDuet needs the Kilo CLI'),
     detail:
-      'Duet does its work through Kilo. Install it with "npm install -g @kilocode/cli", sign in with "kilo auth", then restart OpenDuet.',
-    buttons: ['Continue', 'Open Kilo docs', 'Quit'],
+      tr('Duet does its work through Kilo. Install it with "npm install -g @kilocode/cli", sign in with "kilo auth", then restart OpenDuet.'),
+    buttons: [tr('Continue'), tr('Open Kilo docs'), tr('Quit')],
     defaultId: 1,
   });
   if (response === 1) void shell.openExternal('https://kilo.ai/docs');

@@ -7,6 +7,7 @@ import { useDirect } from './direct/available.js';
 import { runDirect } from './direct/runtime.js';
 import { KiloServerError, runKiloApi } from './kilo-api.js';
 import { db, resetSandbox } from './store.js';
+import { tr } from './i18n.js';
 
 export interface KiloRun {
   prompt: string;
@@ -25,29 +26,29 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
   const file = typeof named === 'string' ? path.basename(named) : '';
   switch (tool) {
     case 'read':
-      return file ? `reading ${file}` : 'reading a file';
+      return file ? tr('reading {file}', { file }) : tr('reading a file');
     case 'write':
     case 'edit':
-      return file ? `writing ${file}` : 'writing a file';
+      return file ? tr('writing {file}', { file }) : tr('writing a file');
     case 'glob':
     case 'grep':
     case 'list':
-      return 'searching the workspace';
+      return tr('searching the workspace');
     case 'websearch':
-      return typeof input.query === 'string' ? `searching the web for “${input.query.slice(0, 60)}”` : 'searching the web';
+      return typeof input.query === 'string' ? tr('searching the web for “{query}”', { query: input.query.slice(0, 60) }) : tr('searching the web');
     case 'webfetch':
       try {
-        return `reading ${new URL(String(input.url)).hostname}`;
+        return tr('reading {file}', { file: new URL(String(input.url)).hostname });
       } catch {
-        return 'reading a web page';
+        return tr('reading a web page');
       }
     case 'bash':
-      return typeof input.description === 'string' ? input.description.toLowerCase().slice(0, 80) : 'running a command';
+      return typeof input.description === 'string' ? input.description.toLowerCase().slice(0, 80) : tr('running a command');
     case 'todowrite':
     case 'todoread':
-      return 'planning';
+      return tr('planning');
     case 'skill':
-      return 'loading a skill';
+      return tr('loading a skill');
   }
   if (tool.startsWith('mac_')) {
     const known: Record<string, string> = {
@@ -63,34 +64,34 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
       mac_browser_type: 'typing in your browser',
       mac_browser_press: 'typing in your browser',
     };
-    return known[tool] ?? 'using your computer';
+    return tr(known[tool] ?? 'using your computer');
   }
   if (tool.startsWith('computer_')) {
     const url = typeof input.url === 'string' ? input.url : '';
     switch (tool) {
       case 'computer_browser_open':
         try {
-          return `opening ${new URL(url).hostname} on its computer`;
+          return tr('opening {host} on its computer', { host: new URL(url).hostname });
         } catch {
-          return 'opening a page on its computer';
+          return tr('opening a page on its computer');
         }
       case 'computer_browser_read':
-        return 'reading the page on its computer';
+        return tr('reading the page on its computer');
       case 'computer_browser_screenshot':
-        return 'looking at the screen of its computer';
+        return tr('looking at the screen of its computer');
       case 'computer_browser_click':
-        return 'clicking on its computer';
+        return tr('clicking on its computer');
       case 'computer_browser_type':
       case 'computer_browser_press':
-        return 'typing on its computer';
+        return tr('typing on its computer');
       case 'computer_run':
-        return 'running a command on its computer';
+        return tr('running a command on its computer');
       default:
-        return 'using its computer';
+        return tr('using its computer');
     }
   }
   const app = tool.includes('_') ? tool.split('_')[0] : '';
-  return app ? `using ${app}` : 'working';
+  return app ? tr('using {app}', { app }) : tr('working');
 }
 
 /** One turn: the Kilo program's HTTP server (default) or CLI, or Duet's own agent on Kilo's hosted API. */

@@ -1,3 +1,4 @@
+import { Hono } from 'hono';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { KiloResult } from './parse.js';
 
@@ -27,7 +28,7 @@ beforeAll(async () => {
 beforeEach(() => {
   kilo.mockReset();
   vi.mocked(notify).mockReset();
-  Object.assign(store.db.data, { messages: [], followups: [], digest: [], threadSession: null, lastBrief: '', lastReport: '' });
+  Object.assign(store.db.data, { messages: [], followups: [], digest: [], tasks: [], setupDone: true, threadSession: null, lastBrief: '', lastReport: '' });
   Object.assign(store.db.data.settings, { briefAt: '08:00', reportAt: '18:00', checkEveryHours: 0, quietStart: '22:00', quietEnd: '07:00' });
 });
 
@@ -288,5 +289,74 @@ describe('settings route', () => {
     expect((await save({ openWebPages: true, focus: 'work' })).status).toBe(200);
     expect(store.db.data.settings.openWebPages).toBe(false);
     expect(store.db.data.settings.focus).toBe('work');
+  });
+});
+
+describe("Duet's own tasks", () => {
+  const ask = (text: string) => kilo.mockResolvedValueOnce(reply({ text, finalText: text }));
+
+  it('starts TASK work on its own, holds SUGGEST for the user, and skips duplicates', async () => {
+    ask('On it.\n<<TASK: Prep Acme brief | read the thread>>\n<<SUGGEST: Clean inbox | archive newsletters>>\n<<SUGGEST: clean INBOX | again>>');
+    ask('Brief saved in acme.md.');
+    await duet.chat('hi');
+    await duet.idle();
+    const [inbox, acme] = store.db.data.tasks;
+    expect(store.db.data.tasks).toHaveLength(2);
+    expect(acme).toMatchObject({ title: 'Prep Acme brief', status: 'done' });
+    expect(inbox).toMatchObject({ title: 'Clean inbox', status: 'suggested', startedAt: null });
+    expect(kilo).toHaveBeenCalledTimes(2);
+    expect(kilo.mock.calls[1][0].prompt).toContain('TASK you decided to do on your own: Prep Acme brief');
+    expect(last().text).toBe('Brief saved in acme.md.');
+
+    expect((await duet.dismissTask(inbox.id))).toBe(true);
+    expect(await duet.startTask(inbox.id)).toBe(false);
+  });
+
+  it('caps how many run at once: the rest become suggestions', async () => {
+    store.db.data.tasks = [1, 2, 3].map((i) => ({ id: `q${i}`, title: `q${i}`, details: '', status: 'queued' as const, createdAt: 0, startedAt: null, doneAt: null }));
+    ask('<<TASK: one more | x>>');
+    await duet.chat('hi');
+    await duet.idle();
+    expect(store.db.data.tasks.find((t) => t.title === 'one more')?.status).toBe('suggested');
+    expect(kilo).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs a suggested task when the user starts it', async () => {
+    store.db.data.tasks = [{ id: 's1', title: 'Plan', details: 'a plan', status: 'suggested', createdAt: 0, startedAt: null, doneAt: null }];
+    ask('Plan in plan.md.');
+    expect(await duet.startTask('s1')).toBe(true);
+    await duet.idle();
+    expect(store.db.data.tasks[0].status).toBe('done');
+  });
+});
+
+describe('first-launch setup', () => {
+  const setup = (body: unknown, phone = false) => {
+    const app = new Hono<{ Variables: { phone?: boolean } }>();
+    app.use(async (c, next) => {
+      if (phone) c.set('phone', true);
+      await next();
+    });
+    app.route('/', api);
+    return app.request('/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  };
+
+  it('holds scheduled work until setup, saves the answers, then Duet introduces itself', async () => {
+    store.db.data.setupDone = false;
+    store.db.data.settings.checkEveryHours = 1;
+    store.db.data.lastCheck = 0;
+    await scheduler.tick();
+    expect(kilo).not.toHaveBeenCalled();
+
+    expect((await setup({ name: 'Ada' }, true)).status).toBe(403);
+    kilo.mockResolvedValue(reply({ text: 'Hi Ada.', finalText: 'Hi Ada.' }));
+    expect((await setup({ name: 'Ada', about: 'I run a bakery', language: 'pl', briefAt: '07:30' })).status).toBe(200);
+    await duet.idle();
+    expect(store.db.data.setupDone).toBe(true);
+    expect(store.db.data.settings).toMatchObject({ language: 'pl', briefAt: '07:30' });
+    expect(await store.readMemory()).toContain("The user's name is Ada.");
+    expect(kilo.mock.calls[0][0].prompt).toContain('FIRST DAY');
+    expect((await setup({ skip: true })).status).toBe(409);
+    store.db.data.settings.language = 'en';
   });
 });

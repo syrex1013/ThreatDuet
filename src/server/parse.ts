@@ -17,6 +17,8 @@ export interface ParsedReply {
   priority: 'high' | 'low' | null;
   /** Suggested recurring routines; the user has to turn each one on. */
   routines: { cron: string; what: string }[];
+  /** Tasks Duet came up with: `start` ones it runs on its own, the rest it suggests. */
+  tasks: { title: string; details: string; start: boolean }[];
 }
 
 /** The first run of a cron pattern after `from`, or null if it is invalid or never runs again. */
@@ -39,6 +41,7 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
   const remember: string[] = [];
   const followups: FollowUp[] = [];
   const routines: ParsedReply['routines'] = [];
+  const tasks: ParsedReply['tasks'] = [];
   let priority: ParsedReply['priority'] = null;
   let cont = false;
   let text = raw
@@ -58,6 +61,11 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
       if (routineCron(cron) && what.trim()) routines.push({ cron: cron.trim().split(/\s+/).join(' '), what: what.trim() });
       return '';
     })
+    // Models often drop the details or wrap the marker in backticks; both still count.
+    .replace(/`?<<(TASK|SUGGEST):?\s*([^|>]*)(?:\|([\s\S]*?))?>>`?/g, (_, kind: string, title: string, details = '') => {
+      if (title.trim()) tasks.push({ title: title.trim().slice(0, 120), details: details.trim().slice(0, 2000), start: kind === 'TASK' });
+      return '';
+    })
     .replace(/<<PRIORITY:?\s*(high|low)\s*>>/gi, (_, p: string) => {
       priority = p.toLowerCase() as 'high' | 'low';
       return '';
@@ -73,7 +81,7 @@ export function parseReply(raw: string, now = Date.now()): ParsedReply {
     return '';
   });
   if (!actions || /^none\.?$/i.test(actions)) actions = null;
-  return { text: text.trim(), actions, remember, continue: cont, followups, priority, routines };
+  return { text: text.trim(), actions, remember, continue: cont, followups, priority, routines, tasks };
 }
 
 export interface KiloResult {

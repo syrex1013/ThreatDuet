@@ -3,6 +3,7 @@ import { settingsPatch, type SettingsForm } from './settingsPatch';
 
 const initial: SettingsForm = {
   model: 'm',
+  language: 'en',
   briefAt: '08:00',
   reportAt: '18:00',
   checkEveryHours: '3',

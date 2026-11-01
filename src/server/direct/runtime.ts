@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR, RUN_TIMEOUT_MS, WORKSPACE } from '../config.js';
+import { tr } from '../i18n.js';
 import { asEvents, type Part } from '../kilo-api.js';
 import type { KiloRun } from '../kilo.js';
 import { parseKiloEvents, type KiloResult } from '../parse.js';
@@ -112,7 +113,7 @@ export async function runDirect(run: KiloRun, describe: (tool: string, input: Re
         parts.push({ type: 'tool', tool: name, state: { status, input: args, title: name === 'write' || name === 'edit' ? String(args.path ?? '') : describe(name, args) } });
         history.push({ role: 'tool', tool_call_id: call.id, content: out });
       }
-      if (step === MAX_STEPS - 1) errors.push(`Stopped after ${MAX_STEPS} steps.`);
+      if (step === MAX_STEPS - 1) errors.push(tr('Stopped after {n} steps.', { n: MAX_STEPS }));
     }
   } catch (e) {
     errors.push(ctl.signal.aborted ? 'kilo timed out' : e instanceof Error ? e.message : String(e));

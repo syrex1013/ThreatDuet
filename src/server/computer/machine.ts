@@ -6,6 +6,7 @@ import type { ComputerChoice, ComputerScreen, ComputerStatus } from '../../share
 import { VM_DRIVER_DIR, VM_WORK_DIR, WORKSPACE, log } from '../config.js';
 import { stateChanged } from '../events.js';
 import { db, PROTECTED } from '../store.js';
+import { tr } from '../i18n.js';
 import { Instabox, InstaboxError } from './instabox.js';
 
 const DRIVER_SOURCE = new URL('./vm/duet-browser.mjs', import.meta.url);
@@ -228,7 +229,7 @@ const step = (text: string) => {
 
 /** Connects (or re-checks) the computer in the background; progress shows in computerStatus().setup. */
 export async function connectComputer(input: { apiKey?: string; machineId: string }): Promise<{ ok: true } | { error: string }> {
-  if (setup?.running) return { error: 'Setup is already running.' };
+  if (setup?.running) return { error: tr('Setup is already running.') };
   const apiKey = input.apiKey ?? DEFAULT_API_KEY;
   let machine;
   try {
@@ -249,26 +250,26 @@ export async function connectComputer(input: { apiKey?: string; machineId: strin
 }
 
 export async function retrySetup(): Promise<{ ok: true } | { error: string }> {
-  if (!db.data.computer) return { error: "Duet doesn't have a computer yet." };
-  if (setup?.running) return { error: 'Setup is already running.' };
+  if (!db.data.computer) return { error: tr("Duet doesn't have a computer yet.") };
+  if (setup?.running) return { error: tr('Setup is already running.') };
   void runSetup();
   return { ok: true };
 }
 
 async function runSetup(): Promise<void> {
-  let where = 'Waking the computer';
+  let where = tr('Waking the computer');
   try {
     step(where);
     await ensureAwake();
-    step((where = 'Installing the browser driver'));
+    step((where = tr('Installing the browser driver')));
     await installDriver();
-    step((where = 'Starting the browser'));
+    step((where = tr('Starting the browser')));
     await browser('start');
-    step((where = 'Checking that it can browse'));
+    step((where = tr('Checking that it can browse')));
     await browser('open', { url: 'https://example.com' });
     const page = await browser('read');
     // The heading may be missing from the text on a redesigned example.com; the title is stable.
-    if (!/Example Domain/.test(`${page.title ?? ''} ${page.text ?? ''}`)) throw new Error("The browser started but couldn't load a test page. Does the computer have internet access?");
+    if (!/Example Domain/.test(`${page.title ?? ''} ${page.text ?? ''}`)) throw new Error(tr("The browser started but couldn't load a test page. Does the computer have internet access?"));
     setup = null;
     log.info({ machine: db.data.computer?.name }, 'computer ready');
   } catch (e) {

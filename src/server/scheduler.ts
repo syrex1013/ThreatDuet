@@ -1,6 +1,7 @@
 import { Cron } from 'croner';
-import { routines } from './duet.js';
+import { queuedTasks, routines, runTask } from './duet.js';
 import { notify } from './notify.js';
+import { tr } from './i18n.js';
 import { nextRoutineRun } from './parse.js';
 import { hhmm, inQuiet } from './policy.js';
 import { db } from './store.js';
@@ -39,8 +40,11 @@ function daily(kind: 'brief' | 'report', at: string, t: string): void {
  */
 export async function tick(): Promise<void> {
   const d = db.data;
+  // Nothing runs on its own until the user has set Duet up (or skipped setup).
+  if (!d.setupDone) return;
   const s = d.settings;
   const t = hhmm(new Date());
+  for (const id of queuedTasks()) runTask(id);
   daily('brief', s.briefAt, t);
   daily('report', s.reportAt, t);
   const now = Date.now();
@@ -62,7 +66,7 @@ export async function tick(): Promise<void> {
     const p = m.proposal;
     if (p?.status === 'pending' && !p.remindedAt && now - m.ts > REMIND_AFTER_MS && !inQuiet(t, s.quietStart, s.quietEnd)) {
       p.remindedAt = now;
-      notify('Duet is still waiting for your approval', p.actions);
+      notify(tr('Duet is still waiting for your approval'), p.actions);
     }
   }
   await db.write();

@@ -2,6 +2,7 @@ import { AlertTriangle, Check, Clock, FileText } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef } from 'react';
 import type { Message, Proposal } from '../../../src/shared/types';
+import { t } from '../i18n';
 import { clock, groupByDay, KIND_TITLE, spring, summarizeTools } from '../lib';
 import { Mark } from './Mark';
 import { Markdown } from './Markdown';
@@ -31,17 +32,19 @@ export function Timeline({ messages, busy, busyDetail, briefAt, acting, onApprov
 
   if (!messages.length) {
     return (
-      <section className="timeline empty" aria-label="Thread">
+      <section className="timeline empty" aria-label={t('Thread')}>
         <Mark size={28} className="empty-mark" />
-        <h1 className="empty-title">Hand Duet anything on your plate.</h1>
+        <h1 className="empty-title">{t('Hand Duet anything on your plate.')}</h1>
         <p className="empty-text">
-          It works on it in the background, briefs you every morning at {briefAt}, checks in when something needs you, and asks
-          before it sends, pays, signs or deletes anything.
+          {t(
+            'It works on it in the background, briefs you every morning at {briefAt}, checks in when something needs you, and asks before it sends, pays, signs or deletes anything.',
+            { briefAt },
+          )}
         </p>
         <div className="suggestions">
           {SUGGESTIONS.map((s) => (
-            <button key={s} type="button" className="suggestion" onClick={() => onSuggest(s)}>
-              {s}
+            <button key={s} type="button" className="suggestion" onClick={() => onSuggest(t(s))}>
+              {t(s)}
             </button>
           ))}
         </div>
@@ -51,7 +54,7 @@ export function Timeline({ messages, busy, busyDetail, briefAt, acting, onApprov
   }
 
   return (
-    <section className="timeline" aria-label="Thread">
+    <section className="timeline" aria-label={t('Thread')}>
       {groupByDay(messages).map((group) => (
         <div key={group.label} className="day">
           <h2 className="day-label">
@@ -93,15 +96,15 @@ function Entry({ m, acting, onApprove, onReject, onOpenFile }: EntryProps) {
     );
   }
 
-  const title = m.role === 'user' ? 'You' : (KIND_TITLE[m.kind] ?? 'Duet');
+  const title = m.role === 'user' ? t('You') : t(KIND_TITLE[m.kind] ?? 'Duet');
   const { files, notes } = summarizeTools(m.tools);
   return (
     <article
       className={`entry entry-${m.role} kind-${m.kind} ${m.pending ? 'is-pending' : ''}`}
       id={`m-${m.id}`}
-      aria-label={`${title} at ${clock(m.ts)}`}
+      aria-label={t('{title} at {time}', { title, time: clock(m.ts) })}
     >
-      <time dateTime={new Date(m.ts).toISOString()}>{m.pending ? 'Sending' : clock(m.ts)}</time>
+      <time dateTime={new Date(m.ts).toISOString()}>{m.pending ? t('Sending') : clock(m.ts)}</time>
       <div className="entry-body">
         <h3 className="entry-title">
           {m.role === 'duet' && <Mark size={14} className="entry-mark" />}
@@ -111,7 +114,7 @@ function Entry({ m, acting, onApprove, onReject, onOpenFile }: EntryProps) {
         {(files.length > 0 || notes.length > 0) && (
           <div className="work">
             {files.map((f) => (
-              <button key={f} type="button" className="file-chip" onClick={() => onOpenFile(f)} title={`Open ${f}`}>
+              <button key={f} type="button" className="file-chip" onClick={() => onOpenFile(f)} title={t('Open {file}', { file: f })}>
                 <FileText size={14} aria-hidden="true" />
                 {f}
               </button>
@@ -145,24 +148,24 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
           key="pending"
           className="proposal pending reticle"
           role="group"
-          aria-label="Waiting for your approval"
+          aria-label={t('Waiting for your approval')}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={spring(reduce)}
         >
           <div className="proposal-card">
-            <p className="proposal-title">Waiting for your approval</p>
+            <p className="proposal-title">{t('Waiting for your approval')}</p>
             <Markdown text={p.actions} />
             {p.flags?.length ? (
-              <p className="proposal-flag">Contains health/financial information. Approving shares it with the recipients.</p>
+              <p className="proposal-flag">{t('Contains health/financial information. Approving shares it with the recipients.')}</p>
             ) : null}
             <div className="proposal-actions">
               <button type="button" className="btn btn-approve" onClick={onApprove} disabled={busy}>
-                {busy ? 'Approving…' : 'Approve'}
+                {busy ? t('Approving…') : t('Approve')}
               </button>
               <button type="button" className="btn btn-quiet" onClick={onReject} disabled={busy}>
-                Reject
+                {t('Reject')}
               </button>
-              <span className="proposal-hint">Nothing leaves your workspace until you approve.</span>
+              <span className="proposal-hint">{t('Nothing leaves your workspace until you approve.')}</span>
             </div>
           </div>
         </motion.div>
@@ -178,8 +181,8 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
           <p className="proposal-status">
             {p.status === 'done' && <Check size={15} aria-hidden="true" />}
             {p.status === 'approved' && <span className="pulse" aria-hidden="true" />}
-            {p.status === 'blocked' && p.reason ? `Blocked: ${p.reason}. ` : ''}
-            {RESOLVED[p.status]}
+            {p.status === 'blocked' && p.reason ? `${t('Blocked: {reason}.', { reason: p.reason })} ` : ''}
+            {t(RESOLVED[p.status])}
           </p>
         </motion.div>
       )}
@@ -191,7 +194,7 @@ function NowLine({ busy, detail }: { busy: string | null; detail: string | null 
   const reduce = useReducedMotion();
   return (
     <div className="now" aria-live="polite">
-      <span className="now-label">Now</span>
+      <span className="now-label">{t('Now')}</span>
       <span className="now-rule" aria-hidden="true" />
       <AnimatePresence initial={false}>
         {busy && (
@@ -204,7 +207,7 @@ function NowLine({ busy, detail }: { busy: string | null; detail: string | null 
           >
             <span className="pulse" aria-hidden="true" />
             <span>
-              Duet is {busy}
+              {t('Duet is {busy}', { busy: t(busy) })}
               {detail && <span className="now-detail"> · {detail}</span>}
             </span>
           </motion.span>

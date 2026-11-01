@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { BrowserId, MacStatus } from '../../shared/types.js';
 import { writeConnectorsConfig } from '../connectors.js';
 import { db, writeWorkspaceConfig } from '../store.js';
+import { tr } from '../i18n.js';
 import { browserChoices, browserRunning, stopBrowser } from './browser.js';
 
 export async function macStatus(): Promise<MacStatus> {
@@ -27,9 +28,9 @@ export async function setMac(patch: { files?: boolean; shell?: boolean; browser?
 
 export async function addFolder(raw: string): Promise<{ ok: true } | { error: string }> {
   const input = raw.trim().startsWith('~') ? path.join(os.homedir(), raw.trim().slice(1)) : raw.trim();
-  if (!path.isAbsolute(input)) return { error: 'Use a full path, like ~/Documents.' };
+  if (!path.isAbsolute(input)) return { error: tr('Use a full path, like ~/Documents.') };
   const real = await fs.realpath(input).catch(() => null);
-  if (!real || !(await fs.stat(real)).isDirectory()) return { error: 'That folder does not exist.' };
+  if (!real || !(await fs.stat(real)).isDirectory()) return { error: tr('That folder does not exist.') };
   if (!db.data.mac.folders.includes(real)) db.data.mac.folders.push(real);
   await save();
   return { ok: true };

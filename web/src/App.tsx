@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Blocks, FolderOpen, Laptop, Maximize2, Minimize2, Monitor, RefreshCw, Settings } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import type { Message, StateResponse } from '../../src/shared/types';
+import type { Language, Message, StateResponse } from '../../src/shared/types';
 import { getConnectors, post } from './api';
 import { AppsSheet } from './components/AppsSheet';
 import { ComputerSheet } from './components/ComputerSheet';
@@ -14,9 +14,11 @@ import { Make } from './components/Make';
 import { PairScreen } from './components/PairScreen';
 import { Panel, StatusStrip } from './components/Panel';
 import { SettingsSheet } from './components/SettingsSheet';
+import { Setup } from './components/Setup';
 import { Sheet } from './components/Sheet';
 import { Timeline } from './components/Timeline';
 import { connection, isPhone, saveConnection, type Connection } from './connection';
+import { setLanguage, t } from './i18n';
 import { prefersReducedMotion, spring, useMedia } from './lib';
 import { clearCachedState, useLiveState, type ConnectionStatus } from './live';
 import { appIsActive, askForNotifications, configureBackground, markSeen, onPairLink, verifyConnection } from './phone';
@@ -68,7 +70,7 @@ export function App() {
 function Topbar({ children }: { children?: React.ReactNode }) {
   return (
     <header className="topbar">
-      <a className="wordmark" href="/" aria-label="OpenDuet home" onClick={(e) => isPhone && e.preventDefault()}>
+      <a className="wordmark" href="/" aria-label={t('OpenDuet home')} onClick={(e) => isPhone && e.preventDefault()}>
         <span>Open</span>
         <span className="wordmark-block">Duet</span>
       </a>
@@ -97,6 +99,12 @@ type Sheet = { kind: 'settings' } | { kind: 'file'; path: string } | { kind: 'pa
 function Workspace({ onUnpair }: { onUnpair: () => void }) {
   const qc = useQueryClient();
   const { state: data, status, error: loadError, fromCache } = useLiveState();
+  // The first-launch setup is on the computer only; the phone gets the normal workspace.
+  const setup = data?.setupDone === false && !isPhone;
+  // The language picked in setup applies at once, before it is saved with the rest.
+  const [setupLang, setSetupLang] = useState<Language | null>(null);
+  // Before any child renders, so the whole tree reads the same language.
+  if (data) setLanguage((setup && setupLang) || data.settings.language);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [acting, setActing] = useState<string | null>(null);
@@ -138,7 +146,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
     onError: (e, _text, ctx) => {
       if (ctx?.before) qc.setQueryData(['state'], ctx.before);
       setDraft(ctx?.text ?? '');
-      setError(`Couldn't send that. ${e.message}`);
+      setError(t("Couldn't send that. {error}", { error: e.message }));
     },
     onSuccess: () => setError(null),
     onSettled: () => void qc.invalidateQueries({ queryKey: ['state'] }),
@@ -180,43 +188,49 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
       onDeleteRoutine={(id) => run('/routines/delete', { id })}
       appsCount={appsCount}
       onOpenApps={() => setSheet({ kind: 'apps' })}
+      onStartTask={(id) => run('/tasks/start', { id })}
+      onDismissTask={(id) => run('/tasks/dismiss', { id })}
     />
   );
 
   return (
     <>
       <Topbar>
-        <nav className="topbar-actions" aria-label="Run now">
-          <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'brief' })}>
-            Brief me
-          </button>
-          <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'check' })}>
-            Check in
-          </button>
-          <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'report' })}>
-            Write report
-          </button>
-          <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'make' })} aria-label="Made by Duet" title="Made by Duet">
-            <FolderOpen size={20} aria-hidden="true" />
-          </button>
-          {!isPhone && (
+        <nav className="topbar-actions" aria-label={t('Run now')}>
+          {!setup && (
             <>
-              <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'computer' })} aria-label="Duet's computer" title="Duet's computer">
-                <Monitor size={20} aria-hidden="true" />
+              <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'brief' })}>
+                {t('Brief me')}
               </button>
-              <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'mac' })} aria-label={`Your ${/Mac/i.test(navigator.platform) ? 'Mac' : 'PC'}`} title={`Your ${/Mac/i.test(navigator.platform) ? 'Mac' : 'PC'}`}>
-                <Laptop size={20} aria-hidden="true" />
+              <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'check' })}>
+                {t('Check in')}
               </button>
-              <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'apps' })} aria-label="Apps" title="Apps">
-                <Blocks size={20} aria-hidden="true" />
+              <button type="button" className="btn btn-text" onClick={() => run('/run', { kind: 'report' })}>
+                {t('Write report')}
+              </button>
+              <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'make' })} aria-label={t('Made by Duet')} title={t('Made by Duet')}>
+                <FolderOpen size={20} aria-hidden="true" />
+              </button>
+              {!isPhone && (
+                <>
+                  <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'computer' })} aria-label={t("Duet's computer")} title={t("Duet's computer")}>
+                    <Monitor size={20} aria-hidden="true" />
+                  </button>
+                  <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'mac' })} aria-label={t('Your {device}', { device: /Mac/i.test(navigator.platform) ? 'Mac' : 'PC' })} title={t('Your {device}', { device: /Mac/i.test(navigator.platform) ? 'Mac' : 'PC' })}>
+                    <Laptop size={20} aria-hidden="true" />
+                  </button>
+                  <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'apps' })} aria-label={t('Apps')} title={t('Apps')}>
+                    <Blocks size={20} aria-hidden="true" />
+                  </button>
+                </>
+              )}
+              <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'settings' })} aria-label={t('Settings')} title={t('Settings')}>
+                <Settings size={20} aria-hidden="true" />
               </button>
             </>
           )}
-          <button type="button" className="icon-btn" onClick={() => setSheet({ kind: 'settings' })} aria-label="Settings" title="Settings">
-            <Settings size={20} aria-hidden="true" />
-          </button>
           {window.openduet && (
-            <button type="button" className="icon-btn" onClick={() => window.openduet?.toggleCompact()} aria-label={compact ? 'Full window' : 'Compact window'} title={`${compact ? 'Full window' : 'Compact window'} (${/Mac/i.test(navigator.platform) ? '⌘⇧M' : 'Ctrl+Shift+M'})`}>
+            <button type="button" className="icon-btn" onClick={() => window.openduet?.toggleCompact()} aria-label={compact ? t('Full window') : t('Compact window')} title={`${compact ? t('Full window') : t('Compact window')} (${/Mac/i.test(navigator.platform) ? '⌘⇧M' : 'Ctrl+Shift+M'})`}>
               {compact ? <Maximize2 size={20} aria-hidden="true" /> : <Minimize2 size={20} aria-hidden="true" />}
             </button>
           )}
@@ -225,7 +239,17 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
 
       <ConnectionBanner status={status} hasData={Boolean(data)} error={loadError} onRetry={() => qc.invalidateQueries({ queryKey: ['state'] })} onUnpair={onUnpair} />
 
-      {!data ? (
+      {setup && data ? (
+        // Sheets below still open over it, so setup can connect apps and computers and come back.
+        <Setup
+          state={data}
+          language={setupLang ?? data.settings.language}
+          onLanguage={setSetupLang}
+          appsCount={appsCount}
+          onOpen={(kind) => setSheet({ kind })}
+          onDone={() => void qc.invalidateQueries({ queryKey: ['state'] })}
+        />
+      ) : !data ? (
         <main className="loading">
           {!loadError && (
             <>
@@ -237,7 +261,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
         </main>
       ) : (
         <div className={`layout ${narrow ? 'is-narrow' : ''}`}>
-          {narrow ? <StatusStrip state={data} onOpen={() => setSheet({ kind: 'panel' })} /> : <aside className="sidebar" aria-label="Status">{panel}</aside>}
+          {narrow ? <StatusStrip state={data} onOpen={() => setSheet({ kind: 'panel' })} /> : <aside className="sidebar" aria-label={t('Status')}>{panel}</aside>}
           <main className="main">
             <Channels
               channels={channels}
@@ -288,7 +312,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
         />
       )}
       {sheet?.kind === 'panel' && data && (
-        <Sheet title="Status" onClose={() => setSheet(null)}>
+        <Sheet title={t('Status')} onClose={() => setSheet(null)}>
           {panel}
         </Sheet>
       )}
@@ -310,11 +334,11 @@ function ConnectionBanner({ status, hasData, error, onRetry, onUnpair }: BannerP
   const show = status === 'reconnecting';
   const text = isPhone
     ? hasData
-      ? "Can't reach your computer right now. Showing what Duet last sent."
-      : (error?.message ?? "Can't reach your computer.")
+      ? t("Can't reach your computer right now. Showing what Duet last sent.")
+      : (error?.message ?? t("Can't reach your computer."))
     : hasData
-      ? 'Reconnecting to Duet…'
-      : 'The OpenDuet server is not running. Start it with npm start, then retry.';
+      ? t('Reconnecting to Duet…')
+      : t('The OpenDuet server is not running. Start it with npm start, then retry.');
   return (
     <AnimatePresence initial={false}>
       {show && (
@@ -329,11 +353,11 @@ function ConnectionBanner({ status, hasData, error, onRetry, onUnpair }: BannerP
           <span className="pulse" aria-hidden="true" />
           <span className="banner-text">{text}</span>
           <button type="button" className="btn btn-text" onClick={onRetry}>
-            <RefreshCw size={14} aria-hidden="true" /> Retry
+            <RefreshCw size={14} aria-hidden="true" /> {t('Retry')}
           </button>
           {isPhone && (
             <button type="button" className="btn btn-text" onClick={onUnpair}>
-              Pair again
+              {t('Pair again')}
             </button>
           )}
         </motion.div>

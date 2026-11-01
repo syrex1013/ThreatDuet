@@ -6,6 +6,7 @@ import { api, json } from './api.js';
 import { remoteInfo, setRemote } from './remote.js';
 import { addConnector, cancelSignIn, connectorsResponse, removeConnector, startSignIn, updateConnector } from './connectors.js';
 import { db, writeWorkspaceConfig } from './store.js';
+import { tr } from './i18n.js';
 import { browser, computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup, screen } from './computer/machine.js';
 import { handleComputerMcp, tokenOk } from './computer/mcp.js';
 import { handleMacMcp } from './mac/mcp.js';
@@ -60,12 +61,12 @@ app.post(
 );
 app.post('/api/connectors/update', json(AppId.extend({ enabled: z.boolean().optional(), autoRead: z.boolean().optional() })), async (c) => {
   const { id, ...patch } = c.req.valid('json');
-  if (!(await updateConnector(id, patch))) return c.json({ error: 'That app is not connected.' }, 404);
+  if (!(await updateConnector(id, patch))) return c.json({ error: tr('That app is not connected.') }, 404);
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });
 app.post('/api/connectors/remove', json(AppId), async (c) => {
-  if (!(await removeConnector(c.req.valid('json').id))) return c.json({ error: 'That app is not connected.' }, 404);
+  if (!(await removeConnector(c.req.valid('json').id))) return c.json({ error: tr('That app is not connected.') }, 404);
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });
@@ -81,7 +82,7 @@ app.get('/api/connectors/discover', async (c) => c.json({ servers: await discove
 app.post('/api/connectors/import', json(z.object({ keys: z.array(z.string().max(200)).max(50).optional(), text: z.string().max(200_000).optional(), confirmed: z.boolean() })), async (c) => {
   const { keys, text, confirmed } = c.req.valid('json');
   const list = [...(keys ? await findByKeys(keys) : []), ...(text ? parseMcpConfig(text) : [])];
-  if (!list.length) return c.json({ error: 'No servers found to import.' }, 400);
+  if (!list.length) return c.json({ error: tr('No servers found to import.') }, 400);
   const r = await importServers(list, confirmed);
   await writeWorkspaceConfig();
   return r.added || !r.errors.length ? c.json(r) : c.json({ error: r.errors[0] }, 400);
@@ -123,12 +124,12 @@ app.post('/api/skills/install', json(SkillSource), async (c) => {
 const SkillName = z.object({ name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/) });
 app.post('/api/skills/update', json(SkillName.extend({ enabled: z.boolean() })), async (c) => {
   const { name, enabled } = c.req.valid('json');
-  if (!(await updateSkill(name, enabled))) return c.json({ error: 'That skill is not installed.' }, 404);
+  if (!(await updateSkill(name, enabled))) return c.json({ error: tr('That skill is not installed.') }, 404);
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });
 app.post('/api/skills/remove', json(SkillName), async (c) => {
-  if (!(await removeSkill(c.req.valid('json').name))) return c.json({ error: 'That skill is not installed.' }, 404);
+  if (!(await removeSkill(c.req.valid('json').name))) return c.json({ error: tr('That skill is not installed.') }, 404);
   await writeWorkspaceConfig();
   return c.json({ ok: true });
 });

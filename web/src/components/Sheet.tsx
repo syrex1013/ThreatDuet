@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMedia } from '../lib';
+import { t } from '../i18n';
 
 interface SheetProps {
   title: string;
@@ -49,7 +50,7 @@ export function Sheet({ title, wide, onClose, children, footer }: SheetProps) {
             <header className="sheet-head">
               {bottom && <span className="sheet-grip" aria-hidden="true" />}
               <h2 id="sheet-title">{title}</h2>
-              <button type="button" className="icon-btn" onClick={close} aria-label="Close">
+              <button type="button" className="icon-btn" onClick={close} aria-label={t('Close')}>
                 <X size={20} aria-hidden="true" />
               </button>
             </header>

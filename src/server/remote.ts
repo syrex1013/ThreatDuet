@@ -7,6 +7,7 @@ import { api } from './api.js';
 import { log } from './config.js';
 import { closeServer, listen } from './listen.js';
 import { db } from './store.js';
+import { tr } from './i18n.js';
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 
@@ -36,7 +37,7 @@ remoteApp.use('*', async (c, next) => {
   const given = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   if (!db.data.remote.enabled || !tokenMatches(given, db.data.remote.token)) {
     log.info({ method: c.req.method, path: c.req.path, status: 401 }, 'phone request refused');
-    return c.json({ error: 'This phone is not paired. Pair it again from OpenDuet on your computer.' }, 401);
+    return c.json({ error: tr('This phone is not paired. Pair it again from OpenDuet on your computer.') }, 401);
   }
   c.set('phone', true);
   await next();
@@ -79,7 +80,7 @@ export async function setRemote({ enabled, rotate }: { enabled?: boolean; rotate
   } catch (err) {
     r.enabled = false;
     await db.write();
-    return { error: `Couldn't open port ${r.port} for your phone: ${(err as Error).message}` };
+    return { error: tr("Couldn't open port {port} for your phone: {error}", { port: r.port, error: (err as Error).message }) };
   }
   await db.write();
   return remoteInfo();

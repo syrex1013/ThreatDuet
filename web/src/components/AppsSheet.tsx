@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import type { ConnectorInfo, ConnectorsResponse, ConnectorState } from '../../../src/shared/types';
 import { PRESETS, type ConnectorPreset } from '../../../src/shared/connectors';
 import { getConnectors, post } from '../api';
+import { t } from '../i18n';
 import { Browse, Import, SkillsSection } from './Market';
 import { Sheet } from './Sheet';
 
@@ -44,10 +45,11 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<'popular' | 'browse' | 'import' | 'custom'>('popular');
 
   return (
-    <Sheet title="Apps" wide onClose={onClose}>
+    <Sheet title={t('Apps')} wide onClose={onClose}>
       <p className="apps-intro">
-        Connect the apps Duet should watch. It reads them on its own and asks before it sends, changes or deletes
-        anything. You sign in in your browser; Duet never sees your passwords.
+        {t(
+          'Connect the apps Duet should watch. It reads them on its own and asks before it sends, changes or deletes anything. You sign in in your browser; Duet never sees your passwords.',
+        )}
       </p>
 
       {data?.signIn && <SignInBanner data={data} onCancel={() => run('/connectors/cancel-sign-in')} />}
@@ -58,8 +60,8 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
       )}
 
       {data && data.connectors.length > 0 && (
-        <section className="apps-section" aria-label="Your apps">
-          <h3>Your apps</h3>
+        <section className="apps-section" aria-label={t('Your apps')}>
+          <h3>{t('Your apps')}</h3>
           <ul className="apps-list">
             {data.connectors.map((c) => (
               <AppRow key={c.id} app={c} busy={act.isPending} run={run} />
@@ -68,8 +70,8 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
         </section>
       )}
 
-      <section className="apps-section" aria-label="Add an app">
-        <h3>Add an app</h3>
+      <section className="apps-section" aria-label={t('Add an app')}>
+        <h3>{t('Add an app')}</h3>
         <div className="tabs" role="tablist">
           {(
             [
@@ -80,7 +82,7 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
             ] as const
           ).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={`btn btn-text btn-sm ${tab === id ? 'is-on' : ''}`} onClick={() => setTab(id)}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -98,8 +100,8 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
 
       <SkillsSection />
 
-      <section className="apps-section" aria-label="Web pages">
-        <h3>Web pages</h3>
+      <section className="apps-section" aria-label={t('Web pages')}>
+        <h3>{t('Web pages')}</h3>
         <label className="check">
           <input
             type="checkbox"
@@ -107,39 +109,41 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
             onChange={(e) => run('/connectors/web', { openWebPages: e.target.checked })}
           />
           <span>
-            Let Duet open web pages on its own
+            {t('Let Duet open web pages on its own')}
             <span className="hint">
-              With apps connected, a malicious email could ask Duet to open a link that carries your data out. While this is
-              off, Duet asks before opening pages. Web search still works.
+              {t(
+                'With apps connected, a malicious email could ask Duet to open a link that carries your data out. While this is off, Duet asks before opening pages. Web search still works.',
+              )}
             </span>
           </span>
         </label>
       </section>
 
       <p className="hint apps-privacy">
-        Whatever Duet reads in these apps goes to the AI model set in Settings. Free models may be served by providers that
-        keep what they receive; choose a model with no-retention terms for real accounts.
+        {t(
+          'Whatever Duet reads in these apps goes to the AI model set in Settings. Free models may be served by providers that keep what they receive; choose a model with no-retention terms for real accounts.',
+        )}
       </p>
     </Sheet>
   );
 }
 
 function SignInBanner({ data, onCancel }: { data: ConnectorsResponse; onCancel: () => void }) {
-  const name = data.connectors.find((c) => c.id === data.signIn?.id)?.name ?? 'the app';
+  const name = data.connectors.find((c) => c.id === data.signIn?.id)?.name ?? t('the app');
   return (
     <div className="signin" role="status">
       <span className="pulse" aria-hidden="true" />
       <div className="signin-text">
-        <strong>Finish signing in to {name} in your browser.</strong>
-        <span className="hint">The page should have opened. If it didn't, open it here.</span>
+        <strong>{t('Finish signing in to {name} in your browser.', { name })}</strong>
+        <span className="hint">{t("The page should have opened. If it didn't, open it here.")}</span>
       </div>
       {data.signIn?.url && (
         <a className="btn btn-quiet" href={data.signIn.url} target="_blank" rel="noreferrer noopener">
-          <ExternalLink size={15} aria-hidden="true" /> Open sign-in page
+          <ExternalLink size={15} aria-hidden="true" /> {t('Open sign-in page')}
         </a>
       )}
       <button type="button" className="btn btn-text" onClick={onCancel}>
-        Cancel
+        {t('Cancel')}
       </button>
     </div>
   );
@@ -157,18 +161,18 @@ function AppRow({ app, busy, run }: { app: ConnectorInfo; busy: boolean; run: (p
           {app.name} <span className="muted">{app.site}</span>
         </div>
         <div className="app-state">
-          {STATE_TEXT[app.state]}
+          {t(STATE_TEXT[app.state])}
           {app.state === 'error' && app.detail ? `: ${app.detail}` : ''}
         </div>
         <div className="app-controls">
           {app.state === 'needs-sign-in' && (
             <button type="button" className="btn btn-approve btn-sm" disabled={busy} onClick={() => run('/connectors/sign-in', { id: app.id })}>
-              Sign in
+              {t('Sign in')}
             </button>
           )}
           <label className="check check-inline">
             <input type="checkbox" checked={app.enabled} onChange={(e) => run('/connectors/update', { id: app.id, enabled: e.target.checked })} />
-            <span>On</span>
+            <span>{t('On')}</span>
           </label>
           <label className="check check-inline">
             <input
@@ -177,21 +181,21 @@ function AppRow({ app, busy, run }: { app: ConnectorInfo; busy: boolean; run: (p
               disabled={!app.enabled}
               onChange={(e) => run('/connectors/update', { id: app.id, autoRead: e.target.checked })}
             />
-            <span>Reads on its own</span>
+            <span>{t('Reads on its own')}</span>
           </label>
           {confirming ? (
             <span className="confirm">
-              Sign out and remove {app.name}?
+              {t('Sign out and remove {name}?', { name: app.name })}
               <button type="button" className="btn btn-quiet btn-sm" onClick={() => run('/connectors/remove', { id: app.id })}>
-                Remove
+                {t('Remove')}
               </button>
               <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(false)}>
-                Keep
+                {t('Keep')}
               </button>
             </span>
           ) : (
             <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(true)}>
-              Remove…
+              {t('Remove…')}
             </button>
           )}
         </div>
@@ -232,13 +236,13 @@ function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy
         </span>
         <span className="preset-text">
           <span className="preset-name">{preset.name}</span>
-          <span className="preset-blurb">{preset.blurb}</span>
+          <span className="preset-blurb">{t(preset.blurb)}</span>
         </span>
         <Plus size={16} aria-hidden="true" className="preset-plus" />
       </button>
       {open && needsInput && (
         <form className="preset-form" onSubmit={submit}>
-          <label htmlFor={`k-${preset.id}`}>{preset.keyLabel}</label>
+          <label htmlFor={`k-${preset.id}`}>{preset.keyLabel && t(preset.keyLabel)}</label>
           <input
             id={`k-${preset.id}`}
             type="password"
@@ -249,11 +253,11 @@ function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy
           />
           {preset.keyHelp && (
             <a className="hint" href={preset.keyHelp} target="_blank" rel="noreferrer noopener">
-              Where to find it <ExternalLink size={12} aria-hidden="true" />
+              {t('Where to find it')} <ExternalLink size={12} aria-hidden="true" />
             </a>
           )}
           <button type="submit" className="btn btn-send btn-sm" disabled={!secret.trim() || busy}>
-            Connect {preset.name}
+            {t('Connect {name}', { name: preset.name })}
           </button>
         </form>
       )}
@@ -290,22 +294,22 @@ function CustomApp({ busy, onConnect }: { busy: boolean; onConnect: ConnectFn })
         else void onConnect({ name: name.trim(), url: url.trim(), header: keyValue.trim() ? { name: keyName.trim(), value: keyValue.trim() } : undefined }, !keyValue.trim());
       }}
     >
-      <div className="tabs" role="radiogroup" aria-label="How the app is reached">
+      <div className="tabs" role="radiogroup" aria-label={t('How the app is reached')}>
         <button type="button" role="radio" aria-checked={!program} className={`btn btn-text btn-sm ${!program ? 'is-on' : ''}`} onClick={() => setProgram(false)}>
-          Server address
+          {t('Server address')}
         </button>
         <button type="button" role="radio" aria-checked={program} className={`btn btn-text btn-sm ${program ? 'is-on' : ''}`} onClick={() => setProgram(true)}>
-          Program on this computer
+          {t('Program on this computer')}
         </button>
       </div>
       <div className="field-grid">
         <div className="field">
-          <label htmlFor="custom-name">Name</label>
+          <label htmlFor="custom-name">{t('Name')}</label>
           <input id="custom-name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         {!program && (
           <div className="field">
-            <label htmlFor="custom-url">Server address</label>
+            <label htmlFor="custom-url">{t('Server address')}</label>
             <input id="custom-url" inputMode="url" placeholder="https://mcp.example.com/mcp" value={url} onChange={(e) => setUrl(e.target.value)} />
           </div>
         )}
@@ -313,28 +317,30 @@ function CustomApp({ busy, onConnect }: { busy: boolean; onConnect: ConnectFn })
       {program ? (
         <>
           <div className="field">
-            <label htmlFor="custom-cmd">Command</label>
+            <label htmlFor="custom-cmd">{t('Command')}</label>
             <input id="custom-cmd" spellCheck={false} placeholder="npx -y @org/mail-mcp" value={command} onChange={(e) => setCommand(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="custom-env">Environment variables (one per line, NAME=value)</label>
+            <label htmlFor="custom-env">{t('Environment variables (one per line, NAME=value)')}</label>
             <textarea id="custom-env" rows={3} spellCheck={false} autoComplete="off" value={envText} onChange={(e) => setEnvText(e.target.value)} />
           </div>
           <p className="warning">
-            This runs on your computer with your permissions. Duet reads on its own only through read-only tools; anything that changes something waits for your approval.
+            {t(
+              'This runs on your computer with your permissions. Duet reads on its own only through read-only tools; anything that changes something waits for your approval.',
+            )}
           </p>
           {argv.length > 0 && <code className="command">{argv.join(' ')}</code>}
         </>
       ) : (
         <details className="custom-key">
-          <summary>This app uses an access key instead of a sign-in</summary>
+          <summary>{t('This app uses an access key instead of a sign-in')}</summary>
           <div className="field-grid">
             <div className="field">
-              <label htmlFor="custom-key-name">Header</label>
+              <label htmlFor="custom-key-name">{t('Header')}</label>
               <input id="custom-key-name" value={keyName} onChange={(e) => setKeyName(e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="custom-key-value">Value</label>
+              <label htmlFor="custom-key-value">{t('Value')}</label>
               <input id="custom-key-value" type="password" autoComplete="off" placeholder="Bearer …" value={keyValue} onChange={(e) => setKeyValue(e.target.value)} />
             </div>
           </div>
@@ -342,7 +348,7 @@ function CustomApp({ busy, onConnect }: { busy: boolean; onConnect: ConnectFn })
       )}
       <div className="reset">
         <button type="submit" className="btn btn-send btn-sm" disabled={busy || !ready}>
-          {program ? 'Run on this computer and connect' : 'Connect'}
+          {program ? t('Run on this computer and connect') : t('Connect')}
         </button>
       </div>
     </form>

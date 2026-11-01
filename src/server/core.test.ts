@@ -7,6 +7,16 @@ describe('parseReply', () => {
     const r = parseReply('Drafted.\n<<REMEMBER: prefers short emails>>\n<<ACTIONS\n- send email to bob\nACTIONS>>');
     expect(r).toMatchObject({ text: 'Drafted.', actions: '- send email to bob', remember: ['prefers short emails'], continue: false });
   });
+  it('reads tasks Duet starts and ones it suggests, and drops untitled ones', () => {
+    const r = parseReply('Ok.\n<<TASK: Prep brief | read the thread>>\n<<SUGGEST: Tidy inbox | archive old mail>>\n<<TASK:  | nothing>>');
+    expect(r.text).toBe('Ok.');
+    expect(r.tasks).toEqual([
+      { title: 'Prep brief', details: 'read the thread', start: true },
+      { title: 'Tidy inbox', details: 'archive old mail', start: false },
+    ]);
+    expect(parseReply('1. `<<TASK: Offer template>>` — I will draft it').tasks).toEqual([{ title: 'Offer template', details: '', start: true }]);
+    expect(parseReply('1. `<<TASK: Offer template>>` — I will draft it').text).toBe('1.  — I will draft it');
+  });
   it('treats an unclosed block as a proposal', () => {
     expect(parseReply('ok <<ACTIONS\n- delete x').actions).toBe('- delete x');
   });

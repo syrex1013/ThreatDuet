@@ -1,36 +1,40 @@
 import { useEffect, useState } from 'react';
 import type { Kind, Message, ToolUse } from '../../src/shared/types';
+import { locale, t, tn } from './i18n';
 
 const DAY = 86_400_000;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+/** Whole days from ts to now: 0 today, 1 yesterday, -1 tomorrow. */
+const daysAgo = (ts: number, now: number) => Math.round((startOfDay(new Date(now)) - startOfDay(new Date(ts))) / DAY);
+const shortDate = (ts: number) => new Date(ts).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' });
 
-export const clock = (ts: number) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export const clock = (ts: number) => new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 
 /** "Today", "Yesterday", "Tomorrow", else "Thursday 29 October". */
 export function dayLabel(ts: number, now = Date.now()): string {
-  const diff = Math.round((startOfDay(new Date(now)) - startOfDay(new Date(ts))) / DAY);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  if (diff === -1) return 'Tomorrow';
-  return new Date(ts).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+  const diff = daysAgo(ts, now);
+  if (diff === 0) return t('Today');
+  if (diff === 1) return t('Yesterday');
+  if (diff === -1) return t('Tomorrow');
+  return new Date(ts).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 /** Upcoming time split for a narrow column: day (omitted for today) above the clock time. */
 export function whenParts(ts: number, now = Date.now()): { day: string | null; time: string } {
-  if (ts <= now + 60_000) return { day: null, time: 'Now' };
-  const day = dayLabel(ts, now);
-  if (day === 'Today') return { day: null, time: clock(ts) };
-  if (day === 'Tomorrow') return { day, time: clock(ts) };
-  return { day: new Date(ts).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }), time: clock(ts) };
+  if (ts <= now + 60_000) return { day: null, time: t('Now') };
+  const diff = daysAgo(ts, now);
+  if (diff === 0) return { day: null, time: clock(ts) };
+  if (diff === -1) return { day: t('Tomorrow'), time: clock(ts) };
+  return { day: shortDate(ts), time: clock(ts) };
 }
 
 /** The same moment as a phrase inside a sentence: "now", "at 16:00", "tomorrow at 08:00", "on Sun 1 Nov at 19:00". */
 export function whenPhrase(ts: number, now = Date.now()): string {
-  if (ts <= now + 60_000) return 'now';
-  const day = dayLabel(ts, now);
-  if (day === 'Today') return `at ${clock(ts)}`;
-  if (day === 'Tomorrow') return `tomorrow at ${clock(ts)}`;
-  return `on ${new Date(ts).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} at ${clock(ts)}`;
+  if (ts <= now + 60_000) return t('now');
+  const diff = daysAgo(ts, now);
+  if (diff === 0) return t('at {time}', { time: clock(ts) });
+  if (diff === -1) return t('tomorrow at {time}', { time: clock(ts) });
+  return t('on {date} at {time}', { date: shortDate(ts), time: clock(ts) });
 }
 
 export function groupByDay(messages: Message[]): { label: string; items: Message[] }[] {
@@ -43,15 +47,20 @@ export function groupByDay(messages: Message[]): { label: string; items: Message
   return groups;
 }
 
+// Getters, so the titles follow the current language.
 export const KIND_TITLE: Partial<Record<Kind, string>> = {
-  brief: 'Morning brief',
-  check: 'Check-in',
-  report: 'Evening report',
-  followup: 'Follow-up',
-  done: 'Task finished',
+  get brief() { return t('Morning brief'); },
+  get check() { return t('Check-in'); },
+  get report() { return t('Evening report'); },
+  get followup() { return t('Follow-up'); },
+  get done() { return t('Task finished'); },
 };
 
-export const ROUTINE_TITLE = { brief: 'Morning brief', report: 'Evening report', check: 'Check-in' } as const;
+export const ROUTINE_TITLE = {
+  get brief() { return t('Morning brief'); },
+  get report() { return t('Evening report'); },
+  get check() { return t('Check-in'); },
+};
 
 /** Tool titles arrive as paths relative to the user's home or project; keep the part inside the workspace. */
 export function workspacePath(title: string): string {
@@ -68,14 +77,13 @@ export function summarizeTools(tools: ToolUse[] = []): { files: string[]; notes:
     ...new Set(done.filter((t) => t.tool === 'write' || t.tool === 'edit').map((t) => workspacePath(t.title ?? '')).filter(Boolean)),
   ];
   const count = (...names: string[]) => done.filter((t) => names.includes(t.tool)).length;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const notes: string[] = [];
-  if (count('read')) notes.push(`read ${plural(count('read'), 'file', 'files')}`);
-  if (count('glob', 'grep', 'list')) notes.push('searched the workspace');
-  if (count('websearch')) notes.push('searched the web');
-  if (count('webfetch')) notes.push(`opened ${plural(count('webfetch'), 'web page', 'web pages')}`);
+  if (count('read')) notes.push(tn(count('read'), 'read {n} file', 'read {n} files'));
+  if (count('glob', 'grep', 'list')) notes.push(t('searched the workspace'));
+  if (count('websearch')) notes.push(t('searched the web'));
+  if (count('webfetch')) notes.push(tn(count('webfetch'), 'opened {n} web page', 'opened {n} web pages'));
   const apps = new Set(done.filter((t) => !BUILT_IN.has(t.tool) && t.tool.includes('_') && !t.tool.startsWith('kilo_')).map((t) => t.tool.split('_')[0]));
-  for (const app of apps) notes.push(app === 'computer' ? 'used its computer' : `used ${app}`);
+  for (const app of apps) notes.push(app === 'computer' ? t('used its computer') : t('used {app}', { app }));
   if (notes.length) notes[0] = notes[0][0].toUpperCase() + notes[0].slice(1);
   return { files, notes };
 }
@@ -87,7 +95,7 @@ export function proposalHeadline(actions: string): string {
 }
 
 const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-export const countWord = (n: number) => WORDS[n] ?? String(n);
+export const countWord = (n: number) => (WORDS[n] ? t(WORDS[n]) : String(n));
 
 export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

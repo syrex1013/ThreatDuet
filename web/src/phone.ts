@@ -2,13 +2,14 @@ import { App as CapApp } from '@capacitor/app';
 import { BackgroundRunner } from '@capacitor/background-runner';
 import type { StateResponse } from '../../src/shared/types';
 import { parsePairLink, type Connection } from './connection';
+import { t } from './i18n';
 
 /** Must match plugins.BackgroundRunner.label in capacitor.config.ts. */
 export const RUNNER = 'tech.threatvector.openduet.check';
 
 /** Checks a connection works before saving it, with errors that say what to do. */
 export async function verifyConnection(c: Connection): Promise<StateResponse> {
-  const unreachable = `Can't reach ${c.url}. Check that OpenDuet is running on your computer and that both devices are on Tailscale or the same network.`;
+  const unreachable = t("Can't reach {url}. Check that OpenDuet is running on your computer and that both devices are on Tailscale or the same network.", { url: c.url });
   let res: Response;
   try {
     // Native HTTP may ignore AbortSignal, so race it against a timer instead.
@@ -20,8 +21,8 @@ export async function verifyConnection(c: Connection): Promise<StateResponse> {
     throw new Error(unreachable);
   }
   if (res.status === 401)
-    throw new Error("The pairing code doesn't match. On your computer, open Settings, then Phone, and scan the code again.");
-  if (!res.ok) throw new Error(`Your computer answered with an error (${res.status}). Try again in a moment.`);
+    throw new Error(t("The pairing code doesn't match. On your computer, open Settings, then Phone, and scan the code again."));
+  if (!res.ok) throw new Error(t('Your computer answered with an error ({status}). Try again in a moment.', { status: res.status }));
   return res.json();
 }
 

@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import type { ComputerChoice, ComputerScreen, ComputerStatus } from '../../../src/shared/types';
 import { getComputer, getScreen, post } from '../api';
+import { t } from '../i18n';
 import { Sheet } from './Sheet';
 
 /** Duet's cloud computer: connect an Instabox machine, watch its browser, and take over when needed. */
@@ -17,9 +18,9 @@ export function ComputerSheet({ onClose }: { onClose: () => void }) {
   const refresh = () => qc.invalidateQueries({ queryKey: ['computer'] });
 
   return (
-    <Sheet title="Duet's computer" wide onClose={onClose}>
+    <Sheet title={t("Duet's computer")} wide onClose={onClose}>
       {!s ? (
-        <p className="muted">{status.error?.message ?? 'Checking…'}</p>
+        <p className="muted">{status.error?.message ?? t('Checking…')}</p>
       ) : !s.connected ? (
         <Connect onDone={refresh} />
       ) : (
@@ -59,29 +60,32 @@ function Connect({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit} className="computer-connect">
       <p className="apps-intro">
-        Give Duet its own computer in the cloud, with a browser. It can look things up and work there while your laptop and
-        phone are off. Duet reads pages on its own; clicking, typing and running commands wait for your approval.
+        {t(
+          'Give Duet its own computer in the cloud, with a browser. It can look things up and work there while your laptop and phone are off. Duet reads pages on its own; clicking, typing and running commands wait for your approval.',
+        )}
       </p>
       {choices && (
         <fieldset className="machines">
-          <legend>Which machine should Duet use?</legend>
+          <legend>{t('Which machine should Duet use?')}</legend>
           {choices.map((m) => (
             <label key={m.id} className="radio machine">
               <input type="radio" name="machine" checked={picked === m.id} onChange={() => setPicked(m.id)} />
               <span>
-                <strong>{m.name}</strong> <span className="muted">{m.state}{m.hasBrowser ? '' : ', no browser'}</span>
+                <strong>{m.name}</strong> <span className="muted">{m.hasBrowser ? m.state : t('{state}, no browser', { state: m.state })}</span>
               </span>
             </label>
           ))}
-          {choices.length === 0 && <p className="hint">There are no machines on this account yet. Create one with the agent-browser template, then come back.</p>}
-          {chosen && !chosen.hasBrowser && <p className="warning">This machine has no desktop browser. Duet needs one made from the agent-browser template.</p>}
+          {choices.length === 0 && <p className="hint">{t('There are no machines on this account yet. Create one with the agent-browser template, then come back.')}</p>}
+          {chosen && !chosen.hasBrowser && <p className="warning">{t('This machine has no desktop browser. Duet needs one made from the agent-browser template.')}</p>}
           {chosen?.vault && (
             <p className="warning">
-              <AlertTriangle size={14} aria-hidden="true" /> This machine can read your Instabox Vault secrets. Anything Duet opens or runs there could reach them. Turn
-              Vault off for this machine in the Instabox dashboard before connecting, or pick a machine that has it off.
+              <AlertTriangle size={14} aria-hidden="true" />{' '}
+              {t(
+                'This machine can read your Instabox Vault secrets. Anything Duet opens or runs there could reach them. Turn Vault off for this machine in the Instabox dashboard before connecting, or pick a machine that has it off.',
+              )}
             </p>
           )}
-          <p className="hint">Duet works in its own folder on the machine and never deletes the machine.</p>
+          <p className="hint">{t('Duet works in its own folder on the machine and never deletes the machine.')}</p>
         </fieldset>
       )}
 
@@ -92,7 +96,7 @@ function Connect({ onDone }: { onDone: () => void }) {
       )}
       <div className="reset">
         <button type="submit" className="btn btn-send" disabled={find.isPending || connect.isPending || (Boolean(choices) && !picked)}>
-          {!choices ? (find.isPending ? 'Looking…' : 'Find my machines') : connect.isPending ? 'Connecting…' : 'Connect this machine'}
+          {!choices ? (find.isPending ? t('Looking…') : t('Find my machines')) : connect.isPending ? t('Connecting…') : t('Connect this machine')}
         </button>
       </div>
     </form>
@@ -115,7 +119,7 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
         </span>
         <div className="app-main">
           <div className="app-name">{s.name}</div>
-          <div className="app-state">{setup?.running ? `${setup.step}…` : setup?.error ? 'Setup needs attention' : (STATE_TEXT[s.machineState ?? 'unknown'] ?? s.machineState)}</div>
+          <div className="app-state">{setup?.running ? `${t(setup.step)}…` : setup?.error ? t('Setup needs attention') : t(STATE_TEXT[s.machineState ?? 'unknown'] ?? s.machineState ?? '')}</div>
         </div>
       </div>
 
@@ -123,25 +127,25 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
         <p className="signin" role="status">
           <span className="pulse" aria-hidden="true" />
           <span className="signin-text">
-            <strong>{setup.step}…</strong>
-            <span className="hint">The first setup takes a minute or two.</span>
+            <strong>{t(setup.step)}…</strong>
+            <span className="hint">{t('The first setup takes a minute or two.')}</span>
           </span>
         </p>
       )}
       {setup?.error && (
         <div className="apps-error" role="alert">
           <p className="is-error">
-            {setup.step} failed. {setup.error}
+            {t('{step} failed.', { step: t(setup.step) })} {setup.error}
           </p>
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => act.mutate('/computer/retry')}>
-            Try again
+            {t('Try again')}
           </button>
         </div>
       )}
       {s.error && <p className="is-error apps-error">{s.error}</p>}
       {s.vault && (
         <p className="warning">
-          <AlertTriangle size={14} aria-hidden="true" /> This machine can read your Instabox Vault secrets. Turn Vault off for it in the Instabox dashboard.
+          <AlertTriangle size={14} aria-hidden="true" /> {t('This machine can read your Instabox Vault secrets. Turn Vault off for it in the Instabox dashboard.')}
         </p>
       )}
 
@@ -150,17 +154,17 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
       <div className="reset">
         {confirming ? (
           <span className="confirm">
-            Disconnect Duet from {s.name}? The machine stays as it is.
+            {t('Disconnect Duet from {name}? The machine stays as it is.', { name: s.name ?? '' })}
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => act.mutate('/computer/disconnect')}>
-              Disconnect
+              {t('Disconnect')}
             </button>
             <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(false)}>
-              Keep
+              {t('Keep')}
             </button>
           </span>
         ) : (
           <button type="button" className="btn btn-text btn-sm" onClick={() => setConfirming(true)}>
-            Disconnect…
+            {t('Disconnect…')}
           </button>
         )}
       </div>
@@ -204,22 +208,22 @@ function Watch({ asleep }: { asleep: boolean }) {
   };
 
   return (
-    <section className="watch" aria-label="Watch the browser">
-      <h3>Watch</h3>
+    <section className="watch" aria-label={t('Watch the browser')}>
+      <h3>{t('Watch')}</h3>
       {!live ? (
         <div className="watch-asleep">
-          <p className="hint">The computer is asleep. Looking at it wakes it up, and it keeps running until it has been idle for a while.</p>
+          <p className="hint">{t('The computer is asleep. Looking at it wakes it up, and it keeps running until it has been idle for a while.')}</p>
           <button type="button" className="btn btn-quiet btn-sm" onClick={() => setWake(true)}>
-            Wake it and look
+            {t('Wake it and look')}
           </button>
         </div>
       ) : (
         <>
           <div className="watch-frame">
             {d?.base64 ? (
-              <img ref={img} src={`data:${d.mime ?? 'image/jpeg'};base64,${d.base64}`} alt={`The browser on Duet's computer: ${d.title || d.url || 'blank page'}`} onClick={click} />
+              <img ref={img} src={`data:${d.mime ?? 'image/jpeg'};base64,${d.base64}`} alt={t("The browser on Duet's computer: {page}", { page: d.title || d.url || t('blank page') })} onClick={click} />
             ) : (
-              <div className="skeleton watch-skeleton" aria-label="Loading the screen" />
+              <div className="skeleton watch-skeleton" aria-label={t('Loading the screen')} />
             )}
           </div>
           <p className="watch-where">{d?.title ? `${d.title} · ` : ''}{d?.url ?? ''}</p>
@@ -233,11 +237,11 @@ function Watch({ asleep }: { asleep: boolean }) {
             }}
           >
             <label htmlFor="watch-text" className="sr-only">
-              Type into the page
+              {t('Type into the page')}
             </label>
-            <input id="watch-text" value={text} placeholder="Click a field in the picture, then type here" onChange={(e) => setText(e.target.value)} autoComplete="off" />
+            <input id="watch-text" value={text} placeholder={t('Click a field in the picture, then type here')} onChange={(e) => setText(e.target.value)} autoComplete="off" />
             <button type="submit" className="btn btn-quiet btn-sm" disabled={!text}>
-              Type and press Enter
+              {t('Type and press Enter')}
             </button>
           </form>
           <div className="watch-keys">
@@ -247,7 +251,7 @@ function Watch({ asleep }: { asleep: boolean }) {
               </button>
             ))}
           </div>
-          <p className="hint">You are in control here: clicks and typing go straight to the page without asking. Use it to sign in to a site for Duet.</p>
+          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. Use it to sign in to a site for Duet.')}</p>
         </>
       )}
       {error && (

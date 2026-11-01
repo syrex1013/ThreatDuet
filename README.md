@@ -7,6 +7,19 @@ Like Claude Duet, it comes to you first:
 - a morning brief, an evening report, and check-ins every few hours that interrupt only when something needs you
 - background work on the tasks you hand it, and follow-ups it schedules for itself
 - research, drafts and prepared work on its own
+- **tasks it comes up with itself**: during briefs, check-ins and chats Duet starts its own
+  preparation work in the background (`<<TASK>>`) and suggests ideas that need your go-ahead
+  (`<<SUGGEST>>`, shown under "Duet's tasks" with *Do it* / *Dismiss*). At most 3 run at once and
+  10 start per day; the rest wait as suggestions. Its tasks follow the same rules as everything
+  else: anything that affects other people still comes back as a proposal.
+
+**First launch** opens a short setup: language, a few lines about you and your work, your day
+(brief, report, check-ins, quiet hours) and optional connections (apps, this computer, Duet's
+computer). Nothing runs on a schedule until setup is finished or skipped; then Duet introduces
+itself and comes up with its first tasks.
+
+**Language:** Settings → Language switches the app and everything Duet writes (replies, briefs,
+proposals, files) between English and Polish.
 
 It **shows you exactly what it will do and waits for your approval** before it sends, pays,
 signs, deletes or changes anything outside its workspace.
@@ -105,6 +118,9 @@ By default OpenDuet starts one headless `kilo serve` (loopback only, random port
 **No Kilo program (the usual Windows case):** OpenDuet checks for `kilo` once and, if it is missing, runs its own agent loop on Kilo's hosted gateway (`https://api.kilo.ai/api/gateway`, OpenAI-compatible; free models work without an account, about 200 requests an hour per IP; set `KILO_API_KEY` for more). It offers the same tools (workspace files, `webfetch`, skills, your apps over MCP, the Mac/PC tools, the cloud computer) and obeys the same permission file, so approvals work the same. Apps sign in through your browser with OAuth handled by OpenDuet (loopback port 19877); tokens are kept in the private data folder. Not available in this mode: Kilo's built-in `websearch` and `codesearch`. Pick "Kilo hosted API" in Settings to use it even when `kilo` is installed.
 
 ## Windows
+
+Notifications are native Windows toasts. They need the Start-menu shortcut the installer creates
+(it carries the app's ID, `tech.threatvector.openduet`), so a portable copy or `npm run app` may not show them.
 
 `npm run dist:win` builds `release/OpenDuet-Setup-0.1.0.exe` (NSIS, x64) from any machine; `npm run release` also copies it into `builds/`.
 

@@ -4,6 +4,7 @@ import { execa } from 'execa';
 import type { SkillInfo, SkillPreview } from '../shared/skills.js';
 import { DATA_DIR, WORKSPACE } from './config.js';
 import { db } from './store.js';
+import { tr } from './i18n.js';
 
 export interface SkillRecord extends SkillInfo {
   addedAt: number;
@@ -17,7 +18,7 @@ const MAX_DOWNLOAD = 30 * 1024 * 1024;
 
 export function parseSkillMd(text: string): { name: string; description: string; body: string } | { error: string } {
   const m = text.replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
-  if (!m) return { error: 'SKILL.md must start with a --- header holding name and description.' };
+  if (!m) return { error: tr('SKILL.md must start with a --- header holding name and description.') };
   const field = (key: string) => {
     const lines = m[1].split('\n');
     const i = lines.findIndex((l) => l.startsWith(`${key}:`));
@@ -35,8 +36,8 @@ export function parseSkillMd(text: string): { name: string; description: string;
   };
   const name = field('name');
   const description = field('description');
-  if (!NAME.test(name)) return { error: 'The skill name must be lowercase letters, digits and dashes (up to 40).' };
-  if (!description) return { error: 'The skill needs a description in its header.' };
+  if (!NAME.test(name)) return { error: tr('The skill name must be lowercase letters, digits and dashes (up to 40).') };
+  if (!description) return { error: tr('The skill needs a description in its header.') };
   return { name, description: description.slice(0, 400), body: m[2].trim() };
 }
 
@@ -52,17 +53,17 @@ export function parseGithubUrl(raw: string): GithubSource | { error: string } {
   try {
     u = new URL(raw.trim());
   } catch {
-    return { error: 'That is not a link.' };
+    return { error: tr('That is not a link.') };
   }
-  if (u.protocol !== 'https:' || u.hostname !== 'github.com') return { error: 'Use a github.com link to the skill folder.' };
+  if (u.protocol !== 'https:' || u.hostname !== 'github.com') return { error: tr('Use a github.com link to the skill folder.') };
   const [owner, repo, kind, ref, ...rest] = u.pathname.split('/').filter(Boolean);
   const ok = (s: string | undefined) => Boolean(s) && /^[A-Za-z0-9._-]+$/.test(s as string) && s !== '.' && s !== '..';
-  if (!ok(owner) || !ok(repo?.replace(/\.git$/, ''))) return { error: 'Use a link to a GitHub repository.' };
+  if (!ok(owner) || !ok(repo?.replace(/\.git$/, ''))) return { error: tr('Use a link to a GitHub repository.') };
   let dir = rest;
   if (kind === 'blob' && dir.at(-1)?.toLowerCase() === 'skill.md') dir = dir.slice(0, -1);
-  if (kind && kind !== 'tree' && kind !== 'blob') return { error: 'Use a link to a folder in the repository.' };
-  if (kind && !ok(ref)) return { error: 'That branch name is not supported.' };
-  if (dir.some((p) => !ok(p))) return { error: 'That folder path is not supported.' };
+  if (kind && kind !== 'tree' && kind !== 'blob') return { error: tr('Use a link to a folder in the repository.') };
+  if (kind && !ok(ref)) return { error: tr('That branch name is not supported.') };
+  if (dir.some((p) => !ok(p))) return { error: tr('That folder path is not supported.') };
   return { repo: `${owner}/${repo.replace(/\.git$/, '')}`, ref: ref ?? 'HEAD', path: dir.join('/') };
 }
 
@@ -70,9 +71,9 @@ const sourceText = (g: GithubSource) => `github.com/${g.repo}${g.path ? `/${g.pa
 
 async function fetchOk(url: string, timeout = 20_000): Promise<Response | { error: string }> {
   const r = await fetch(url, { headers: { 'user-agent': 'OpenDuet' }, signal: AbortSignal.timeout(timeout) }).catch(() => null);
-  if (!r) return { error: "Can't reach GitHub. Check your connection." };
-  if (r.status === 404) return { error: 'No SKILL.md found there. Is the repository public?' };
-  if (!r.ok) return { error: `GitHub answered ${r.status}.` };
+  if (!r) return { error: tr("Can't reach GitHub. Check your connection.") };
+  if (r.status === 404) return { error: tr('No SKILL.md found there. Is the repository public?') };
+  if (!r.ok) return { error: tr('GitHub answered {status}.', { status: r.status }) };
   return r;
 }
 
@@ -92,7 +93,7 @@ export async function previewSkill(src: { url?: string; text?: string }): Promis
 async function walk(dir: string, acc: { bytes: number; files: number }): Promise<string | null> {
   for (const e of await fs.readdir(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isSymbolicLink()) return 'The skill contains a link to another place, which is not allowed.';
+    if (e.isSymbolicLink()) return tr('The skill contains a link to another place, which is not allowed.');
     if (e.isDirectory()) {
       const bad = await walk(p, acc);
       if (bad) return bad;
@@ -100,7 +101,7 @@ async function walk(dir: string, acc: { bytes: number; files: number }): Promise
       acc.files++;
       acc.bytes += (await fs.stat(p)).size;
     }
-    if (acc.bytes > MAX_SKILL_BYTES || acc.files > MAX_FILES) return 'That skill is too big (1 MB or 200 files at most).';
+    if (acc.bytes > MAX_SKILL_BYTES || acc.files > MAX_FILES) return tr('That skill is too big (1 MB or 200 files at most).');
   }
   return null;
 }
@@ -113,7 +114,7 @@ async function fetchFolder(g: GithubSource, tmp: string): Promise<string | { err
   let size = 0;
   for await (const c of r.body as unknown as AsyncIterable<Buffer>) {
     size += c.length;
-    if (size > MAX_DOWNLOAD) return { error: 'That repository is too big to download here.' };
+    if (size > MAX_DOWNLOAD) return { error: tr('That repository is too big to download here.') };
     chunks.push(c);
   }
   const archive = path.join(tmp, 'repo.tgz');
@@ -123,10 +124,10 @@ async function fetchFolder(g: GithubSource, tmp: string): Promise<string | { err
   // bsdtar (macOS): --include limits extraction to the folder, so a big repo isn't unpacked whole.
   const args = ['-xzf', archive, '-C', out, ...(g.path ? ['--include', `*/${g.path}/*`] : [])];
   const t = await execa('tar', args, { reject: false });
-  if (t.exitCode !== 0) return { error: "Couldn't find that folder in the repository." };
+  if (t.exitCode !== 0) return { error: tr("Couldn't find that folder in the repository.") };
   const top = (await fs.readdir(out))[0];
   const dir = top ? path.join(out, top, g.path) : '';
-  if (!dir || !(await fs.stat(path.join(dir, 'SKILL.md')).catch(() => null))) return { error: 'No SKILL.md found in that folder.' };
+  if (!dir || !(await fs.stat(path.join(dir, 'SKILL.md')).catch(() => null))) return { error: tr('No SKILL.md found in that folder.') };
   return dir;
 }
 

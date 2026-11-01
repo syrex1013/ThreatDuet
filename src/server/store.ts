@@ -5,7 +5,7 @@ import { execa } from 'execa';
 import { JSONFilePreset } from 'lowdb/node';
 import { stateChanged } from './events.js';
 import type { Low } from 'lowdb';
-import type { BrowserId, FollowUpItem, Message, RoutineItem, Settings } from '../shared/types.js';
+import type { BrowserId, FollowUpItem, Message, RoutineItem, Settings, TaskItem } from '../shared/types.js';
 import type { ConnectorRecord } from './connectors.js';
 import type { SkillRecord } from './skills.js';
 import { DATA_DIR, DEFAULT_SETTINGS, MEMORY_FILE, REMOTE_PORT, STATE_FILE, WORKSPACE } from './config.js';
@@ -21,6 +21,10 @@ export interface Data {
   lastReport: string;
   followups: FollowUpItem[];
   routines: RoutineItem[];
+  /** Work Duet came up with itself. */
+  tasks: TaskItem[];
+  /** First-launch setup finished or skipped. */
+  setupDone: boolean;
   /** Low-priority findings held back for the next brief. */
   digest: { ts: number; text: string }[];
   /** Phone access: a second listener that only answers requests carrying this token. */
@@ -53,6 +57,8 @@ export async function openStore(): Promise<void> {
     lastReport: '',
     followups: [],
     routines: [],
+    tasks: [],
+    setupDone: false,
     digest: [],
     remote: { enabled: false, token: null, port: REMOTE_PORT },
     connectors: [],
@@ -75,6 +81,11 @@ export async function openStore(): Promise<void> {
   };
   db.data.followups ??= [];
   db.data.routines ??= [];
+  db.data.tasks ??= [];
+  // Someone who already used OpenDuet before setup existed doesn't need it.
+  db.data.setupDone ??= db.data.messages.length > 0;
+  // Cut off by a restart: start it again (its work stays inside the workspace).
+  for (const t of db.data.tasks) if (t.status === 'running') t.status = 'queued';
   db.data.digest ??= [];
   db.data.settings = { ...DEFAULT_SETTINGS, ...db.data.settings };
   // A task cut off by a restart may be half done: never re-run it silently.
