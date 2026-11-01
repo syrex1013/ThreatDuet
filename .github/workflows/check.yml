@@ -1,0 +1,28 @@
+name: check
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Live task on this OS (model, Mac/PC tools, permission file)
+        run: npx tsx scripts/smoke-task.mts
+      - name: Desktop app starts and draws its window
+        run: npm run build && npx electron . --no-sandbox
+        env:
+          OPENDUET_SMOKE_SCREENSHOT: ${{ runner.temp }}/window.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+          path: ${{ runner.temp }}/window.png
