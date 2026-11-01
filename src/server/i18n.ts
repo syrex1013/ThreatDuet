@@ -63,6 +63,7 @@ const PL: Record<string, string> = {
   'picking up your browser sign-ins': 'pobiera logowania z Twojej przeglądarki',
   'fixing what failed': 'naprawia to, co się nie udało',
   'thinking of things to do for you': 'zastanawia się, co może dla Ciebie zrobić',
+  'Duet has some ideas': 'Duet ma kilka pomysłów',
   'looking at the page in your browser': 'ogląda stronę w Twojej przeglądarce',
   'clicking in your browser': 'klika w Twojej przeglądarce',
   'typing in your browser': 'pisze w Twojej przeglądarce',

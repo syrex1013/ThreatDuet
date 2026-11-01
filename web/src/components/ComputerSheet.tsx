@@ -158,7 +158,7 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
           <input type="checkbox" checked={s.auto} disabled={setAuto.isPending} onChange={(e) => setAuto.mutate(e.target.checked)} />
           <span>
             {t('Let Duet use its cloud computer without asking (allow all)')}
-            <span className="hint">{t('Opening pages, clicking, typing, running commands and writing files on the cloud computer run on their own. No proposal, no approval. Your own computer keeps its own setting.')}</span>
+            <span className="hint">{t('Opening pages, clicking, typing, running commands and writing files on the cloud computer run on their own. No proposal, no approval. Your own computer keeps its own setting. Text in a page or file could steer Duet there, and it can open any page even with web pages off, so anything signed in on that machine is exposed.')}</span>
           </span>
         </label>
       </section>
