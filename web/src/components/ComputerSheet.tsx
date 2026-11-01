@@ -108,6 +108,7 @@ const STATE_TEXT: Record<string, string> = { running: 'Awake', suspended: 'Aslee
 function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const act = useMutation({ mutationFn: (path: string) => post(path), onSettled: onChange });
+  const setAuto = useMutation({ mutationFn: (auto: boolean) => post('/computer/auto', { auto }), onSettled: onChange });
   const setup = s.setup;
   const ready = !setup;
 
@@ -150,6 +151,17 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
       )}
 
       {ready && <Watch asleep={s.machineState !== 'running'} />}
+
+      <section className="apps-section" aria-label={t('Auto mode')}>
+        <h3>{t('Auto mode')}</h3>
+        <label className="check">
+          <input type="checkbox" checked={s.auto} disabled={setAuto.isPending} onChange={(e) => setAuto.mutate(e.target.checked)} />
+          <span>
+            {t('Let Duet use its cloud computer without asking (allow all)')}
+            <span className="hint">{t('Opening pages, clicking, typing, running commands and writing files on the cloud computer run on their own. No proposal, no approval. Your own computer keeps its own setting.')}</span>
+          </span>
+        </label>
+      </section>
 
       <div className="reset">
         {confirming ? (

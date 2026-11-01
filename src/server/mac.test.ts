@@ -179,6 +179,15 @@ describe('commands', () => {
     expect(shell.commandsIn('run ```echo hi``` now')).toEqual([]);
     expect(shell.hasCommands('run ```echo hi``` now')).toBe(true);
     expect(shell.commandsIn('```bash\nls -la\n```')).toContain('ls -la');
+    // A block nested under a list item renders as code too, so it counts.
+    expect(shell.commandsIn('- Close it:\n    ```bash\n    echo one\n    echo two\n    ```')).toEqual(['echo one\necho two', 'echo one', 'echo two']);
+    expect(shell.commandsIn('- Close it: ```bash\necho one\n```')).toEqual([]);
+    // Smart quotes or a fence around the command still find the approved text, which is what runs.
+    shell.allowCommands("```\necho 'quoted  text'\n```");
+    expect(await shell.runShell('echo ‘quoted  text’')).toContain('quoted  text');
+    expect(await shell.runShell("```sh\necho 'quoted  text'\n```")).toContain('exit 0');
+    await expect(shell.runShell("echo 'quoted text' ; id")).rejects.toThrow(/not in the proposal/);
+    shell.clearCommands();
   });
 
   it('a paired phone cannot approve a proposal that runs commands', async () => {

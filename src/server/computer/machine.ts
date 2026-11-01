@@ -59,7 +59,7 @@ export function computerBrief(): { name: string; state: string | null } | null {
 
 export async function computerStatus(): Promise<ComputerStatus> {
   const rec = db.data.computer;
-  if (!rec) return { connected: false, name: null, machineId: null, machineState: null, vault: false, setup, error: null };
+  if (!rec) return { connected: false, name: null, machineId: null, machineState: null, vault: false, auto: db.data.computerAuto, setup, error: null };
   let error: string | null = null;
   if (!stateCache || Date.now() - stateCache.at > 15_000) {
     try {
@@ -69,7 +69,7 @@ export async function computerStatus(): Promise<ComputerStatus> {
       stateCache = { state: 'unknown', at: Date.now() };
     }
   }
-  return { connected: true, name: rec.name, machineId: rec.machineId, machineState: stateCache.state, vault: rec.vault, setup, error };
+  return { connected: true, name: rec.name, machineId: rec.machineId, machineState: stateCache.state, vault: rec.vault, auto: db.data.computerAuto, setup, error };
 }
 
 /** Wakes the machine if it was paused or stopped. Exec also wakes an idle-paused one, but not one that was switched off. */

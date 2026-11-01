@@ -12,6 +12,7 @@ import { Composer } from './components/Composer';
 import { FileViewer } from './components/FileViewer';
 import { Make } from './components/Make';
 import { PairScreen } from './components/PairScreen';
+import { Recommendations } from './components/Recommendations';
 import { Panel, StatusStrip } from './components/Panel';
 import { SettingsSheet } from './components/SettingsSheet';
 import { Setup } from './components/Setup';
@@ -310,6 +311,9 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
             void qc.invalidateQueries({ queryKey: ['connectors'] });
           }}
         />
+      )}
+      {!sheet && data?.setupDone && data.recs && (
+        <Recommendations key={data.recs.at} tasks={data.recs.tasks} onStart={(id) => run('/tasks/start', { id })} onDismiss={(id) => run('/tasks/dismiss', { id })} onClose={() => run('/recs/seen')} />
       )}
       {sheet?.kind === 'panel' && data && (
         <Sheet title={t('Status')} onClose={() => setSheet(null)}>

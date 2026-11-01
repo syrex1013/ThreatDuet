@@ -63,6 +63,8 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
       mac_browser_click: 'clicking in your browser',
       mac_browser_type: 'typing in your browser',
       mac_browser_press: 'typing in your browser',
+      mac_browser_scroll: 'scrolling the page in your browser',
+      mac_browser_reload_signins: 'picking up your browser sign-ins',
     };
     return tr(known[tool] ?? 'using your computer');
   }

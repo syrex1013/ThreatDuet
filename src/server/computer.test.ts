@@ -209,6 +209,15 @@ describe('Duet computer setup and use', () => {
     expect(decide(open, 'computer_browser_click')).toBe('deny');
     expect(open.webfetch).toBe('allow');
     store.db.data.settings.openWebPages = false;
+
+    // Allow all: every cloud-computer tool runs without a proposal, and Duet is told so.
+    store.db.data.computerAuto = true;
+    await store.writeWorkspaceConfig();
+    const all = JSON.parse(await fs.readFile(path.join(home, 'workspace', 'kilo.json'), 'utf8')).agent.duet.permission;
+    for (const t of ['computer_browser_open', 'computer_browser_click', 'computer_run', 'computer_write_file']) expect(decide(all, t), t).toBe('allow');
+    expect((await import('./connectors.js')).connectedAppsLine()).toMatch(/ALLOW ALL/);
+    store.db.data.computerAuto = false;
+    await store.writeWorkspaceConfig();
   });
 
   it('registers its tools for Kilo with a token, in the private config only', async () => {

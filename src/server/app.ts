@@ -181,6 +181,13 @@ app.post('/api/computer/retry', async (c) => {
   const r = await retrySetup();
   return 'error' in r ? c.json(r, 409) : c.json(r);
 });
+app.post('/api/computer/auto', json(z.object({ auto: z.boolean() })), async (c) => {
+  db.data.computerAuto = c.req.valid('json').auto;
+  await db.write();
+  await writeConnectorsConfig();
+  await writeWorkspaceConfig();
+  return c.json(await computerStatus());
+});
 app.post('/api/computer/disconnect', async (c) => {
   await disconnectComputer();
   await writeConnectorsConfig();

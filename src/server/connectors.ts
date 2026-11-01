@@ -305,8 +305,15 @@ process.once('exit', () => {
 export function connectedAppsLine(): string {
   const on = db.data.connectors.filter((c) => c.enabled);
   const computer = db.data.computer
-    ? `You have your own cloud computer ("${db.data.computer.name}") with a browser. On your own you may read web pages there (browser_read, browser_screenshot, read_file${db.data.settings.openWebPages ? ', browser_open' : ''}). Opening ${db.data.settings.openWebPages ? 'pages you were not told about' : 'pages (browser_open)'}, clicking, typing, running commands and writing files there change things, so propose them as ACTIONS and name the computer. Never use it to look at the user's files on their own machine.`
+    ? db.data.computerAuto
+      ? `You have your own cloud computer ("${db.data.computer.name}") with a browser and a shell. ALLOW ALL: the user chose to let you use it without asking, so every computer_ tool (open, read, click, type, run commands, write files) works on your own: use them directly instead of proposing them as ACTIONS. Still never send, pay or delete outside it without being told to. Never use it to look at the user's files on their own machine.`
+      : `You have your own cloud computer ("${db.data.computer.name}") with a browser. On your own you may read web pages there (browser_read, browser_screenshot, read_file${db.data.settings.openWebPages ? ', browser_open' : ''}). Opening ${db.data.settings.openWebPages ? 'pages you were not told about' : 'pages (browser_open)'}, clicking, typing, running commands and writing files there change things, so propose them as ACTIONS and name the computer. Never use it to look at the user's files on their own machine.`
     : '';
+  // Both places are attached at once; Duet picks per task.
+  const where =
+    db.data.computer && macOn()
+      ? `You can work in two places; pick the one that fits each step and say which you used. The user's own ${OS_NAME} (mac_ tools): their files, their signed-in browser and accounts, their local apps. Your cloud computer (computer_ tools): installing software, long, heavy or risky jobs, trying untrusted code or downloads, and browsing that must not happen as the user.`
+      : '';
   const m = db.data.mac;
   const mac = macOn()
     ? [
@@ -317,7 +324,7 @@ export function connectedAppsLine(): string {
             ? `Files: mac_files_list, mac_files_read and mac_files_search work on your own anywhere on the ${OS_NAME} (folders holding passwords and keys are refused). ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file is an ACTION.'}`
             : `Files: mac_files_list, mac_files_read and mac_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. ${m.auto ? 'mac_files_write works on your own too.' : 'Writing a file there is an ACTION.'}`
           : '',
-        m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read what is open (mac_browser_read, mac_browser_screenshot)" + (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
+        m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read and scroll what is open (mac_browser_read, mac_browser_screenshot, mac_browser_scroll); after the user signs in somewhere, mac_browser_reload_signins picks it up" + (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
         m.shell
           ? m.auto
             ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): mac_shell_run works on your own. Prefer commands that only read; say what you ran.`
@@ -328,12 +335,13 @@ export function connectedAppsLine(): string {
         .filter(Boolean)
         .join(' ')
     : '';
-  if (!on.length) return `${computer || 'No cloud computer is connected.'} ${mac} No apps are connected yet. You can only see your workspace, the web${macOn() ? ` and what the ${OS_NAME} tools allow` : ''}.`.replace(/\s+/g, ' ').trim();
+  if (!on.length) return `${computer || 'No cloud computer is connected.'} ${mac} ${where} No apps are connected yet. You can only see your workspace, the web${macOn() ? ` and what the ${OS_NAME} tools allow` : ''}.`.replace(/\s+/g, ' ').trim();
   const free = on.filter((c) => c.autoRead).map((c) => c.name);
   const ask = on.filter((c) => !c.autoRead).map((c) => c.name);
   return [
     computer,
     mac,
+    where,
     `Connected apps: ${on.map((c) => c.name).join(', ')}.`,
     free.length ? `You may use the read-only tools of ${free.join(', ')} on your own.` : '',
     ask.length ? `For ${ask.join(', ')}, even reading needs the user's approval: propose it.` : '',

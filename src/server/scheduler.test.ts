@@ -103,3 +103,27 @@ describe('routines', () => {
     expect(store.db.data.routines).toEqual([]);
   });
 });
+
+describe('recommendations', () => {
+  it('plans the next offer at a random time outside quiet hours', () => {
+    const at = (h: number) => new Date(2026, 10, 1, h, 0).getTime();
+    expect(scheduler.nextRecsAt(at(9), '22:00', '07:00', () => 0)).toBe(at(12));
+    expect(scheduler.nextRecsAt(at(9), '22:00', '07:00', () => 0.5)).toBe(at(14) + 30 * 60_000);
+    // 18:00 + 8h lands at 02:00, inside quiet hours: moved to 07:00 the next morning.
+    expect(scheduler.nextRecsAt(at(18), '22:00', '07:00', () => 1)).toBe(new Date(2026, 10, 2, 8, 0).getTime());
+  });
+
+  it('offers the open suggestions in a popup until the user closes it', async () => {
+    kilo.mockResolvedValue(reply('<<SUGGEST: Draft the Q4 plan | from the notes>>\n<<SUGGEST: Tidy the inbox | many unread>>\nNOTHING'));
+    store.db.data.tasks = [];
+    store.db.data.recs = { at: 0, ids: [], seenAt: 0, nextAt: Date.now() - 1 };
+    store.db.data.settings.quietStart = '00:00';
+    store.db.data.settings.quietEnd = '00:00';
+    await scheduler.tick();
+    await duet.idle();
+    expect(store.db.data.recs.nextAt).toBeGreaterThan(Date.now());
+    expect(duet.openRecs()?.tasks.map((t) => t.title)).toEqual(['Tidy the inbox', 'Draft the Q4 plan']);
+    expect((await call(phone, '/recs/seen', {})).status).toBe(200);
+    expect(duet.openRecs()).toBeNull();
+  });
+});

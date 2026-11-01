@@ -39,6 +39,10 @@ export interface Data {
   computer: { apiKey: string; machineId: string; name: string; connectedAt: number; vault: boolean } | null;
   /** The user disconnected Duet's computer: don't connect one again on its own. */
   computerOptOut: boolean;
+  /** Allow all on the cloud computer: clicking, typing, commands and files there run without a proposal. */
+  computerAuto: boolean;
+  /** The recommendations popup: the batch last offered, when the user saw it, and when to offer more (0: not yet planned). */
+  recs: { at: number; ids: string[]; seenAt: number; nextAt: number };
 }
 
 const MAX_MESSAGES = 500;
@@ -68,6 +72,8 @@ export async function openStore(): Promise<void> {
     mac: { files: false, everything: false, folders: [], shell: false, browser: false, browserApp: 'auto', auto: false },
     computer: null,
     computerOptOut: false,
+    computerAuto: false,
+    recs: { at: 0, ids: [], seenAt: 0, nextAt: 0 },
   });
   db.data.connectors ??= [];
   db.data.channels ??= [];
@@ -78,6 +84,8 @@ export async function openStore(): Promise<void> {
   db.data.mac.auto ??= false;
   db.data.computer ??= null;
   db.data.computerOptOut ??= false;
+  db.data.computerAuto ??= false;
+  db.data.recs ??= { at: 0, ids: [], seenAt: 0, nextAt: 0 };
   db.data.remote ??= { enabled: false, token: null, port: REMOTE_PORT };
   // Every save is a change the UI may need: announce it to live clients.
   const write = db.write.bind(db);
@@ -154,7 +162,8 @@ const SIDE_EFFECT_VERBS = [
  * Duet's cloud computer. Reading a page it already has open is free; going somewhere new is gated like
  * web fetching; clicking, typing, running commands and writing files always need an approved proposal.
  */
-export function computerRules(openWebPages: boolean): Record<string, string> {
+export function computerRules(openWebPages: boolean, auto = false): Record<string, string> {
+  if (auto) return Object.fromEntries(Object.keys(computerRules(true)).map((k) => [k, 'allow']));
   return {
     computer_status: 'allow',
     computer_browser_read: 'allow',
@@ -185,6 +194,8 @@ export function macRules(openWebPages: boolean, auto = false): Record<string, st
     mac_shell_run: 'deny',
     mac_browser_read: 'allow',
     mac_browser_screenshot: 'allow',
+    mac_browser_scroll: 'allow',
+    mac_browser_reload_signins: 'allow',
     mac_browser_open: openWebPages ? 'allow' : 'deny',
     mac_browser_click: 'deny',
     mac_browser_type: 'deny',
@@ -242,7 +253,7 @@ export async function writeWorkspaceConfig(): Promise<void> {
   duet.webfetch = webOnItsOwn ? 'allow' : 'deny';
   Object.assign(duet, connectorRules(apps.filter((c) => c.autoRead).map((c) => c.id)));
   // Duet's cloud computer: exact names, placed last so they win over the word rules above.
-  if (db.data.computer) Object.assign(duet, computerRules(db.data.settings.openWebPages));
+  if (db.data.computer) Object.assign(duet, computerRules(db.data.settings.openWebPages, db.data.computerAuto));
   if (macOn()) Object.assign(duet, macRules(db.data.settings.openWebPages, db.data.mac.auto));
   for (const tool of ['bash', 'background_process', 'schedule_wakeup', 'cancel_wakeup', 'cron_*', 'agent_manager_*', 'link_pr', 'board_*', 'goal*', 'plan_*', 'doom_loop'])
     duet[tool] = 'deny';

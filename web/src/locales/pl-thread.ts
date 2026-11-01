@@ -147,4 +147,7 @@ export const PL_THREAD: Record<string, string> = {
   Dismiss: 'Pomiń',
   Done: 'Gotowe',
   Failed: 'Nie udało się',
+  'Duet has some ideas': 'Duet ma kilka pomysłów',
+  "Things Duet could do for you now. Pick any to start; the rest stay under Duet's tasks.":
+    'Rzeczy, które Duet może teraz dla Ciebie zrobić. Wybierz dowolne, by zacząć; reszta zostanie w Zadaniach Dueta.',
 };

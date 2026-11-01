@@ -39,8 +39,9 @@ const client = new Client({ name: 'emulate', version: '0' });
 await client.connect(b);
 const tools = (await client.listTools()).tools.filter((t) => ['files_list', 'files_read', 'shell_run'].includes(t.name)).map((t) => ({ type: 'function' as const, function: { name: `mac_${t.name}`, description: t.description ?? '', parameters: t.inputSchema as Record<string, unknown> } }));
 
-const UNIX_CMD = /(^|[\s;&|])(ls|uname|sw_vers|cat|grep|pwd|whoami -u|id|df|du|find \/|echo \$[A-Z]|sudo|brew|apt|open )\b|\/bin\/|\/usr\/|~\/|\$HOME|\$USER\b/;
-const WIN_PATH = /^(~|[A-Za-z]:\\)/;
+const UNIX_CMD = /(^|[\s;&|])(ls|uname|sw_vers|cat|grep|pwd|whoami -u|id|df|du|find \/|echo \$[A-Z]|sudo|brew|apt|chmod|sed|awk|xargs|open )\b|\/bin\/|\/usr\/|~\/|\$HOME|\$USER\b/;
+// PowerShell takes forward slashes too: C:/Users/... is a Windows path.
+const WIN_PATH = /^(~|[A-Za-z]:[\\/])/;
 const problems: string[] = [];
 const stub = (name: string, args: Record<string, unknown>): string => {
   if (name === 'mac_shell_run') {
@@ -87,10 +88,10 @@ for (let step = 0; step < 10; step++) {
 }
 console.log(`\n--- answer (${model})\n${final}\n---`);
 if (!final) problems.push('no final answer');
-if (/\/Users\/|\/home\//.test(final)) problems.push('answer uses a Unix path');
-if (!/C:\\Users\\adrian\\notes\.txt/i.test(final)) problems.push('answer does not give the Windows path of notes.txt');
+if (/(^|[^:A-Za-z])\/Users\/|\/home\//.test(final)) problems.push('answer uses a Unix path');
+if (!/C:[\\/]Users[\\/]adrian[\\/]notes\.txt/i.test(final)) problems.push('answer does not give the Windows path of notes.txt');
 if (/\b(df -h|du -sh|diskutil|Finder|Spotlight|brew)\b/i.test(final)) problems.push('answer suggests a macOS/Linux tool');
-if (!/Get-PSDrive|Get-Volume|Get-CimInstance|wmic|fsutil|Get-WmiObject|dir\b|Get-ChildItem|\(Get-PSDrive/i.test(final)) problems.push('disk-space command is not a Windows one');
+if (!/Get-PSDrive|Get-Volume|Get-CimInstance|wmic|fsutil|Get-WmiObject|\(Get-PSDrive/i.test(final)) problems.push('disk-space command is not a Windows one');
 await client.close();
 if (problems.length) {
   console.error(`FAIL\n- ${problems.join('\n- ')}`);

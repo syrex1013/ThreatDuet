@@ -148,6 +148,8 @@ export interface ComputerStatus {
   /** running, suspended, stopped, ... or unknown while it can't be reached. */
   machineState: string | null;
   vault: boolean;
+  /** Allow all: Duet acts on the cloud computer without asking. */
+  auto: boolean;
   /** Setup in progress or the last setup failure. */
   setup: { running: boolean; step: string; error: string | null } | null;
   error: string | null;
@@ -184,6 +186,8 @@ export interface StateResponse {
   setupDone: boolean;
   /** The computer Duet runs on, so a paired phone names it right. */
   os: OsId;
+  /** Suggestions to show in the recommendations popup; null once seen or when none are open. */
+  recs: { at: number; tasks: TaskItem[] } | null;
 }
 
 export type OsId = 'mac' | 'windows' | 'linux';

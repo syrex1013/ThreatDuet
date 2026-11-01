@@ -6,13 +6,19 @@ import { db } from '../store.js';
 let approved: string[] | null = null;
 
 /**
- * Each fenced block counts as one command; so does any single line inside it. Only fences that start a line
- * count (as in the markdown the person reads), so text can't smuggle a command in through an odd fence.
+ * Each fenced block counts as one command; so does any single line inside it. Only fences with nothing but
+ * indentation before them count (as in the markdown the person reads, including blocks nested under a list
+ * item), so text can't smuggle a command in through an inline fence.
  */
 export function commandsIn(text: string): string[] {
   const out: string[] = [];
-  for (const m of text.matchAll(/^ {0,3}```[^\n`]*\n([\s\S]*?)^ {0,3}```[ \t]*$/gm)) {
-    const block = m[1].trim();
+  for (const m of text.matchAll(/^([ \t]*)```[^\n`]*\n([\s\S]*?)^[ \t]*```[ \t]*$/gm)) {
+    const indent = m[1];
+    const block = m[2]
+      .split('\n')
+      .map((l) => (l.startsWith(indent) ? l.slice(indent.length) : l.trimStart()))
+      .join('\n')
+      .trim();
     if (!block) continue;
     out.push(block, ...block.split('\n').map((l) => l.trim()).filter(Boolean));
   }
@@ -30,11 +36,34 @@ export function clearCommands(): void {
   approved = null;
 }
 
+/** Strip markdown fences if the model accidentally wraps the command in them. */
+function unfence(command: string): string {
+  const m = command.trim().match(/^```[^\n]*\n([\s\S]+?)\n```$/);
+  return m ? m[1].trim() : command.trim();
+}
+
+/**
+ * Normalize for fuzzy matching only — never use the result as the command to run.
+ * Maps Unicode curly quotes to ASCII and collapses runs of whitespace.
+ */
+function norm(s: string): string {
+  return s
+    .trim()
+    .replace(/[‘’‚‛′‵]/g, "'")
+    .replace(/[“”„‟″‶]/g, '"')
+    .replace(/\s+/g, ' ');
+}
+
 export async function runShell(command: string, cwd?: string, timeoutSeconds = 60): Promise<string> {
+  const candidate = unfence(command);
+  // Find a matching approved command. Prefer exact match; fall back to quote/whitespace-normalized match.
+  // Execute the approved text (what the user saw), not the model's regenerated version.
+  const match = approved?.find((a) => a === candidate || a === command.trim() || norm(a) === norm(candidate));
   // Auto mode: the user chose to let Duet run commands without a proposal.
-  if (!db.data.mac.auto && !approved?.includes(command.trim()))
+  if (!db.data.mac.auto && !match)
     throw new Error('This command is not in the proposal the user approved, so it was not run. Commands must appear exactly, each in its own ``` block, in the approved text.');
-  const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command]] : [process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh', ['-c', command]];
+  const cmd = match ?? candidate;
+  const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd]] : [process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh', ['-c', cmd]];
   const r = await execa(bin as string, args as string[], { cwd: cwd ?? os.homedir(), timeout: timeoutSeconds * 1000, reject: false, all: true, stdin: 'ignore', maxBuffer: 5_000_000 });
   const out = (r.all ?? '').slice(-20_000);
   // No exit code: it never started (missing folder), or was killed (signal, output too large). Keep what it printed.
