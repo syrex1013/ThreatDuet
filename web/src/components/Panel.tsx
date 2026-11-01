@@ -26,7 +26,7 @@ function finishedAt(ts: number): string {
   return day === t('Today') ? clock(ts) : day;
 }
 
-function TaskList({ tasks, onStart, onDismiss }: { tasks: TaskItem[]; onStart: (id: string) => void; onDismiss: (id: string) => void }) {
+export function TaskList({ tasks, onStart, onDismiss }: { tasks: TaskItem[]; onStart: (id: string) => void; onDismiss: (id: string) => void }) {
   // Cached state from an older server has no tasks.
   const open = tasks.filter((x) => x.status in OPEN_ORDER).sort((a, b) => OPEN_ORDER[a.status]! - OPEN_ORDER[b.status]!);
   const finished = tasks

@@ -7,11 +7,11 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import type { StateResponse } from '../shared/types.js';
 import { WORKSPACE } from './config.js';
-import { approve, cancelFollowup, chat, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, reject, routines, setRoutine, startTask } from './duet.js';
+import { approve, cancelFollowup, chat, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, openRecs, reject, routines, setRoutine, startTask } from './duet.js';
 import { computerBrief } from './computer/machine.js';
 import { SKIP } from './direct/tools.js';
 import { OS_ID } from './mac/os.js';
-import { onStateChange, stateVersion } from './events.js';
+import { onStateChange, stateChanged, stateVersion } from './events.js';
 import { nextRoutineRun } from './parse.js';
 import { routineDue, upcomingRoutines } from './scheduler.js';
 import { appendMemory, db, post, PROTECTED, readMemory, writeMemory, writeWorkspaceConfig } from './store.js';
@@ -73,6 +73,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
       tasks: db.data.tasks.slice(0, 40),
       setupDone: db.data.setupDone,
       os: OS_ID,
+      recs: openRecs(),
     };
     return c.json(body);
   })
@@ -168,6 +169,12 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
   .post('/tasks/start', json(Id), async (c) =>
     (await startTask(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('That task is no longer waiting.') }, 409),
   )
+  .post('/recs/seen', async (c) => {
+    db.data.recs.seenAt = Date.now();
+    await db.write();
+    stateChanged();
+    return c.json({ ok: true });
+  })
   .post('/tasks/dismiss', json(Id), async (c) =>
     (await dismissTask(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('That task is no longer waiting.') }, 409),
   )

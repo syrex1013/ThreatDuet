@@ -1,7 +1,7 @@
 {
   "name": "openduet",
   "productName": "OpenDuet",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",

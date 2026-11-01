@@ -88,6 +88,16 @@ export function buildMacServer(): McpServer {
     { description: "Presses a key in the user's own browser. Needs the user's approval.", inputSchema: { key: z.string().max(40) } },
     ({ key }) => web(() => browse('press', { key }), (r) => text(`Pressed ${key}. Now at ${r.url}.`)),
   );
+  server.registerTool(
+    'browser_reload_signins',
+    { description: "Copies the user's browser sign-ins again. Call it after the user says they signed in to a site, then open the page again." },
+    () => web(() => browse('signins'), () => text('Sign-ins reloaded. Open the page again.')),
+  );
+  server.registerTool(
+    'browser_scroll',
+    { description: "Scrolls the current page in the user's own browser. Positive pixels scrolls down, negative scrolls up. Use to reveal more content.", inputSchema: { pixels: z.number().int().min(-5000).max(5000).optional() } },
+    ({ pixels }) => web(() => browse('scroll', { pixels }), (r) => text(`Scrolled. Still at ${r.url}. Call browser_read to see newly visible content.`)),
+  );
   return server;
 }
 

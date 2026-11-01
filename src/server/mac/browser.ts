@@ -245,8 +245,10 @@ async function locate(p: Page, ref: number) {
 export type BrowseResult = { url: string; title: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
 
 /** One action at a time, so Duet's steps never interleave. */
-export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press', args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string } = {}): Promise<BrowseResult> {
+export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins', args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string; pixels?: number } = {}): Promise<BrowseResult> {
   return queue.add(async () => {
+    // The user just signed in somewhere in their own browser: copy the sign-ins again before going on.
+    if (action === 'signins') await stopBrowser();
     const p = await page();
     switch (action) {
       case 'open':
@@ -270,6 +272,11 @@ export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type'
         return where(p);
       case 'press':
         await p.keyboard.press(String(args.key));
+        return where(p);
+      case 'signins':
+        return where(p);
+      case 'scroll':
+        await p.evaluate((px: number) => { window.scrollBy(0, px); }, Number(args.pixels ?? 500));
         return where(p);
     }
   }) as Promise<BrowseResult>;

@@ -107,4 +107,7 @@ export const PL_COMPUTER: Record<string, string> = {
     'Gdy Mac jest podłączony, tekst w pliku, na stronie lub w e-mailu może próbować sterować Duetem. Duet traktuje go jako dane i pyta, zanim cokolwiek zrobi lub wyśle, więc czytaj każdą propozycję, zanim ją zatwierdzisz.',
   'With the PC connected, text in a file, web page or email could try to steer Duet. Duet treats it as data and asks before it acts or sends anything, so read each proposal before you approve it.':
     'Gdy komputer jest podłączony, tekst w pliku, na stronie lub w e-mailu może próbować sterować Duetem. Duet traktuje go jako dane i pyta, zanim cokolwiek zrobi lub wyśle, więc czytaj każdą propozycję, zanim ją zatwierdzisz.',
+  'Let Duet use its cloud computer without asking (allow all)': 'Pozwól Duetowi używać komputera w chmurze bez pytania (zezwól na wszystko)',
+  'Opening pages, clicking, typing, running commands and writing files on the cloud computer run on their own. No proposal, no approval. Your own computer keeps its own setting.':
+    'Otwieranie stron, klikanie, pisanie, uruchamianie poleceń i zapis plików na komputerze w chmurze działają same. Bez propozycji, bez zatwierdzania. Twój własny komputer ma osobne ustawienie.',
 };

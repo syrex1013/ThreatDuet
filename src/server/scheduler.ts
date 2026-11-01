@@ -1,5 +1,5 @@
 import { Cron } from 'croner';
-import { queuedTasks, routines, runTask } from './duet.js';
+import { currentWork, queuedTasks, routines, runTask } from './duet.js';
 import { notify } from './notify.js';
 import { tr } from './i18n.js';
 import { nextRoutineRun } from './parse.js';
@@ -54,6 +54,12 @@ export async function tick(): Promise<void> {
     routines.check();
   }
 
+  // Recommendations: soon after the app starts, then at a random time, never while Duet is busy or in quiet hours.
+  if (d.recs.nextAt && now >= d.recs.nextAt && !currentWork() && !inQuiet(t, s.quietStart, s.quietEnd)) {
+    d.recs.nextAt = nextRecsAt(now, s.quietStart, s.quietEnd);
+    routines.recommend();
+  }
+
   for (const f of d.followups) if (f.at <= now) routines.followup(f);
   // The user picked the time, so routines run inside quiet hours too.
   for (const r of d.routines) {
@@ -70,6 +76,17 @@ export async function tick(): Promise<void> {
     }
   }
   await db.write();
+}
+
+/** The next recommendations: a random time 3 to 8 hours on, moved to just after quiet hours if it falls inside them. */
+export function nextRecsAt(now: number, quietStart: string, quietEnd: string, rand = Math.random): number {
+  const at = now + (3 + rand() * 5) * 3_600_000;
+  if (!inQuiet(hhmm(new Date(at)), quietStart, quietEnd)) return at;
+  const [h, m] = quietEnd.split(':').map(Number);
+  const end = new Date(at);
+  end.setHours(h, m, 0, 0);
+  if (end.getTime() <= at) end.setDate(end.getDate() + 1);
+  return end.getTime() + rand() * 3_600_000;
 }
 
 /** When each routine will next run, for the UI. A time in the past means "within the minute". */
@@ -99,5 +116,7 @@ export function upcomingRoutines(): UpcomingRoutine[] {
 }
 
 export function startScheduler(): Cron {
+  // Every start offers recommendations a minute in.
+  db.data.recs.nextAt = Date.now() + 60_000;
   return new Cron('* * * * *', { protect: true }, tick);
 }
