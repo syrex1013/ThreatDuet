@@ -98,7 +98,7 @@ export interface RoutineItem {
 
 /**
  * Work Duet came up with itself. 'queued' ones it starts on its own (workspace-only work; anything that
- * affects others still becomes a proposal); 'suggested' ones wait for the user to start or dismiss them.
+ * affects others still becomes a proposal); 'suggested' ones wait for the user to start, mark done, or dismiss them.
  */
 export type TaskStatus = 'suggested' | 'queued' | 'running' | 'done' | 'failed' | 'dismissed';
 export interface TaskItem {
@@ -128,6 +128,8 @@ export interface RemoteInfo {
   enabled: boolean;
   port: number;
   token: string | null;
+  /** Paired phones may approve commands and drive the browser (sign into sites). */
+  phoneCommands: boolean;
   addresses: RemoteAddress[];
 }
 
@@ -163,6 +165,18 @@ export interface ComputerScreen {
   base64?: string;
 }
 
+export type InputKind = 'password' | 'text' | 'otp';
+/** Secure prompt waiting for the user; the value itself never appears in state. */
+export interface PendingInput {
+  id: string;
+  kind: InputKind;
+  prompt: string;
+  target: 'local' | 'computer';
+  ref?: number;
+  url?: string;
+  createdAt: number;
+}
+
 export interface StateResponse {
   settings: Settings;
   messages: Message[];
@@ -188,6 +202,8 @@ export interface StateResponse {
   os: OsId;
   /** Suggestions to show in the recommendations popup; null once seen or when none are open. */
   recs: { at: number; tasks: TaskItem[] } | null;
+  /** Password/OTP/text prompt Duet opened; null when none. */
+  pendingInput: PendingInput | null;
 }
 
 export type OsId = 'mac' | 'windows' | 'linux';

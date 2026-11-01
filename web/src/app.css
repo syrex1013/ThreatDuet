@@ -355,6 +355,10 @@ code { font-family: var(--mono); font-size: 0.875em; background: var(--ground); 
 .proposal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.75rem; margin-top: 1rem; }
 .proposal-hint { font-size: 0.825rem; color: var(--muted); }
 .proposal-flag { margin-top: 0.75rem; font-size: 0.875rem; font-weight: 600; color: var(--signal); }
+.proposal-body > * + * { margin-top: 0.75rem; }
+.proposal-cmd-label { font-size: 0.75rem; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; }
+.proposal-cmd pre { background: var(--ground); border: 1px solid var(--line); border-radius: var(--r-md); padding: 0.75rem 0.9rem; overflow-x: auto; font-size: 0.85rem; margin: 0; }
+.proposal-cmd code { background: none; padding: 0; font-family: var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .proposal.resolved { border-left: 2px solid var(--line-strong); padding: 0.15rem 0 0.15rem 1rem; color: var(--muted); }
 .proposal.resolved .md { font-size: 0.925rem; }
 .proposal-status { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; font-weight: 600; font-size: 0.875rem; color: var(--ink); }
@@ -723,3 +727,10 @@ a.btn { text-decoration: none; color: inherit; }
 .watch-type input { flex: 1; min-width: 12rem; }
 .watch-keys { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.5rem 0 0.25rem; }
 .watch-asleep { display: grid; gap: 0.6rem; justify-items: start; }
+
+.input-prompt-live { margin: 0.75rem 0 1rem; }
+.input-prompt-form { margin-top: 0.75rem; position: sticky; bottom: 0; background: var(--bg); padding: 0.75rem 0 0.25rem; }
+.live-browser-compact .watch-skeleton { height: 16rem; }
+.live-browser-compact .watch-frame img { max-height: min(50dvh, 28rem); object-fit: contain; background: #111; }
+
+.mac-live-browser { margin: 1rem 0 0.5rem; }

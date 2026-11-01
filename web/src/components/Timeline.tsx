@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useRef } from 'react';
 import type { Message, Proposal } from '../../../src/shared/types';
 import { t } from '../i18n';
+import { splitActions } from '../../../src/shared/actions';
 import { clock, groupByDay, KIND_TITLE, spring, summarizeTools } from '../lib';
 import { Mark } from './Mark';
 import { Markdown } from './Markdown';
@@ -154,7 +155,7 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
         >
           <div className="proposal-card">
             <p className="proposal-title">{t('Waiting for your approval')}</p>
-            <Markdown text={p.actions} />
+            <ProposalBody text={p.actions} />
             {p.flags?.length ? (
               <p className="proposal-flag">{t('Contains health/financial information. Approving shares it with the recipients.')}</p>
             ) : null}
@@ -177,7 +178,7 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
           animate={{ opacity: 1 }}
           transition={spring(reduce)}
         >
-          <Markdown text={p.actions} />
+          <ProposalBody text={p.actions} />
           <p className="proposal-status">
             {p.status === 'done' && <Check size={15} aria-hidden="true" />}
             {p.status === 'approved' && <span className="pulse" aria-hidden="true" />}
@@ -187,6 +188,30 @@ function ProposalBlock({ p, busy, onApprove, onReject }: { p: Proposal; busy: bo
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+
+/** Commands as readable blocks; plain ACTIONS (email, etc.) stay as markdown. */
+function ProposalBody({ text }: { text: string }) {
+  const parts = splitActions(text);
+  const codes = parts.filter((p) => p.type === 'code');
+  if (!codes.length) return <Markdown text={text} />;
+  return (
+    <div className="proposal-body">
+      {parts.map((p, i) =>
+        p.type === 'text' ? (
+          <Markdown key={i} text={p.text} />
+        ) : (
+          <div key={i} className="proposal-cmd">
+            <p className="proposal-cmd-label">{t('Command')}</p>
+            <pre>
+              <code>{p.code}</code>
+            </pre>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 

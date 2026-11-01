@@ -6,6 +6,7 @@ import type { Language, Message, StateResponse } from '../../src/shared/types';
 import { getConnectors, post } from './api';
 import { AppsSheet } from './components/AppsSheet';
 import { ComputerSheet } from './components/ComputerSheet';
+import { InputPrompt } from './components/InputPrompt';
 import { deviceName, MacSheet } from './components/MacSheet';
 import { Channels } from './components/Channels';
 import { Composer } from './components/Composer';
@@ -190,6 +191,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
       appsCount={appsCount}
       onOpenApps={() => setSheet({ kind: 'apps' })}
       onStartTask={(id) => run('/tasks/start', { id })}
+      onCompleteTask={(id) => run('/tasks/done', { id })}
       onDismissTask={(id) => run('/tasks/dismiss', { id })}
     />
   );
@@ -312,8 +314,17 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
           }}
         />
       )}
-      {!sheet && data?.setupDone && data.recs && (
-        <Recommendations key={data.recs.at} tasks={data.recs.tasks} onStart={(id) => run('/tasks/start', { id })} onDismiss={(id) => run('/tasks/dismiss', { id })} onClose={() => run('/recs/seen')} />
+      {!sheet && data?.pendingInput && (
+        <InputPrompt
+          key={data.pendingInput.id}
+          req={data.pendingInput}
+          onDone={() => {
+            void qc.invalidateQueries({ queryKey: ['state'] });
+          }}
+        />
+      )}
+      {!sheet && !data?.pendingInput && data?.setupDone && data.recs && (
+        <Recommendations key={data.recs.at} tasks={data.recs.tasks} onStart={(id) => run('/tasks/start', { id })} onComplete={(id) => run('/tasks/done', { id })} onDismiss={(id) => run('/tasks/dismiss', { id })} onClose={() => run('/recs/seen')} />
       )}
       {sheet?.kind === 'panel' && data && (
         <Sheet title={t('Status')} onClose={() => setSheet(null)}>

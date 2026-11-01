@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import type { MacStatus, OsId } from '../../../src/shared/types';
 import { post, request } from '../api';
 import { t } from '../i18n';
+import { LiveBrowser } from './LiveBrowser';
 import { Sheet } from './Sheet';
 
 /** Mac or PC, for the words the person reads: the computer Duet runs on, not the one showing this screen (a phone). */
@@ -179,11 +180,17 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
               <span>
                 {WIN ? t('Let Duet propose PowerShell commands') : t('Let Duet propose shell commands')}
                 <span className="hint">
-                  {t('Every command is shown to you in full first, and only the exact commands you approve can run. Commands can only be approved on this computer, never from a paired phone.')}
+                  {t('Every command is shown to you in full first, and only the exact commands you approve can run. From a paired phone this needs “Use fully from phone” under Settings → Phone.')}
                 </span>
               </span>
             </label>
           </section>
+
+          {s.browser && (
+            <div className="mac-live-browser">
+              <LiveBrowser source="local" wake={false} />
+            </div>
+          )}
 
           {(s.files || s.browser || s.shell) && (
             <section className="apps-section" aria-label={t('Auto mode')}>

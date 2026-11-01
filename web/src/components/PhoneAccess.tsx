@@ -12,7 +12,7 @@ export function PhoneAccess() {
   const remote = useQuery({ queryKey: ['remote'], queryFn: getRemote });
   const [chosen, setChosen] = useState<string | null>(null);
   const change = useMutation({
-    mutationFn: (body: { enabled?: boolean; rotate?: boolean }) => post<RemoteInfo>('/remote', body),
+    mutationFn: (body: { enabled?: boolean; rotate?: boolean; phoneCommands?: boolean }) => post<RemoteInfo>('/remote', body),
     onSuccess: (info) => qc.setQueryData(['remote'], info),
   });
 
@@ -84,6 +84,24 @@ export function PhoneAccess() {
           </div>
         </>
       )}
+
+      <label className="check" style={{ marginTop: '1rem' }}>
+        <input
+          type="checkbox"
+          checked={Boolean(info.phoneCommands)}
+          disabled={change.isPending}
+          onChange={(e) => change.mutate({ phoneCommands: e.target.checked })}
+        />
+        <span>
+          {t('Use fully from phone')}
+          <span className="hint">
+            {t(
+              'Approve commands that run on this computer, watch its browser, and sign into sites from your phone. Leave OpenDuet running here. Anyone with a paired phone can act as you.',
+            )}
+          </span>
+        </span>
+      </label>
+
       <div className="reset">
         <button type="button" className="btn btn-quiet" onClick={() => change.mutate({ rotate: true })} disabled={change.isPending}>
           {t('Unpair all phones')}

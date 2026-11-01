@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import type { ServerType } from '@hono/node-server';
 import type { RemoteAddress, RemoteInfo } from '../shared/types.js';
 import { api } from './api.js';
+import { watchApi } from './watch.js';
 import { log } from './config.js';
 import { closeServer, listen } from './listen.js';
 import { db } from './store.js';
@@ -43,6 +44,7 @@ remoteApp.use('*', async (c, next) => {
   await next();
   log.info({ method: c.req.method, path: c.req.path, status: c.res.status }, 'phone request');
 });
+remoteApp.route('/api', watchApi);
 remoteApp.route('/api', api);
 
 let server: ServerType | null = null;
@@ -67,14 +69,15 @@ export async function stopRemote(): Promise<void> {
 
 export function remoteInfo(): RemoteInfo {
   const r = db.data.remote;
-  return { enabled: r.enabled, port: r.port, token: r.enabled ? r.token : null, addresses: networkAddresses() };
+  return { enabled: r.enabled, port: r.port, token: r.enabled ? r.token : null, phoneCommands: Boolean(r.phoneCommands), addresses: networkAddresses() };
 }
 
 /** Turns phone access on or off. `rotate` issues a new token, which unpairs every phone. */
-export async function setRemote({ enabled, rotate }: { enabled?: boolean; rotate?: boolean }): Promise<RemoteInfo | { error: string }> {
+export async function setRemote({ enabled, rotate, phoneCommands }: { enabled?: boolean; rotate?: boolean; phoneCommands?: boolean }): Promise<RemoteInfo | { error: string }> {
   const r = db.data.remote;
   if (rotate || (enabled && !r.token)) r.token = randomBytes(32).toString('base64url');
   if (enabled !== undefined) r.enabled = enabled;
+  if (phoneCommands !== undefined) r.phoneCommands = phoneCommands;
   try {
     await syncRemote();
   } catch (err) {

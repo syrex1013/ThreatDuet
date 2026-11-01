@@ -67,6 +67,8 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
       local_browser_press: 'typing in your browser',
       local_browser_scroll: 'scrolling the page in your browser',
       local_browser_reload_signins: 'picking up your browser sign-ins',
+      local_browser_ask_input: 'waiting for your input',
+      local_browser_push_session: 'copying sign-ins to its computer',
     };
     return tr(known[tool] ?? 'using your computer');
   }
@@ -88,6 +90,10 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
       case 'computer_browser_type':
       case 'computer_browser_press':
         return tr('typing on its computer');
+      case 'computer_browser_ask_input':
+        return tr('waiting for your input');
+      case 'computer_browser_push_session':
+        return tr('copying sign-ins to its computer');
       case 'computer_run':
         return tr('running a command on its computer');
       default:

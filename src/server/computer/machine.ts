@@ -147,7 +147,7 @@ function friendly(message: string): string {
 export type BrowserResult = { ok: true; url?: string; title?: string; text?: string; elements?: unknown[]; mime?: string; base64?: string; status?: string };
 
 /** One browser action on the computer. Arguments travel as an argv entry, never through a shell. */
-export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press', args: Record<string, unknown> = {}): Promise<BrowserResult> {
+export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'cookies', args: Record<string, unknown> = {}): Promise<BrowserResult> {
   return browserQueue.add(async () => {
     if (!driverReady) await installDriver();
     const r = await vmExec({
@@ -209,6 +209,14 @@ export async function copyToWorkspace(vmPath: string, name?: string): Promise<st
   if (r.truncated) throw new Error('That file is too large to copy (about 700 KB at most).');
   await fs.writeFile(path.join(WORKSPACE, target), Buffer.from(r.stdout.trim(), 'base64'));
   return `Saved ${target} in the workspace.`;
+}
+
+
+/** Copies sign-in cookies from this computer's OpenDuet browser into the cloud Chromium profile. */
+export async function importSessionCookies(cookies: unknown[]): Promise<{ count: number }> {
+  if (!db.data.computer) throw new Error(tr('No computer is connected.'));
+  const r = await browser('cookies', { cookies });
+  return { count: Number((r as { count?: number }).count ?? cookies.length) };
 }
 
 /** A fresh screenshot for the Watch panel; never wakes a sleeping machine on its own. */

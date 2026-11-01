@@ -160,18 +160,39 @@ async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
   }
 }
 
-async function context(): Promise<BrowserContext> {
-  if (ctx) return ctx;
+async function profileReady(): Promise<boolean> {
+  // A previous OpenDuet browse left a Chromium profile (or Firefox-cookie inject left Default/).
+  try {
+    const entries = await fs.readdir(PROFILE);
+    return entries.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function context(opts: { refreshSignins?: boolean } = {}): Promise<BrowserContext> {
+  if (ctx && !opts.refreshSignins) return ctx;
+  if (opts.refreshSignins && ctx) {
+    const old = ctx;
+    ctx = null;
+    await old.close().catch(() => undefined);
+  }
   starting ??= (async () => {
     const src = await chosen();
     // Firefox can't be driven directly, so Chrome or Brave carries its sign-ins.
     const engine = src.family === 'firefox' ? (await Promise.all(DEFS.filter((x) => x.family === 'chromium').map(async (x) => ((await exeOf(x)) ? x : null)))).find(Boolean) : src;
     if (!engine) throw new Error('Firefox sign-ins need Chrome or Brave installed to browse with.');
     const exe = (await exeOf(engine)) as string;
-    await fs.rm(PROFILE, { recursive: true, force: true });
-    await fs.mkdir(PROFILE, { recursive: true, mode: 0o700 });
-    await fs.chmod(PROFILE, 0o700);
-    const cookies: Cookie[] = src.family === 'firefox' ? await firefoxCookies(src) : (await copyChromiumCookies(src), []);
+    // Keep the profile across launches so passwords typed in the prompt and site sessions survive.
+    // Only wipe when the user asks to reload sign-ins from their own browser.
+    const reuse = !opts.refreshSignins && (await profileReady());
+    let cookies: Cookie[] = [];
+    if (!reuse) {
+      await fs.rm(PROFILE, { recursive: true, force: true });
+      await fs.mkdir(PROFILE, { recursive: true, mode: 0o700 });
+      await fs.chmod(PROFILE, 0o700);
+      cookies = src.family === 'firefox' ? await firefoxCookies(src) : (await copyChromiumCookies(src), []);
+    }
     // Talks to the browser over a pipe, not a network port, so no other program can attach and read the cookies.
     // The real Keychain / keyring is kept (Playwright's mock keychain and basic password store would make every cookie unreadable).
     const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: true, ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
@@ -200,8 +221,8 @@ export async function stopBrowser(): Promise<void> {
 
 export const browserRunning = () => (ctx ? usingName : null);
 
-async function page(): Promise<Page> {
-  const c = await context();
+async function page(refreshSignins = false): Promise<Page> {
+  const c = await context({ refreshSignins });
   return c.pages().at(-1) ?? (await c.newPage());
 }
 
@@ -248,15 +269,42 @@ async function locate(p: Page, ref: number) {
 export type BrowseResult = { url: string; title: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
 
 /** One action at a time, so Duet's steps never interleave. */
-export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins', args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string; pixels?: number } = {}): Promise<BrowseResult> {
+/** Cookies from the persisted OpenDuet browser profile (for moving a session to Instabox). Values never go to the model. */
+export type SessionCookie = {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  expires: number;
+  httpOnly: boolean;
+  secure: boolean;
+  sameSite: 'Strict' | 'Lax' | 'None';
+};
+
+export async function exportCookies(): Promise<SessionCookie[]> {
   return queue.add(async () => {
-    // The user just signed in somewhere in their own browser: copy the sign-ins again before going on.
-    if (action === 'signins') {
-      const c = ctx;
-      ctx = null;
-      await c?.close().catch(() => undefined);
-    }
-    const p = await page();
+    const c = await context();
+    const raw = await c.cookies();
+    return raw.map((k) => ({
+      name: k.name,
+      value: k.value,
+      domain: k.domain,
+      path: k.path,
+      expires: k.expires ?? -1,
+      httpOnly: Boolean(k.httpOnly),
+      secure: Boolean(k.secure),
+      sameSite: (k.sameSite === 'Strict' || k.sameSite === 'Lax' || k.sameSite === 'None' ? k.sameSite : 'Lax') as SessionCookie['sameSite'],
+    }));
+  });
+}
+
+export function browse(
+  action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins',
+  args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string; pixels?: number; x?: number; y?: number } = {},
+): Promise<BrowseResult> {
+  return queue.add(async () => {
+    // The user just signed in somewhere in their own browser: copy those sign-ins again (drops the old copy).
+    const p = action === 'signins' ? await page(true) : await page();
     switch (action) {
       case 'open':
         await p.goto(String(args.url), { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -269,11 +317,14 @@ export function browse(action: 'open' | 'read' | 'screenshot' | 'click' | 'type'
         return { ...(await where(p)), mime: 'image/jpeg', base64: buf.toString('base64') };
       }
       case 'click':
-        await (await locate(p, Number(args.ref))).click({ timeout: 10_000 });
+        // Element number (Duet) or pixel click (Watch / credential prompt on Mac/Windows/Linux).
+        if (args.ref != null) await (await locate(p, Number(args.ref))).click({ timeout: 10_000 });
+        else await p.mouse.click(Number(args.x), Number(args.y));
         await p.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => undefined);
         return (await context()).pages().at(-1) ? where((await context()).pages().at(-1) as Page) : where(p);
       case 'type':
-        await (await locate(p, Number(args.ref))).fill(String(args.text), { timeout: 10_000 });
+        if (args.ref != null) await (await locate(p, Number(args.ref))).fill(String(args.text), { timeout: 10_000 });
+        else await p.keyboard.type(String(args.text));
         if (args.submit) await p.keyboard.press('Enter');
         await p.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => undefined);
         return where(p);

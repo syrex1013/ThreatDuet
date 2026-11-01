@@ -1,5 +1,5 @@
 // Runs INSIDE Duet's cloud machine. One action per call, one line of JSON out.
-//   node duet-browser.mjs <start|open|read|screenshot|click|type|press> '<json args>'
+//   node duet-browser.mjs <start|open|read|screenshot|click|type|press|cookies> '<json args>'
 // A single Chromium stays open on the machine's desktop (DISPLAY :1, so the person can watch it),
 // and each call attaches to it over the DevTools protocol on 127.0.0.1:9222.
 import { spawn } from 'node:child_process';
@@ -152,6 +152,35 @@ async function run() {
         await page.keyboard.press(String(args.key));
         return where(page);
       });
+    case 'cookies': {
+      // Import sign-in cookies into the persistent Chromium profile (from the Mac/PC browser).
+      const list = Array.isArray(args.cookies) ? args.cookies : [];
+      if (!list.length) throw new Error('No cookies to import.');
+      if (!(await up())) await start();
+      const browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
+      try {
+        const context = browser.contexts()[0] ?? (await browser.newContext());
+        // Playwright cookie shape; drop anything incomplete.
+        const clean = list
+          .filter((c) => c && typeof c.name === 'string' && typeof c.value === 'string' && typeof c.domain === 'string')
+          .map((c) => ({
+            name: String(c.name).slice(0, 200),
+            value: String(c.value).slice(0, 10_000),
+            domain: String(c.domain).slice(0, 200),
+            path: typeof c.path === 'string' && c.path ? c.path : '/',
+            expires: typeof c.expires === 'number' ? c.expires : -1,
+            httpOnly: Boolean(c.httpOnly),
+            secure: Boolean(c.secure),
+            sameSite: c.sameSite === 'Strict' || c.sameSite === 'Lax' || c.sameSite === 'None' ? c.sameSite : 'Lax',
+          }));
+        for (let i = 0; i < clean.length; i += 200) {
+          await context.addCookies(clean.slice(i, i + 200));
+        }
+        return { status: `imported ${clean.length} cookies`, count: clean.length };
+      } finally {
+        await browser.close();
+      }
+    }
     default:
       throw new Error(`Unknown action: ${action}`);
   }

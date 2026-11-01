@@ -93,6 +93,7 @@ export async function readText(p: string): Promise<string> {
   const file = await resolveAllowed(p);
   const st = await fs.stat(file);
   if (st.isDirectory()) throw new Error('That is a folder. Use files_list.');
+  if (/\.pdf$/i.test(file)) return readPdf(file, st.size);
   const fh = await fs.open(file, 'r');
   try {
     const buf = Buffer.alloc(Math.min(st.size, MAX_READ));
@@ -101,6 +102,37 @@ export async function readText(p: string): Promise<string> {
     return buf.toString('utf8') + (st.size > MAX_READ ? `\n… (cut at ${MAX_READ} of ${st.size} bytes)` : '');
   } finally {
     await fh.close();
+  }
+}
+
+/** Extract plain text from a PDF. Scanned image-only PDFs have nothing to extract. */
+async function readPdf(file: string, size: number): Promise<string> {
+  if (size > 40_000_000) throw new Error('That PDF is too large to read (40 MB at most).');
+  const data = new Uint8Array(await fs.readFile(file));
+  // Lazy load: pdfjs is large and only needed for PDFs.
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const doc = await getDocument({ data, useSystemFonts: true, isEvalSupported: false }).promise;
+  try {
+    const maxPages = Math.min(doc.numPages, 40);
+    const parts: string[] = [];
+    for (let i = 1; i <= maxPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const line = content.items
+        .map((it) => ('str' in it ? String((it as { str: string }).str) : ''))
+        .join(' ')
+        .replace(/[ \t]+/g, ' ')
+        .trim();
+      if (line) parts.push(line);
+      if (parts.join('\n').length >= MAX_READ) break;
+    }
+    let text = parts.join('\n').slice(0, MAX_READ);
+    if (!text.trim()) throw new Error('That PDF has no extractable text (it may be scanned images only).');
+    const more = doc.numPages > maxPages ? `\n… (${doc.numPages - maxPages} more pages not shown)` : '';
+    const cut = text.length >= MAX_READ ? `\n… (cut at ${MAX_READ} characters)` : '';
+    return text + more + cut;
+  } finally {
+    await doc.destroy();
   }
 }
 

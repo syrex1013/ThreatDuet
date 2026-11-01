@@ -15,6 +15,7 @@ interface PanelProps {
   appsCount?: number | null;
   onOpenApps?: () => void;
   onStartTask: (id: string) => void;
+  onCompleteTask: (id: string) => void;
   onDismissTask: (id: string) => void;
 }
 
@@ -26,7 +27,7 @@ function finishedAt(ts: number): string {
   return day === t('Today') ? clock(ts) : day;
 }
 
-export function TaskList({ tasks, onStart, onDismiss }: { tasks: TaskItem[]; onStart: (id: string) => void; onDismiss: (id: string) => void }) {
+export function TaskList({ tasks, onStart, onComplete, onDismiss }: { tasks: TaskItem[]; onStart: (id: string) => void; onComplete: (id: string) => void; onDismiss: (id: string) => void }) {
   // Cached state from an older server has no tasks.
   const open = tasks.filter((x) => x.status in OPEN_ORDER).sort((a, b) => OPEN_ORDER[a.status]! - OPEN_ORDER[b.status]!);
   const finished = tasks
@@ -55,9 +56,14 @@ export function TaskList({ tasks, onStart, onDismiss }: { tasks: TaskItem[]; onS
             {x.status !== 'running' && (
               <span className="task-actions">
                 {x.status === 'suggested' && (
-                  <button type="button" className="btn btn-send btn-sm" onClick={() => onStart(x.id)} aria-label={t('Do it: {what}', { what: x.title })}>
-                    {t('Do it')}
-                  </button>
+                  <>
+                    <button type="button" className="btn btn-send btn-sm" onClick={() => onStart(x.id)} aria-label={t('Do it: {what}', { what: x.title })}>
+                      {t('Do it')}
+                    </button>
+                    <button type="button" className="btn btn-quiet btn-sm" onClick={() => onComplete(x.id)} aria-label={t('Already done: {what}', { what: x.title })}>
+                      {t('Already done')}
+                    </button>
+                  </>
                 )}
                 <button type="button" className="btn btn-quiet btn-sm" onClick={() => onDismiss(x.id)} aria-label={`${x.status === 'suggested' ? t('Dismiss') : t('Cancel')}: ${x.title}`}>
                   {x.status === 'suggested' ? t('Dismiss') : t('Cancel')}
@@ -119,7 +125,7 @@ function subline(state: StateResponse): string {
 }
 
 /** Duet speaks first: what needs you, what it is doing, what comes next. */
-export function Panel({ state, onJump, onCancelFollowup, onToggleRoutine, onDeleteRoutine, appsCount, onOpenApps, onStartTask, onDismissTask }: PanelProps) {
+export function Panel({ state, onJump, onCancelFollowup, onToggleRoutine, onDeleteRoutine, appsCount, onOpenApps, onStartTask, onCompleteTask, onDismissTask }: PanelProps) {
   const reduce = useReducedMotion();
   const pending = state.messages.filter((m) => m.proposal?.status === 'pending');
   const upcoming = upcomingOf(state);
@@ -164,7 +170,13 @@ export function Panel({ state, onJump, onCancelFollowup, onToggleRoutine, onDele
           >
             <h2>{t('Needs you')}</h2>
             <ul className="needs">
-              {pending.map((m) => (
+              {state.pendingInput && (
+              <li className="need">
+                <span className="need-text">{state.pendingInput.prompt}</span>
+                <span className="hint">{t('Waiting for your input')}</span>
+              </li>
+            )}
+            {pending.map((m) => (
                 <li key={m.id}>
                   <button type="button" className="need" onClick={() => onJump(m.id)}>
                     <span className="need-text">{proposalHeadline(m.proposal!.actions)}</span>
@@ -190,7 +202,7 @@ export function Panel({ state, onJump, onCancelFollowup, onToggleRoutine, onDele
 
       <section className="panel-section">
         <h2>{t("Duet's tasks")}</h2>
-        <TaskList tasks={state.tasks ?? []} onStart={onStartTask} onDismiss={onDismissTask} />
+        <TaskList tasks={state.tasks ?? []} onStart={onStartTask} onComplete={onCompleteTask} onDismiss={onDismissTask} />
       </section>
 
       <section className="panel-section">
