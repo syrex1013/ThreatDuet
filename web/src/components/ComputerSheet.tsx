@@ -269,7 +269,8 @@ function Watch({ asleep }: { asleep: boolean }) {
             onSubmit={(e) => {
               e.preventDefault();
               if (!password) return;
-              send.mutate({ action: 'type', text: password, submit: true });
+              // Never press Enter: the wrong field may be focused. Use the Enter key button after.
+              send.mutate({ action: 'type', text: password, submit: false });
               setPassword('');
             }}
           >
@@ -280,7 +281,7 @@ function Watch({ asleep }: { asleep: boolean }) {
               id="watch-password"
               type="password"
               value={password}
-              placeholder={t('Password (sent only to the page, never to chat)')}
+              placeholder={t('Click the password field in the picture, then type here')}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
@@ -288,7 +289,7 @@ function Watch({ asleep }: { asleep: boolean }) {
               {t('Fill password')}
             </button>
           </form>
-          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, type it in the password field above — it goes to the browser only, never into the chat with Duet.')}</p>
+          <p className="hint">{t('You are in control here: clicks and typing go straight to the page without asking. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet (it still travels through OpenDuet to the cloud browser).')}</p>
         </>
       )}
       {error && (

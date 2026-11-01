@@ -107,6 +107,7 @@ const PL: Record<string, string> = {
   'The command is empty or too long.': 'Polecenie jest puste lub za długie.',
   'An environment variable name is not valid.': 'Nazwa zmiennej środowiskowej jest nieprawidłowa.',
   'Confirm that this program may run on your computer.': 'Potwierdź, że ten program może działać na Twoim komputerze.',
+  'Connected, but the helper skill did not install: {err}': 'Podłączono, ale umiejętność pomocnicza się nie zainstalowała: {err}',
   'Use an https:// address for the app.': 'Podaj adres aplikacji zaczynający się od https://.',
   'Finish or cancel the sign-in that is already open first.': 'Najpierw dokończ lub anuluj otwarte logowanie.',
   'Sign-in timed out after 5 minutes.': 'Logowanie wygasło po 5 minutach.',

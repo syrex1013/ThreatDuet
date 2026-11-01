@@ -124,7 +124,7 @@ By default OpenDuet starts one headless `kilo serve` (loopback only, random port
 Notifications are native Windows toasts. They need the Start-menu shortcut the installer creates
 (it carries the app's ID, `tech.threatvector.openduet`), so a portable copy or `npm run app` may not show them.
 
-`npm run dist:win` builds `release/OpenDuet-Setup-0.1.0.exe` (NSIS, x64) from any machine; `npm run release` also copies it into `builds/`.
+`npm run dist:win` builds `release/OpenDuet-Setup-<version>.exe` (NSIS, x64; works from macOS when Wine is not needed for icon editing). `npm run release` builds macOS + Android always, then tries Windows and copies the `.exe` into `builds/` when that step succeeds.
 
 - **Needs on the PC:** [git](https://git-scm.com) on `PATH`. The Kilo CLI is optional: without it OpenDuet uses Kilo's hosted API, and the app no longer shows a "needs the Kilo CLI" dialog at launch.
 - **Unsigned:** the installer and app are not code-signed, so Windows SmartScreen warns on first run ("More info" > "Run anyway"). The exe has Electron's default icon because icon editing needs Wine or a Windows build machine.
@@ -166,7 +166,7 @@ read your Vault secrets, so the app warns about it. Instabox charges apply while
 ## Release builds
 
 ```bash
-npm run release   # tests, signed APK, signed macOS app, all collected in builds/
+npm run release   # tests, signed APK, macOS app, Windows installer when the win build succeeds; all in builds/
 ```
 
 `builds/` then holds:
@@ -175,9 +175,10 @@ npm run release   # tests, signed APK, signed macOS app, all collected in builds
 |---|---|
 | `OpenDuet.app` | The desktop app (Apple silicon), ready to drag into Applications |
 | `OpenDuet-<version>-arm64.dmg` | The same app as a disk image |
+| `OpenDuet-Setup-<version>.exe` | Windows x64 installer (included when the win build succeeds) |
 | `OpenDuet-<version>.apk` | The phone app, release-signed |
 | `install-android.sh` | Lists `adb` devices, lets you pick one (or all), and installs the APK |
-| `SHA256SUMS.txt` | Checksums for the APK and the disk image |
+| `SHA256SUMS.txt` | Checksums for the shipped installers |
 
 **Installing on Android:** run `./builds/install-android.sh`. It finds `adb` (PATH, `$ANDROID_HOME`, or the default SDK folders), shows every device with what to do about unauthorized or offline ones, and installs on the one you choose. If an older build signed with a different key is on the phone, it asks before uninstalling it, because that deletes the app's data and pairing.
 
@@ -279,7 +280,7 @@ outside world.
 | Morning brief | Daily at `briefAt`, including the held-back digest |
 | Evening report | Daily at `reportAt`, built from today's thread |
 | Checks every few hours, only messages when needed; tell it what and how often | Triage high/low/nothing, `checkEveryHours`, `focus`, quiet hours |
-| One ongoing thread, typing or voice | Single Kilo session, browser speech recognition |
+| One ongoing thread, typing or voice | Single session; voice in browser/Android (Electron has no SpeechRecognition keys) |
 | Reads, drafts and prepares on its own; asks before send/pay/sign/delete | Fenced `duet` agent vs approved `code` execution |
 | Off-limits even with approval | `policy.ts` guard |
 | Sensitive-information classifier | Regex + Luhn screen (no classifier model) |
@@ -289,7 +290,7 @@ outside world.
 | Purchases via Link / Shop Pay | Apps → Payments: Link (`@stripe/link-cli` MCP) and Shop Pay (`https://mcp.shop.com/`); each purchase still needs your approval here and again in Link/Shop |
 | 1Password sign-in | Not yet (also "coming soon" in Claude Duet) |
 | Search past chats | `duet_search_chats` tool |
-| Password stays out of chat | Watch panel password field sends only to the cloud browser |
+| Password stays out of chat | Watch panel password field never enters chat (still goes OpenDuet → Instabox → cloud browser) |
 | iOS app | Android + desktop + web; no iOS build yet |
 
 ## Security notes

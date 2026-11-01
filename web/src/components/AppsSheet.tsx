@@ -27,8 +27,7 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
   });
   const [error, setError] = useState<string | null>(null);
   const act = useMutation({
-    mutationFn: ([path, body]: [string, unknown]) => post<{ id?: string }>(path, body),
-    onSuccess: () => setError(null),
+    mutationFn: ([path, body]: [string, unknown]) => post<{ id?: string; warning?: string }>(path, body),
     onError: (e) => setError(e.message),
     onSettled: () => qc.invalidateQueries({ queryKey: ['connectors'] }),
   });
@@ -38,6 +37,9 @@ export function AppsSheet({ onClose }: { onClose: () => void }) {
   const connect = async (body: ConnectBody, oauth: boolean) => {
     const r = await run('/connectors', body);
     if (r?.id && oauth) await run('/connectors/sign-in', { id: r.id });
+    // Skill install can fail after the app is already connected; keep that note visible.
+    if (r?.warning) setError(r.warning);
+    else if (r?.id) setError(null);
   };
 
   const data = apps.data;
@@ -226,7 +228,7 @@ type ConnectFn = (body: ConnectBody, oauth: boolean) => Promise<void>;
 function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy: boolean; onConnect: ConnectFn }) {
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState('');
-  const needsInput = preset.auth === 'key' || preset.auth === 'personal-url';
+  const needsInput = preset.auth === 'key' || preset.auth === 'personal-url' || preset.auth === 'local';
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -258,7 +260,20 @@ function PresetCard({ preset, busy, onConnect }: { preset: ConnectorPreset; busy
         </span>
         <Plus size={16} aria-hidden="true" className="preset-plus" />
       </button>
-      {open && needsInput && (
+      {open && needsInput && preset.auth === 'local' && preset.command?.length && (
+        <form className="preset-form" onSubmit={submit}>
+          <p className="warning">
+            {t(
+              'This runs on your computer with your permissions. Duet reads on its own only through read-only tools; anything that changes something waits for your approval.',
+            )}
+          </p>
+          <code className="command">{preset.command.join(' ')}</code>
+          <button type="submit" className="btn btn-send btn-sm" disabled={busy}>
+            {t('Connect {name}', { name: preset.name })}
+          </button>
+        </form>
+      )}
+      {open && needsInput && preset.auth !== 'local' && (
         <form className="preset-form" onSubmit={submit}>
           <label htmlFor={`k-${preset.id}`}>{preset.keyLabel && t(preset.keyLabel)}</label>
           <input
