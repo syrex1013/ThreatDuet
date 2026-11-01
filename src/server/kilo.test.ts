@@ -44,6 +44,15 @@ describe('runKilo recovers once', () => {
     expect(direct).toHaveBeenCalledTimes(1);
   });
 
+  it('does not resume when the gateway itself is down or rate-limited', async () => {
+    for (const msg of ["Can't reach the Kilo gateway: fetch failed", 'The free Kilo models are rate-limited right now (anonymous use allows about 200 requests an hour). Try again later, or set KILO_API_KEY.', 'The Kilo gateway answered 503.']) {
+      direct.mockReset();
+      direct.mockResolvedValueOnce(result({ errors: [msg] }));
+      expect((await runKilo({ prompt: 'q', model: 'm', agent: 'duet' })).errors).toEqual([msg]);
+      expect(direct).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('leaves a run that answered alone', async () => {
     direct.mockResolvedValueOnce(result({ text: 'fine', finalText: 'fine', errors: ['Stopped after 40 steps.'] }));
     const r = await runKilo({ prompt: 'q', model: 'm', agent: 'duet' });
