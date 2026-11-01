@@ -37,6 +37,8 @@ export interface Data {
   skills: SkillRecord[];
   /** Duet's cloud computer (an Instabox machine). Holds the API key: the data folder is private (0700). */
   computer: { apiKey: string; machineId: string; name: string; connectedAt: number; vault: boolean } | null;
+  /** The user disconnected Duet's computer: don't connect one again on its own. */
+  computerOptOut: boolean;
 }
 
 const MAX_MESSAGES = 500;
@@ -65,6 +67,7 @@ export async function openStore(): Promise<void> {
     skills: [],
     mac: { files: false, folders: [], shell: false, browser: false, browserApp: 'auto' },
     computer: null,
+    computerOptOut: false,
   });
   db.data.connectors ??= [];
   db.data.channels ??= [];
@@ -72,6 +75,7 @@ export async function openStore(): Promise<void> {
   db.data.mac ??= { files: false, folders: [], shell: false, browser: false, browserApp: 'auto' };
   db.data.mac.browserApp ??= 'auto';
   db.data.computer ??= null;
+  db.data.computerOptOut ??= false;
   db.data.remote ??= { enabled: false, token: null, port: REMOTE_PORT };
   // Every save is a change the UI may need: announce it to live clients.
   const write = db.write.bind(db);

@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { OS_PANEL } from './os.js';
 import os from 'node:os';
 import path from 'node:path';
 import { DATA_DIR } from '../config.js';
@@ -30,7 +31,7 @@ const real = async (p: string) => fs.realpath(p).catch(() => null);
 
 /** Resolves a path the model asked for, following links, and checks it against the folders and the deny-list. */
 export async function resolveAllowed(raw: string, { forWrite = false } = {}): Promise<string> {
-  if (!db.data.mac.files) throw new Error('Access to files is turned off. The user can turn it on in the Mac panel.');
+  if (!db.data.mac.files) throw new Error(`Access to files is turned off. The user can turn it on in the ${OS_PANEL} panel.`);
   const input = raw.startsWith('~') ? path.join(HOME(), raw.slice(1)) : raw;
   if (!path.isAbsolute(input)) throw new Error('Use a full path, starting with / or ~.');
   const abs = path.resolve(input);
@@ -82,7 +83,7 @@ export async function readText(p: string): Promise<string> {
 
 /** File-name and content search. shortcut: plain substring, first 20000 entries, files under 1 MB. */
 export async function searchFiles(query: string, within?: string): Promise<string> {
-  if (!db.data.mac.files) throw new Error('Access to files is turned off. The user can turn it on in the Mac panel.');
+  if (!db.data.mac.files) throw new Error(`Access to files is turned off. The user can turn it on in the ${OS_PANEL} panel.`);
   const roots = within ? [await resolveAllowed(within)] : (await Promise.all(db.data.mac.folders.map(real))).filter((f): f is string => Boolean(f));
   const blocked = await Promise.all(sensitive().map(async (s) => (await real(s)) ?? s));
   const q = query.toLowerCase();

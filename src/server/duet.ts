@@ -8,6 +8,7 @@ import { notify } from './notify.js';
 import { nextRoutineRun, parseReply } from './parse.js';
 import { consent, guard } from './policy.js';
 import { connectedAppsLine } from './connectors.js';
+import { osLine } from './mac/os.js';
 import { allowCommands, clearCommands, hasCommands } from './mac/shell.js';
 import { appendMemory, db, post, readMemory } from './store.js';
 import { tr } from './i18n.js';
@@ -60,6 +61,7 @@ async function context(running?: string, channel?: string): Promise<string> {
     languageLine(),
     channel ? `This is the #${channel} channel. The user keeps other topics in other channels; stay on this one.` : '',
     `Now: ${new Date().toString()}. Your workspace: ${WORKSPACE}.`,
+    osLine(),
     connectedAppsLine(),
     `What you remember about the user:\n${await readMemory()}`,
     waiting(),
@@ -343,7 +345,7 @@ export async function approve(id: string, fromPhone = false): Promise<{ ok: true
   const m = db.data.messages.find((x) => x.id === id);
   if (!m?.proposal || m.proposal.status !== 'pending') return { error: tr('not pending'), status: 409 };
   // A paired phone must never be able to start commands on the Mac.
-  if (fromPhone && hasCommands(m.proposal.actions)) return { error: tr('This runs commands on your Mac, so it can only be approved on this computer.'), status: 403 };
+  if (fromPhone && hasCommands(m.proposal.actions)) return { error: tr('This runs commands on your computer, so it can only be approved on this computer itself.'), status: 403 };
   const why = guard(m.proposal.actions);
   if (why) {
     Object.assign(m.proposal, { status: 'blocked', reason: tr(why) });

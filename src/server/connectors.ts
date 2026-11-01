@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { OS_NAME } from './mac/os.js';
 import { execa, execaSync, type ResultPromise } from 'execa';
 import type { ConnectorInfo, ConnectorsResponse, ConnectorState } from '../shared/types.js';
 import { CONNECTORS_FILE, log, WORKSPACE } from './config.js';
@@ -309,16 +310,16 @@ export function connectedAppsLine(): string {
   const m = db.data.mac;
   const mac = macOn()
     ? [
-        'You can reach the user\'s own Mac.',
+        `You can reach the user's own ${OS_NAME}.`,
         m.files ? `Files: mac_files_list, mac_files_read and mac_files_search work on your own in these folders only: ${m.folders.join(', ') || '(none added yet)'}. Writing a file there is an ACTION.` : '',
         m.browser ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read what is open (mac_browser_read, mac_browser_screenshot)" + (db.data.settings.openWebPages ? ', and open pages (mac_browser_open)' : '; opening pages, clicking and typing are ACTIONS') + '. Actions there happen as the user.' : '',
-        m.shell ? 'Commands: running one on the Mac is an ACTION. Put every command in the ACTIONS block exactly as it must run, each in its own ``` fenced block: only those exact commands will be allowed to run.' : '',
-        'Never copy what you read on the Mac into web addresses, searches or messages unless the user approved exactly that.',
+        m.shell ? `Commands (${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'}): running one on the ${OS_NAME} is an ACTION. Put every command in the ACTIONS block exactly as it must run, each in its own \`\`\` fenced block: only those exact commands will be allowed to run.` : '',
+        `Never copy what you read on the ${OS_NAME} into web addresses, searches or messages unless the user approved exactly that.`,
       ]
         .filter(Boolean)
         .join(' ')
     : '';
-  if (!on.length) return `${computer || 'No cloud computer is connected.'} ${mac} No apps are connected yet. You can only see your workspace, the web${macOn() ? ' and what the Mac tools allow' : ''}.`.replace(/\s+/g, ' ').trim();
+  if (!on.length) return `${computer || 'No cloud computer is connected.'} ${mac} No apps are connected yet. You can only see your workspace, the web${macOn() ? ` and what the ${OS_NAME} tools allow` : ''}.`.replace(/\s+/g, ' ').trim();
   const free = on.filter((c) => c.autoRead).map((c) => c.name);
   const ask = on.filter((c) => !c.autoRead).map((c) => c.name);
   return [

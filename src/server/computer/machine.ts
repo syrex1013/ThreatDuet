@@ -240,6 +240,7 @@ export async function connectComputer(input: { apiKey?: string; machineId: strin
     return { error: errText(e) };
   }
   db.data.computer = { apiKey, machineId: machine.id, name: machine.name, connectedAt: Date.now(), vault: Boolean(machine.vault) };
+  db.data.computerOptOut = false;
   client = null;
   driverReady = false;
   awakeUntil = 0;
@@ -279,9 +280,34 @@ async function runSetup(): Promise<void> {
   stateChanged();
 }
 
+/**
+ * Duet gets its computer without any setup: the first machine with a browser on the built-in account
+ * (a running one first). Skipped once the user disconnected it; failures only log and are tried again later.
+ */
+export async function autoConnectComputer(): Promise<boolean> {
+  if (db.data.computer || db.data.computerOptOut || setup?.running) return false;
+  try {
+    const pick = (await listChoices())
+      .filter((m) => m.hasBrowser)
+      .sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running'))[0];
+    if (!pick) {
+      log.info('no Instabox machine with a browser to connect');
+      return false;
+    }
+    const r = await connectComputer({ machineId: pick.id });
+    if ('error' in r) throw new Error(r.error);
+    log.info({ machine: pick.name }, "connected Duet's computer");
+    return true;
+  } catch (e) {
+    log.warn({ err: errText(e) }, "could not connect Duet's computer");
+    return false;
+  }
+}
+
 export async function disconnectComputer(): Promise<void> {
   // The machine itself is never changed or deleted: it was the user's before and stays theirs.
   db.data.computer = null;
+  db.data.computerOptOut = true;
   client = null;
   driverReady = false;
   awakeUntil = 0;

@@ -235,3 +235,20 @@ describe('Duet computer setup and use', () => {
     expect(JSON.parse(await fs.readFile(path.join(home, 'data', 'kilo-connectors.json'), 'utf8')).mcp.computer).toBeUndefined();
   });
 });
+
+describe("Duet's computer by default", () => {
+  it('connects the first machine with a browser on its own, and stays off once the user disconnects', async () => {
+    await settled();
+    await machine.disconnectComputer();
+    expect(store.db.data.computerOptOut).toBe(true);
+    expect(await machine.autoConnectComputer()).toBe(false);
+    expect(store.db.data.computer).toBeNull();
+
+    store.db.data.computerOptOut = false;
+    expect(await machine.autoConnectComputer()).toBe(true);
+    expect(store.db.data.computer).toMatchObject({ machineId: 'm_1', name: 'dev' });
+    expect(store.db.data.computerOptOut).toBe(false);
+    await settled();
+    expect(await machine.autoConnectComputer()).toBe(false);
+  });
+});

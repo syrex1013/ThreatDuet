@@ -85,8 +85,8 @@ const PL: Record<string, string> = {
   // API errors
   'not pending': 'To już nie czeka na zatwierdzenie.',
   'not found': 'Nie znaleziono.',
-  'This runs commands on your Mac, so it can only be approved on this computer.':
-    'To uruchamia polecenia na Twoim Macu, więc możesz to zatwierdzić tylko na tym komputerze.',
+  'This runs commands on your computer, so it can only be approved on this computer itself.':
+    'To uruchamia polecenia na Twoim komputerze, więc możesz to zatwierdzić tylko na nim samym.',
   'That file no longer exists.': 'Ten plik już nie istnieje.',
   'Only files in the workspace can be opened.': 'Możesz otwierać tylko pliki z obszaru roboczego.',
   'That is a folder, not a file.': 'To jest folder, a nie plik.',

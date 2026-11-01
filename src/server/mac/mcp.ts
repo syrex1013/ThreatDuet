@@ -5,17 +5,18 @@ import { checkBrowseUrl, fail, guard, text, untrusted } from '../computer/mcp.js
 import { db } from '../store.js';
 import { browse } from './browser.js';
 import { listFolder, readText, searchFiles, writeText } from './files.js';
+import { OS_NAME, OS_PANEL } from './os.js';
 import { runShell } from './shell.js';
 
 const on = (what: 'files' | 'shell' | 'browser') => {
-  if (!db.data.mac[what]) throw new Error(`${what === 'browser' ? 'Brave' : what === 'shell' ? 'Commands' : 'Files'} on this Mac are turned off. The user can turn them on in the Mac panel.`);
+  if (!db.data.mac[what]) throw new Error(`${what === 'browser' ? 'The browser' : what === 'shell' ? 'Commands' : 'Files'} on this ${OS_NAME} are turned off. The user can turn them on in the ${OS_PANEL} panel.`);
 };
 
 export function buildMacServer(): McpServer {
   const server = new McpServer({ name: 'mac', version: '1.0.0' });
 
-  server.registerTool('files_list', { description: "Lists a folder on the user's Mac (only folders the user added).", inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
-  server.registerTool('files_read', { description: "Reads a text file on the user's Mac (only in folders the user added).", inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
+  server.registerTool('files_list', { description: `Lists a folder on the user's ${OS_NAME} (only folders the user added).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) => guard(() => listFolder(path), text));
+  server.registerTool('files_read', { description: `Reads a text file on the user's ${OS_NAME} (only in folders the user added).`, inputSchema: { path: z.string().max(1000) } }, ({ path }) =>
     guard(() => readText(path), (c) => text(untrusted(`File ${path}`, c))),
   );
   server.registerTool(
@@ -32,7 +33,7 @@ export function buildMacServer(): McpServer {
   server.registerTool(
     'shell_run',
     {
-      description: "Runs a shell command on the user's Mac. Needs the user's approval, and the command must appear exactly, in its own ``` block, in the approved text.",
+      description: `Runs a ${process.platform === 'win32' ? 'Windows PowerShell' : 'shell'} command on the user's ${OS_NAME}. Needs the user's approval, and the command must appear exactly, in its own \`\`\` block, in the approved text.`,
       inputSchema: { command: z.string().max(20_000), folder: z.string().max(1000).optional(), timeoutSeconds: z.number().int().min(1).max(600).optional() },
     },
     ({ command, folder, timeoutSeconds }) =>
