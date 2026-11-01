@@ -23,6 +23,7 @@
     "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
     "release": "bash scripts/release.sh",
     "smoke:computer": "node scripts/smoke-computer.mjs",
+    "smoke:task": "tsx scripts/smoke-task.mts",
     "dist:win": "npm run build && electron-builder --win --x64"
   },
   "dependencies": {
