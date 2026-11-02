@@ -1,7 +1,7 @@
 {
   "name": "threatduet",
   "productName": "ThreatDuet",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",

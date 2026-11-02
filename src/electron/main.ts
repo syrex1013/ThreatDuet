@@ -20,6 +20,7 @@ interface WindowState {
 }
 const COMPACT = { width: 440, height: 680 };
 const stateFile = () => path.join(app.getPath('userData'), 'window.json');
+const updateStateFile = () => path.join(app.getPath('userData'), 'update-state.json');
 let winState: WindowState = {};
 const onScreen = (b?: Rectangle) =>
   b && screen.getAllDisplays().some(({ workArea: w }) => b.x < w.x + w.width && b.x + b.width > w.x && b.y < w.y + w.height && b.y + b.height > w.y) ? b : undefined;
@@ -211,6 +212,11 @@ async function boot() {
   tray.setToolTip('ThreatDuet');
   tray.setContextMenu(menu());
 
+  if (app.isPackaged && Notification.isSupported()) {
+    setTimeout(() => void checkForUpdate(toasts), 20_000).unref();
+    setInterval(() => void checkForUpdate(toasts), 24 * 60 * 60 * 1000).unref();
+  }
+
   // Approvals waiting: Dock badge, menu-bar count and tray menu stay in step with the thread.
   let shown = '';
   setInterval(() => {
@@ -315,4 +321,46 @@ function fatal(err: unknown) {
   console.error('ThreatDuet could not start:', err);
   if (!process.env.THREATDUET_SMOKE_SCREENSHOT) dialog.showErrorBox('ThreatDuet could not start', err instanceof Error ? err.message : String(err));
   app.exit(1);
+}
+
+function versionParts(value: string): number[] | null {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(value);
+  return match ? match.slice(1).map(Number) : null;
+}
+
+function newerVersion(candidate: string, current: string): boolean {
+  const next = versionParts(candidate);
+  const installed = versionParts(current);
+  if (!next || !installed) return false;
+  for (let i = 0; i < next.length; i++) if (next[i] !== installed[i]) return next[i] > installed[i];
+  return false;
+}
+
+async function checkForUpdate(toasts: Set<Notification>): Promise<void> {
+  try {
+    const response = await fetch('https://api.github.com/repos/syrex1013/ThreatDuet/releases/latest', {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `ThreatDuet/${app.getVersion()}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return;
+    const release = (await response.json()) as { tag_name?: string; html_url?: string; draft?: boolean; prerelease?: boolean };
+    const tag = release.tag_name;
+    const url = release.html_url ? new URL(release.html_url) : null;
+    if (!tag || release.draft || release.prerelease || !newerVersion(tag, app.getVersion()) || !url || url.origin !== 'https://github.com' || url.pathname !== `/syrex1013/ThreatDuet/releases/tag/${encodeURIComponent(tag)}`) return;
+    try {
+      const previous = JSON.parse(fs.readFileSync(updateStateFile(), 'utf8')) as { notified?: string };
+      if (previous.notified === tag) return;
+    } catch { /* First check, or unreadable state: still show the update once. */ }
+    const notification = new Notification({ title: 'ThreatDuet update available', body: `Version ${tag} is ready to download.` });
+    toasts.add(notification);
+    notification.on('click', () => void shell.openExternal(url.toString()));
+    notification.on('close', () => toasts.delete(notification));
+    notification.on('failed', (_event, error) => { toasts.delete(notification); console.error(`ThreatDuet update notification failed: ${error}`); });
+    notification.show();
+    const temp = `${updateStateFile()}.${process.pid}.tmp`;
+    fs.writeFileSync(temp, JSON.stringify({ notified: tag }), { mode: 0o600 });
+    fs.renameSync(temp, updateStateFile());
+  } catch {
+    // Update checks are best effort; offline launch must stay quiet.
+  }
 }

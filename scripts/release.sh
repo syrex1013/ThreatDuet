@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 VERSION="$(node -p "require('./package.json').version")"
-OUT="builds"
+OUT="builds/$VERSION"
 [ -f android/keystore.properties ] || { echo "android/keystore.properties is missing: the APK can't be signed." >&2; exit 1; }
 
 # Keep package.json and the Android versionName in lockstep (0.2.8 shipped with 0.2.7 once).
@@ -33,7 +33,6 @@ else
   echo "Windows installer build failed or was skipped; continuing with macOS + Android." >&2
 fi
 
-rm -rf "$OUT"
 mkdir -p "$OUT"
 cp android/app/build/outputs/apk/release/app-release.apk "$OUT/ThreatDuet-$VERSION.apk"
 ditto release/mac-arm64/ThreatDuet.app "$OUT/ThreatDuet.app" # ditto keeps the bundle's signature intact
