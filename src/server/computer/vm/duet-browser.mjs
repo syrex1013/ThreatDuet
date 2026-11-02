@@ -53,13 +53,22 @@ async function start() {
   throw new Error('Chromium did not start. Is the desktop running on the machine?');
 }
 
+/** Session-only cookies die with Chromium (machine restart, crash). An expiry makes a sign-in last. */
+async function pin(context) {
+  const expires = Math.floor(Date.now() / 1000) + 30 * 86400;
+  const session = (await context.cookies()).filter((c) => c.expires === -1).map((c) => ({ ...c, expires }));
+  for (let i = 0; i < session.length; i += 200) await context.addCookies(session.slice(i, i + 200));
+}
+
 async function withPage(fn) {
   if (!(await up())) await start();
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
   try {
     const context = browser.contexts()[0] ?? (await browser.newContext());
     const page = context.pages().at(-1) ?? (await context.newPage());
-    return await fn(page);
+    const result = await fn(page);
+    if (!['read', 'screenshot', 'inspect-input'].includes(action)) await pin(context).catch(() => {});
+    return result;
   } finally {
     // Detaches; the browser itself keeps running.
     await browser.close();
@@ -238,6 +247,7 @@ async function run() {
         for (let i = 0; i < clean.length; i += 200) {
           await context.addCookies(clean.slice(i, i + 200));
         }
+        await pin(context).catch(() => {});
         return { status: `imported ${clean.length} cookies`, count: clean.length };
       } finally {
         await browser.close();

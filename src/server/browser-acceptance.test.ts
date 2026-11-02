@@ -11,15 +11,13 @@ const home = await vi.hoisted(async () => {
 });
 const store = await import('./store.js');
 const browser = await import('./mac/browser.js');
+// Firefox can't be driven directly; every installed Chromium browser must keep its sessions.
+const installed = (await browser.browserChoices()).filter((b) => b.installed && b.id !== 'firefox').map((b) => b.id);
 let server: http.Server;
 let origin: string;
 beforeAll(async () => {
   await store.openStore();
   store.db.data.mac.browser = true;
-  store.db.data.mac.browserApp = 'chrome';
-  // Seed a fresh private profile; never import the user's actual browser credentials into this test.
-  await fs.mkdir(path.join(home, 'data/browser-profiles/chrome/Default'), { recursive: true });
-  await fs.writeFile(path.join(home, 'data/browser-profiles/chrome/Default/Preferences'), '{}');
   server = http.createServer((request, response) => {
     response.setHeader('content-type', 'text/html');
     if (request.url?.includes('seed=1')) response.setHeader('Set-Cookie', 'private_session=retained; Path=/; SameSite=Lax');
@@ -30,7 +28,15 @@ beforeAll(async () => {
 });
 afterAll(async () => { await browser.stopBrowser(); if (server) await new Promise<void>((resolve) => server.close(() => resolve())); });
 
-describe('private persistent browser', () => {
+describe.each(installed)('private persistent browser (%s)', (id) => {
+  beforeAll(async () => {
+    await browser.stopBrowser();
+    store.db.data.mac.browserApp = id;
+    // Seed a fresh private profile; never import the user's actual browser credentials into this test.
+    await fs.mkdir(path.join(home, `data/browser-profiles/${id}/Default`), { recursive: true });
+    await fs.writeFile(path.join(home, `data/browser-profiles/${id}/Default/Preferences`), '{}');
+  });
+  afterAll(() => browser.stopBrowser());
   it('redacts fallback values and rejects cloned fields and reloaded documents', async () => {
     await browser.browse('open', { url: `${origin}/?seed=1` });
     const page = await browser.browse('read');
@@ -47,7 +53,7 @@ describe('private persistent browser', () => {
   }, 30_000);
   it('preserves cookies and local storage across browser close and visible takeover', async () => {
     await browser.stopBrowser();
-    expect(await fs.stat(path.join(home, 'data/browser-profiles/chrome/Default'))).toBeDefined();
+    expect(await fs.stat(path.join(home, `data/browser-profiles/${id}/Default`))).toBeDefined();
     await browser.browse('open', { url: `${origin}/` });
     expect((await browser.browse('read')).text).toContain('retained');
     expect(await browser.exportCookies(origin)).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'private_session', value: 'retained' })]));

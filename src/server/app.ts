@@ -157,7 +157,7 @@ app.post('/api/mac/folders/remove', json(z.object({ path: z.string().min(1).max(
 
 
 app.post('/api/mac/browser/refresh', async (c) => {
-  await resyncBrowser();
+  try { await resyncBrowser(); } catch (error) { return c.json({ error: (error as Error).message }, 409); }
   return c.json(await macStatus());
 });
 // macOS: the System Settings page for Full Disk Access. The grant itself is the user's click there.

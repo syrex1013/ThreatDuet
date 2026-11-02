@@ -5,7 +5,7 @@ import type { BrowserId, MacStatus } from '../../shared/types.js';
 import { writeConnectorsConfig } from '../connectors.js';
 import { db, writeWorkspaceConfig } from '../store.js';
 import { tr } from '../i18n.js';
-import { browserChoices, browserRunning, forgetBrowserSessions, stopBrowser } from './browser.js';
+import { browse, browserChoices, browserRunning, stopBrowser } from './browser.js';
 import { fullDiskAccess, OS_ID } from './os.js';
 
 export async function macStatus(): Promise<MacStatus> {
@@ -42,7 +42,7 @@ export async function removeFolder(folder: string): Promise<void> {
   await save();
 }
 
-/** Stops Brave and deletes the copy; the next browsing copies the current sign-ins again. */
+/** Adds the sign-ins now in the user's own browser to Duet's browser. Logins typed into Duet stay. */
 export async function resyncBrowser(): Promise<void> {
-  await forgetBrowserSessions();
+  await browse('signins');
 }

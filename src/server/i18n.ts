@@ -120,6 +120,8 @@ const PL: Record<string, string> = {
   'Copied {n} sign-in cookies to Duet\'s computer. Open the site there to use the session.': 'Skopiowano {n} ciasteczek logowania na komputer Dueta. Otwórz tam stronę, żeby użyć sesji.',
   'Password entered into [{ref}]. Call browser_read to see the result.': 'Hasło wpisane w [{ref}]. Wywołaj browser_read, żeby zobaczyć wynik.',
   'Entered into [{ref}]. Call browser_read to see the result.': 'Wpisano w [{ref}]. Wywołaj browser_read, żeby zobaczyć wynik.',
+  'Added {n} sign-ins from your browser on this computer and reloaded the page. Call browser_read; ask for input again only if it still shows a sign-in form.':
+    'Dodano logowania ({n}) z przeglądarki na tym komputerze i przeładowano stronę. Wywołaj browser_read; poproś o wpis ponownie tylko wtedy, gdy nadal widać formularz logowania.',
   'waiting for your input': 'czeka na Twój wpis',
   'copying sign-ins to its computer': 'kopiuje logowania na swój komputer',
   "Sign-in to {name} didn't finish. Try again.": 'Logowanie do {name} nie zostało dokończone. Spróbuj ponownie.',

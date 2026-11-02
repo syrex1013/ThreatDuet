@@ -1,17 +1,41 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  local: vi.fn(), cloud: vi.fn(), input: vi.fn(), cookies: vi.fn(), imports: vi.fn(),
+  local: vi.fn(), cloud: vi.fn(), input: vi.fn(), cookies: vi.fn(), imports: vi.fn(), topUp: vi.fn(),
   data: { mac: { browser: true }, computer: null as unknown, cloudBroker: { tenantId: 'private-user' } as unknown },
 }));
 vi.mock('./store.js', () => ({ db: { data: mocks.data } }));
-vi.mock('./mac/browser.js', () => ({ browse: mocks.local, exportCookies: mocks.cookies }));
+vi.mock('./mac/browser.js', () => ({ browse: mocks.local, exportCookies: mocks.cookies, topUpSignins: mocks.topUp }));
 vi.mock('./computer/machine.js', () => ({ browser: mocks.cloud, importSessionCookies: mocks.imports }));
 vi.mock('./input.js', () => ({ requestInput: mocks.input }));
-vi.mock('./i18n.js', () => ({ tr: (text: string) => text }));
+vi.mock('./i18n.js', () => ({ tr: (text: string, vars: Record<string, string | number> = {}) => text.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`)) }));
 const { askAndFill, pushSessionToComputer } = await import('./browser-session.js');
 
-beforeEach(() => { vi.resetAllMocks(); mocks.data.mac.browser = true; });
+beforeEach(() => { vi.resetAllMocks(); mocks.topUp.mockResolvedValue(0); mocks.data.mac.browser = true; });
+describe('picking up sign-ins from the user\'s own browser', () => {
+  const page = { url: 'https://example.com/login', title: 'Login', token: 'document:node', kind: 'password' };
+  it('skips the prompt and reloads when the user\'s browser held a sign-in Duet lacked', async () => {
+    mocks.local.mockResolvedValue(page);
+    mocks.topUp.mockResolvedValue(3);
+    await expect(askAndFill({ target: 'local', kind: 'password', prompt: 'Login', ref: 4 })).resolves.toMatch(/Added 3 sign-ins/);
+    expect(mocks.input).not.toHaveBeenCalled();
+    expect(mocks.local).toHaveBeenCalledWith('open', { url: 'https://example.com/login' });
+  });
+  it('asks as before when there was nothing new, and never looks for non-login fields or cloud pages', async () => {
+    mocks.local.mockResolvedValue(page);
+    mocks.input.mockResolvedValue('secret');
+    await askAndFill({ target: 'local', kind: 'password', prompt: 'Login', ref: 4 });
+    expect(mocks.topUp).toHaveBeenCalledOnce();
+    expect(mocks.input).toHaveBeenCalledOnce();
+    expect(mocks.local).toHaveBeenLastCalledWith('fill-input', expect.objectContaining({ text: 'secret' }));
+    mocks.topUp.mockClear();
+    mocks.local.mockResolvedValue({ ...page, kind: undefined });
+    await askAndFill({ target: 'local', kind: 'otp', prompt: 'Code', ref: 2 });
+    mocks.cloud.mockResolvedValue(page);
+    await askAndFill({ target: 'computer', kind: 'password', prompt: 'Login', ref: 4 });
+    expect(mocks.topUp).not.toHaveBeenCalled();
+  });
+});
 describe('secure credential binding', () => {
   it('captures original field before waiting and sends secret only to bound private browser', async () => {
     let respond!: (value: string) => void;

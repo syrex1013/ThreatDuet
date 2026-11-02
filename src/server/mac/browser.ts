@@ -18,7 +18,7 @@ const ROAMING = process.env.APPDATA ?? path.join(HOME, 'AppData', 'Roaming');
 const MAC_SUPPORT = path.join(HOME, 'Library', 'Application Support');
 const programs = (...parts: string[]) => [process.env.PROGRAMFILES, process.env['PROGRAMFILES(X86)'], LOCAL].filter(Boolean).map((d) => path.join(d as string, ...parts));
 
-interface BrowserDef {
+export interface BrowserDef {
   id: BrowserId;
   name: string;
   family: 'chromium' | 'firefox';
@@ -68,6 +68,7 @@ const MAX_ELEMENTS = 150;
 let ctx: BrowserContext | null = null;
 let starting: Promise<BrowserContext> | null = null;
 let usingName = '';
+let using: { src: BrowserDef; exe: string } | null = null;
 let interactive = false;
 const queue = new PQueue({ concurrency: 1 });
 
@@ -110,15 +111,15 @@ async function backupDb(from: string, dest: string): Promise<boolean> {
  * Chromium browsers: copies only the cookie database from the profile used last. The values are never read
  * here: they are encrypted with the browser's own key (Keychain / DPAPI) and only that browser can open them.
  */
-async function copyChromiumCookies(d: BrowserDef): Promise<void> {
+async function copyChromiumCookies(d: BrowserDef, dest = PROFILE): Promise<void> {
   const state = JSON.parse(await fs.readFile(path.join(d.dataDir, 'Local State'), 'utf8').catch(() => '{}'));
   const name: string = state?.profile?.last_used ?? 'Default';
   const src = [path.join(d.dataDir, name, 'Network', 'Cookies'), path.join(d.dataDir, name, 'Cookies')];
   const from = (await Promise.all(src.map((p) => fs.stat(p).then(() => p, () => null)))).find(Boolean);
   if (!from) throw new Error(`Couldn't find ${d.name}'s cookies. Open ${d.name} and sign in to a site once, then try again.`);
-  await fs.mkdir(path.join(PROFILE, 'Default'), { recursive: true, mode: 0o700 });
-  if (!(await backupDb(from, path.join(PROFILE, 'Default', 'Cookies')))) throw new Error(`Couldn't copy ${d.name}'s sign-ins. Close ${d.name} and try again.`);
-  await fs.copyFile(path.join(d.dataDir, 'Local State'), path.join(PROFILE, 'Local State')).catch(() => undefined);
+  await fs.mkdir(path.join(dest, 'Default'), { recursive: true, mode: 0o700 });
+  if (!(await backupDb(from, path.join(dest, 'Default', 'Cookies')))) throw new Error(`Couldn't copy ${d.name}'s sign-ins. Close ${d.name} and try again.`);
+  await fs.copyFile(path.join(d.dataDir, 'Local State'), path.join(dest, 'Local State')).catch(() => undefined);
 }
 
 /** The profile Firefox uses by default, from profiles.ini. */
@@ -135,7 +136,7 @@ async function firefoxProfile(d: BrowserDef): Promise<string> {
 }
 
 /** Firefox keeps cookies unencrypted. They go straight into the browser we drive and are never shown to Duet. */
-async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
+export async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
   const profile = await firefoxProfile(d);
   const tmp = path.join(PROFILE, 'firefox-cookies.sqlite');
   await fs.mkdir(PROFILE, { recursive: true, mode: 0o700 });
@@ -150,6 +151,7 @@ async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
         .map((r) => {
           const expiry = Number(r.expiry);
           const seconds = expiry > 1e11 ? expiry / 1000 : expiry;
+          const secure = Boolean(r.isSecure);
           return {
             name: String(r.name),
             value: String(r.value),
@@ -157,8 +159,9 @@ async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
             path: String(r.path),
             expires: seconds > 0 ? seconds : -1,
             httpOnly: Boolean(r.isHttpOnly),
-            secure: Boolean(r.isSecure),
-            sameSite: (r.sameSite === 2 ? 'Strict' : r.sameSite === 1 ? 'Lax' : 'None') as Cookie['sameSite'],
+            secure,
+            // Firefox: 0 None, 1 Lax, 2 Strict, 256 unset. Chromium drops None without Secure and treats unset as Lax.
+            sameSite: (r.sameSite === 2 ? 'Strict' : r.sameSite === 0 && secure ? 'None' : 'Lax') as Cookie['sameSite'],
           };
         })
         .filter((c) => c.expires === -1 || c.expires > now);
@@ -168,6 +171,43 @@ async function firefoxCookies(d: BrowserDef): Promise<Cookie[]> {
   } finally {
     await fs.rm(tmp, { force: true });
   }
+}
+
+/**
+ * The user's browser sign-ins as plain cookies, for adding to a profile that already holds logins typed into Duet.
+ * Chromium keeps them encrypted, so a throwaway profile lets that browser's own key decrypt them; the values stay in memory.
+ */
+async function importedCookies(src: BrowserDef, exe: string): Promise<Cookie[]> {
+  if (src.family === 'firefox') return firefoxCookies(src);
+  const tmp = `${PROFILE}-import`;
+  // Windows keeps file handles for a moment after a browser exits, so retry; a leftover folder must not stop a reload.
+  const clear = () => fs.rm(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }).catch(() => undefined);
+  await clear();
+  try {
+    await fs.mkdir(tmp, { recursive: true, mode: 0o700 });
+    await copyChromiumCookies(src, tmp);
+    const t = await chromium.launchPersistentContext(tmp, { executablePath: exe, headless: true, ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
+    try {
+      return await t.cookies();
+    } finally {
+      await t.close().catch(() => undefined);
+    }
+  } finally {
+    await clear();
+  }
+}
+
+const PIN_DAYS = 30;
+/** Brave (and other Chromium builds) forget session-only cookies when closed; an expiry makes the sign-in last. */
+async function pinSessions(c: BrowserContext): Promise<void> {
+  const expires = Math.floor(Date.now() / 1000) + PIN_DAYS * 86_400;
+  const session = (await c.cookies()).filter((k) => k.expires === -1).map((k) => ({ ...k, expires }));
+  for (let i = 0; i < session.length; i += 200) await c.addCookies(session.slice(i, i + 200));
+}
+
+async function closeContext(c: BrowserContext): Promise<void> {
+  await pinSessions(c).catch(() => undefined);
+  await c.close().catch(() => undefined);
 }
 
 async function profileReady(): Promise<boolean> {
@@ -208,7 +248,7 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
   if (opts.refreshSignins && ctx) {
     const old = ctx;
     ctx = null;
-    await old.close().catch(() => undefined);
+    await closeContext(old);
   }
   starting ??= (async () => {
     const src = await chosen();
@@ -222,14 +262,15 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
     if (!engine) throw new Error('Firefox sign-ins need Chrome, Brave or Edge installed to browse with.');
     const exe = (await exeOf(engine)) as string;
     // Keep the profile across launches so passwords typed in the prompt and site sessions survive.
-    // Only wipe when the user asks to reload sign-ins from their own browser.
-    const reuse = !opts.refreshSignins && (await profileReady());
+    // Reloading sign-ins adds the user's browser cookies to it; only "Forget browser sessions" removes anything.
     let cookies: Cookie[] = [];
-    if (!reuse) {
+    if (!(await profileReady())) {
       await fs.rm(PROFILE, { recursive: true, force: true });
       await fs.mkdir(PROFILE, { recursive: true, mode: 0o700 });
       await fs.chmod(PROFILE, 0o700);
       cookies = src.family === 'firefox' ? await firefoxCookies(src) : (await copyChromiumCookies(src), []);
+    } else if (opts.refreshSignins) {
+      cookies = await importedCookies(src, exe);
     }
     // Talks to the browser over a pipe, not a network port, so no other program can attach and read the cookies.
     // The real Keychain / keyring is kept (Playwright's mock keychain and basic password store would make every cookie unreadable).
@@ -248,6 +289,7 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
       if (ctx === c) { ctx = null; interactive = false; }
     });
     usingName = src.family === 'firefox' ? `${src.name} sign-ins in ${engine.name}` : src.name;
+    using = { src, exe };
     ctx = c;
     return c;
   })().finally(() => {
@@ -260,7 +302,7 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
 export async function stopBrowser(): Promise<void> {
   const c = ctx;
   ctx = null;
-  await c?.close().catch(() => undefined);
+  if (c) await closeContext(c);
   interactive = false;
 }
 
@@ -278,7 +320,7 @@ export async function takeoverBrowser(): Promise<void> {
   await queue.add(async () => {
     const pages = ctx?.pages().map((p) => p.url()).filter((u) => u && u !== 'about:blank') ?? [];
     const old = ctx; ctx = null;
-    await old?.close().catch(() => undefined);
+    if (old) await closeContext(old);
     const visible = await context();
     // Persistent Chromium may restore extra blank tabs. Rebuild from known URLs and keep the last as active.
     for (const tab of visible.pages().slice()) {
@@ -297,7 +339,7 @@ export async function finishTakeover(): Promise<void> {
   await queue.add(async () => {
     const pages = ctx?.pages().map((p) => p.url()).filter((u) => u && u !== 'about:blank') ?? [];
     const old = ctx; ctx = null;
-    await old?.close().catch(() => undefined);
+    if (old) await closeContext(old);
     interactive = false;
     if (!pages.length) return;
     // Return to headless automation with the same tabs when possible.
@@ -407,13 +449,33 @@ export async function exportCookies(origin?: string): Promise<SessionCookie[]> {
   });
 }
 
-export function browse(
+let lastTopUp = 0;
+/** Adds sign-ins the user made in their own browser since Duet copied them. Never replaces a cookie Duet holds; returns how many were new. */
+export function topUpSignins(): Promise<number> {
+  return queue.add(async () => {
+    if (interactive || Date.now() - lastTopUp < 120_000) return 0;
+    lastTopUp = Date.now();
+    try {
+      const c = await context();
+      const key = (k: Cookie) => `${k.domain}|${k.path}|${k.name}`;
+      const have = new Set((await c.cookies()).map(key));
+      const fresh = (await importedCookies(using!.src, using!.exe)).filter((k) => !have.has(key(k)));
+      for (let i = 0; i < fresh.length; i += 200) await c.addCookies(fresh.slice(i, i + 200)).catch(() => undefined);
+      return (await c.cookies()).filter((k) => !have.has(key(k))).length;
+    } catch (err) {
+      log.warn({ err: String(err).slice(0, 160) }, 'sign-in top-up failed');
+      return 0;
+    }
+  }) as Promise<number>;
+}
+
+export async function browse(
   action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins' | 'inspect-input' | 'fill-input',
   args: { url?: string; ref?: number; token?: string; text?: string; submit?: boolean; key?: string; pixels?: number; x?: number; y?: number; manual?: boolean } = {},
 ): Promise<BrowseResult> {
-  return queue.add(async () => {
+  const result = (await queue.add(async () => {
     if (interactive && !args.manual) throw new Error('Browser takeover is active. Automation is paused until takeover ends.');
-    // The user just signed in somewhere in their own browser: copy those sign-ins again (drops the old copy).
+    // The user just signed in somewhere in their own browser: copy those sign-ins again (adds to the profile, drops nothing).
     const p = action === 'signins' ? await page(true) : await page();
     if (action === 'inspect-input') {
       const el = await locate(p, Number(args.ref));
@@ -488,5 +550,8 @@ export function browse(
         await p.evaluate((px: number) => { window.scrollBy(0, px); }, Number(args.pixels ?? 500));
         return where(p);
     }
-  }) as Promise<BrowseResult>;
+  })) as BrowseResult;
+  // A login lands in session cookies; make them last now, not only on a clean close.
+  if (ctx && ['open', 'click', 'type', 'press', 'fill-input', 'signins'].includes(action)) void pinSessions(ctx).catch(() => undefined);
+  return result;
 }
