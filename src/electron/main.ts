@@ -354,6 +354,7 @@ async function checkForUpdate(toasts: Set<Notification>): Promise<void> {
       assets?: Array<{ name: string; browser_download_url: string }>;
     };
     const tag = release.tag_name;
+    if (!tag || !/^v?\d+\.\d+\.\d+$/.test(tag)) return;
     const releaseUrl = release.html_url ? new URL(release.html_url) : null;
     if (!tag || release.draft || release.prerelease || !newerVersion(tag, app.getVersion()) || !releaseUrl || releaseUrl.origin !== 'https://github.com' || releaseUrl.pathname !== `/syrex1013/ThreatDuet/releases/tag/${encodeURIComponent(tag)}`) return;
     try {
@@ -368,6 +369,8 @@ async function checkForUpdate(toasts: Set<Notification>): Promise<void> {
         ? assets.find((a) => a.name.startsWith('ThreatDuet-Setup-') && a.name.endsWith('.exe'))
         : null;
     if (!asset) return;
+    const assetUrl = new URL(asset.browser_download_url);
+    if (assetUrl.hostname !== 'github.com' && assetUrl.hostname !== 'objects.githubusercontent.com') return;
 
     updating = true;
     const tmpDir = path.join(app.getPath('temp'), `threatduet-update-${tag}`);
@@ -406,19 +409,20 @@ async function checkForUpdate(toasts: Set<Notification>): Promise<void> {
       const appBundle = path.dirname(path.dirname(path.dirname(app.getAppPath())));
       const appParent = path.dirname(appBundle);
       const appName = path.basename(appBundle);
+      // Static script; paths are passed as positional args, never interpolated from remote data.
       const script = [
         '#!/bin/bash',
-        `while kill -0 ${process.pid} 2>/dev/null; do sleep 0.3; done`,
-        `unzip -qo "${downloadPath}" -d "${tmpDir}/extracted"`,
-        `xattr -rd com.apple.quarantine "${tmpDir}/extracted/${appName}" 2>/dev/null || true`,
-        `rm -rf "${appBundle}"`,
-        `mv "${tmpDir}/extracted/${appName}" "${appParent}/"`,
-        `open "${appParent}/${appName}"`,
-        `rm -rf "${tmpDir}"`,
+        `# args: $1=downloadPath $2=tmpDir $3=appBundle $4=appParent $5=appName $6=pid`,
+        'while kill -0 "$6" 2>/dev/null; do sleep 0.3; done',
+        'unzip -qo "$1" -d "$2/extracted"',
+        'rm -rf "$3"',
+        'mv "$2/extracted/$5" "$4/"',
+        'open "$4/$5"',
+        'rm -rf "$2"',
       ].join('\n');
       const scriptPath = path.join(tmpDir, 'install.sh');
       fs.writeFileSync(scriptPath, script, { mode: 0o755 });
-      spawn('/bin/bash', [scriptPath], { detached: true, stdio: 'ignore' }).unref();
+      spawn('/bin/bash', [scriptPath, downloadPath, tmpDir, appBundle, appParent, appName, String(process.pid)], { detached: true, stdio: 'ignore' }).unref();
     } else {
       // Windows NSIS per-user silent install; installer relaunches the app.
       spawn(downloadPath, ['/S'], { detached: true, stdio: 'ignore' }).unref();
