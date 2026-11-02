@@ -40,7 +40,7 @@ async function start() {
       '--disable-quic',
       ...(process.env.CHROMIUM_PROXY ? [`--proxy-server=${process.env.CHROMIUM_PROXY}`, '--proxy-bypass-list=<-loopback>'] : []),
       ...(process.env.DUET_GVISOR === '1' ? ['--no-sandbox'] : []),
-      '--window-size=1280,800',
+      '--start-maximized',
       'about:blank',
     ],
     { detached: true, stdio: 'ignore', env: { ...process.env, DISPLAY: process.env.DISPLAY || ':1' } },
@@ -174,15 +174,18 @@ async function run() {
       });
     case 'inspect-input':
       return withPage(async (page) => {
-        const token = await (await locate(page, args.ref)).evaluate((node) => {
+        const binding = await (await locate(page, args.ref)).evaluate((node) => {
           window.__duetNonce ||= crypto.randomUUID();
           const token = crypto.randomUUID();
           window.__duetBindings ||= new Map();
           window.__duetBindings.set(token, { node, signature: [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|') });
           node.setAttribute('data-duet-input-token', token);
-          return `${window.__duetNonce}:${token}`;
+          const input = node;
+          const hints = [node.getAttribute('name'), node.getAttribute('id'), node.getAttribute('placeholder'), node.getAttribute('aria-label'), input.autocomplete].join(' ').toLowerCase();
+          const kind = input.type === 'password' ? 'password' : input.autocomplete === 'one-time-code' || /one.?time|otp|verification code/.test(hints) ? 'otp' : input.type === 'email' || input.autocomplete === 'email' || /e.?mail/.test(hints) ? 'email' : input.autocomplete === 'username' || /user.?name|login/.test(hints) ? 'username' : undefined;
+          return { token: `${window.__duetNonce}:${token}`, kind };
         });
-        return { ...(await where(page)), token };
+        return { ...(await where(page)), ...binding };
       });
     case 'fill-input':
       return withPage(async (page) => {

@@ -161,7 +161,7 @@ function friendly(message: string): string {
   return /did not start|missing x server|cannot open display/i.test(message) ? DESKTOP_HINT : message;
 }
 
-export type BrowserResult = { ok: true; url?: string; title?: string; token?: string; text?: string; elements?: unknown[]; mime?: string; base64?: string; status?: string };
+export type BrowserResult = { ok: true; url?: string; title?: string; token?: string; kind?: 'password' | 'text' | 'otp' | 'email' | 'username'; text?: string; elements?: unknown[]; mime?: string; base64?: string; status?: string };
 
 /** One browser action on the computer. Arguments travel as an argv entry, never through a shell. */
 export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'cookies' | 'inspect-input' | 'fill-input', args: Record<string, unknown> = {}, manual = false): Promise<BrowserResult> {

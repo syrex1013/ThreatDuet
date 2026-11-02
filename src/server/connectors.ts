@@ -338,7 +338,7 @@ export function connectedAppsLine(): string {
             : `Files: local_files_list, local_files_read and local_files_search work on your own in these folders only (PDFs included via local_files_read): ${m.folders.join(', ') || '(none added yet)'}. ${m.auto ? 'local_files_write works on your own too.' : 'Writing a file there is an ACTION.'}`
           : '',
         m.browser
-          ? "Browser: the user's own browser sign-ins (Brave, Chrome or Firefox), so you are signed in to their accounts. You may read and scroll what is open (local_browser_read, local_browser_screenshot, local_browser_scroll)" +
+          ? "Browser: the user's own browser sign-ins (Brave, Chrome, Edge or Firefox), so you are signed in to their accounts. You may read and scroll what is open (local_browser_read, local_browser_screenshot, local_browser_scroll)" +
             (m.auto ? ', open pages, click and type on your own' : db.data.settings.openWebPages ? ', and open pages (local_browser_open)' : '; opening pages, clicking and typing are ACTIONS') +
             ". Actions there happen as the user. If a site asks to sign in, call local_browser_ask_input so they can enter a password in the secure prompt (never in chat). Sessions persist; call local_browser_push_session to copy them to Duet's cloud computer when needed. They can also sign in in their own browser, then call local_browser_reload_signins."
           : '',

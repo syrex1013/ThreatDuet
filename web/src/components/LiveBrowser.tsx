@@ -52,10 +52,18 @@ export function LiveBrowser({ source = 'computer', wake = true, compact = false,
     const el = img.current;
     if (!el || !el.naturalWidth) return;
     const r = el.getBoundingClientRect();
+    const scale = Math.min(r.width / el.naturalWidth, r.height / el.naturalHeight);
+    const shownWidth = el.naturalWidth * scale;
+    const shownHeight = el.naturalHeight * scale;
+    const offsetX = (r.width - shownWidth) / 2;
+    const offsetY = (r.height - shownHeight) / 2;
+    const x = e.clientX - r.left - offsetX;
+    const y = e.clientY - r.top - offsetY;
+    if (x < 0 || y < 0 || x > shownWidth || y > shownHeight) return;
     send.mutate({
       action: 'click',
-      x: Math.round(((e.clientX - r.left) / r.width) * el.naturalWidth),
-      y: Math.round(((e.clientY - r.top) / r.height) * el.naturalHeight),
+      x: Math.round((x / shownWidth) * el.naturalWidth),
+      y: Math.round((y / shownHeight) * el.naturalHeight),
     });
   };
 

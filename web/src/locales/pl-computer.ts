@@ -1,4 +1,7 @@
 export const PL_COMPUTER: Record<string, string> = {
+  'Your computer': 'Twój komputer',
+  'Google and some sites block sign-in from automated cloud browsers. Sign in with your regular browser on this computer, then ask Duet to continue from your local browser. This app does not bypass site security checks.': 'Google i niektóre strony blokują logowanie z automatycznych przeglądarek w chmurze. Zaloguj się w zwykłej przeglądarce na tym komputerze, a potem poproś Dueta o kontynuowanie w lokalnej przeglądarce. Aplikacja nie omija zabezpieczeń stron.',
+  'If a site still blocks sign-in, sign in with your regular browser, then reload sign-ins in settings.': 'Jeśli strona nadal blokuje logowanie, zaloguj się w zwykłej przeglądarce, a potem odśwież logowania w ustawieniach.',
   // ComputerSheet
   "Duet's computer": 'Komputer Dueta',
   'Checking…': 'Sprawdzam…',
@@ -90,7 +93,7 @@ export const PL_COMPUTER: Record<string, string> = {
   'Let Duet browse signed in as me': 'Pozwól Duetowi przeglądać strony zalogowany jako ja',
   "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in ThreatDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.":
     'Duet otwiera w tle przeglądarkę z kopią Twoich zalogowań (plików cookie), więc może korzystać z Gmaila, kalendarzy i paneli. Kopia leży w prywatnym folderze ThreatDuet i jest usuwana, gdy to wyłączysz, zmienisz przeglądarkę lub zamkniesz aplikację. Duet nigdy nie widzi samych plików cookie, tylko strony. Czytanie strony odbywa się automatycznie; klikanie, pisanie i wysyłanie czeka na zgodę i dzieje się w Twoim imieniu.',
-  'Brave, Chrome or Firefox must be installed.': 'Musisz mieć zainstalowaną przeglądarkę Brave, Chrome lub Firefox.',
+  'Brave, Chrome, Edge or Firefox must be installed.': 'Musisz mieć zainstalowaną przeglądarkę Brave, Chrome, Edge lub Firefox.',
   'Take sign-ins from': 'Źródło zalogowań',
   'Whichever is installed': 'Dowolna zainstalowana',
   '{name} (not installed)': '{name} (niezainstalowana)',
@@ -117,6 +120,8 @@ export const PL_COMPUTER: Record<string, string> = {
   'Duet needs your input': 'Duet potrzebuje Twojego wpisu',
   'Password': 'Hasło',
   'One-time code': 'Kod jednorazowy',
+  'Email address': 'Adres e-mail',
+  'Username': 'Nazwa użytkownika',
   'Your answer': 'Twoja odpowiedź',
   'This goes into Duet\'s cloud browser, not into the chat.': 'To trafia do przeglądarki w chmurze Dueta, nie do czatu.',
   'This goes into the browser on this computer, not into the chat.': 'To trafia do przeglądarki na tym komputerze, nie do czatu.',
@@ -137,7 +142,7 @@ export const PL_COMPUTER: Record<string, string> = {
 
   'The browser on this computer: {page}': 'Przeglądarka na tym komputerze: {page}',
 
-  'Live view of the browser on this computer (Mac, Windows or Linux). Click any site\'s fields, then enter your answer below — it never goes into the chat.': 'Podgląd na żywo przeglądarki na tym komputerze (Mac, Windows lub Linux). Kliknij pola dowolnej strony, a poniżej wpisz odpowiedź — nigdy nie trafia do czatu.',
+  'Live view of the browser on this computer. Click any site\'s fields, then enter your answer below — it never goes into the chat.': 'Podgląd na żywo przeglądarki na tym komputerze. Kliknij pola dowolnej strony, a poniżej wpisz odpowiedź — nigdy nie trafia do czatu.',
 
   'You are in control here: clicks and typing go straight to the page on this computer without asking. Works for any site. When a site asks for a password, click the field in the picture, type it above, then press Enter with the key below if needed. It never goes into the chat with Duet.': 'Tu sterujesz Ty: kliknięcia i wpisywany tekst trafiają prosto na stronę na tym komputerze, bez pytania. Działa na każdej stronie. Gdy strona prosi o hasło, kliknij pole na obrazku, wpisz je powyżej, a potem w razie potrzeby naciśnij Enter poniżej. Nigdy nie trafia do czatu z Duetem.',
 

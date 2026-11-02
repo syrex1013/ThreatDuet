@@ -1,7 +1,7 @@
 {
   "name": "threatduet",
   "productName": "ThreatDuet",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",
@@ -41,6 +41,7 @@
     "lowdb": "^7.0.1",
     "node-notifier": "^12.0.0",
     "p-queue": "^10.0.0",
+    "patchright-core": "^1.64.2",
     "pdfjs-dist": "5.4.296",
     "pino": "^10.4.0",
     "playwright-core": "^1.64.1",

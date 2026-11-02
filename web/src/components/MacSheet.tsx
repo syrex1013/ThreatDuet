@@ -7,8 +7,8 @@ import { t } from '../i18n';
 import { LiveBrowser } from './LiveBrowser';
 import { Sheet } from './Sheet';
 
-/** Mac or PC, for the words the person reads: the computer Duet runs on, not the one showing this screen (a phone). */
-export const deviceName = (os?: OsId) => ((os ? os === 'mac' : /Mac/i.test(navigator.platform)) ? 'Mac' : 'PC');
+/** Labels the computer Duet runs on, using server-reported OS rather than browser OS. */
+export const deviceName = (os?: OsId) => os === 'mac' ? 'Mac' : os ? 'PC' : 'computer';
 
 /** What Duet may reach on this Mac. Everything starts off; lives on the computer only. */
 export function MacSheet({ onClose }: { onClose: () => void }) {
@@ -26,7 +26,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
   });
   const s = status.data;
   // Whole sentences per variant: Polish inflects the noun.
-  const MAC = deviceName(s?.os) === 'Mac';
+  const MAC = s?.os === 'mac';
   const WIN = s?.os === 'windows';
   const set = (patch: Partial<Pick<MacStatus, 'files' | 'everything' | 'shell' | 'browser' | 'auto'>>) => act.mutate(['/mac', patch]);
   const add = (path: string) => act.mutate(['/mac/folders', { path }], { onSuccess: () => setFolder('') });
@@ -36,7 +36,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet title={MAC ? t('Your Mac') : t('Your PC')} wide onClose={onClose}>
+    <Sheet title={!s ? t('Your computer') : MAC ? t('Your Mac') : t('Your PC')} wide onClose={onClose}>
       <p className="apps-intro">
         {MAC
           ? t('Let Duet use this Mac. Everything is off until you turn it on. Duet looks on its own; anything that changes something waits for your approval.')
@@ -143,7 +143,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                     ? t(
                         "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. Each browser keeps its complete profile in ThreatDuet's private folder across app restarts. Closing or disabling the browser preserves sign-ins. Use Forget browser sessions to remove them. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.",
                       )
-                    : t('Brave, Chrome or Firefox must be installed.')}
+                    : t('Brave, Chrome, Edge or Firefox must be installed.')}
                 </span>
               </span>
             </label>

@@ -28,7 +28,7 @@ export async function askAndFill(opts: {
   if (!binding.token) throw new Error(tr('The page changed while waiting for input. Read the page again and request a fresh prompt.'));
   if (binding.url !== page.url || !/^https?:$/.test(new URL(binding.url!).protocol)) throw new Error('Credential destination changed. Inspect the page again.');
   const value = await requestInput({
-    kind: opts.kind,
+    kind: binding.kind ?? opts.kind,
     prompt: opts.prompt,
     target: opts.target,
     ref: opts.ref,

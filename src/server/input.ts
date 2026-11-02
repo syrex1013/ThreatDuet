@@ -4,7 +4,7 @@ import { notify } from './notify.js';
 import { tr } from './i18n.js';
 import { resolvedRun } from './run-context.js';
 
-export type InputKind = 'password' | 'text' | 'otp';
+export type InputKind = 'password' | 'text' | 'otp' | 'email' | 'username';
 
 /** Shown in the UI; the value itself is never stored or put in chat. */
 export interface PendingInput {
@@ -23,8 +23,9 @@ export interface PendingInput {
   createdAt: number;
 }
 
-type Waiter = { input: PendingInput; resolve: (value: string | null) => void; timer: NodeJS.Timeout; cleanup?: () => void };
+type Waiter = { input: PendingInput; resolve: (value: string | null) => void; promise: Promise<string | null>; key?: string; timer: NodeJS.Timeout; cleanup?: () => void };
 const waiters = new Map<string, Waiter>();
+const byField = new Map<string, string>();
 
 const TIMEOUT_MS = 5 * 60_000;
 
@@ -37,6 +38,7 @@ function clear(id: string, result: string | null): void {
   clearTimeout(waiter.timer);
   waiter.cleanup?.();
   waiters.delete(id);
+  if (waiter.key && byField.get(waiter.key) === id) byField.delete(waiter.key);
   stateChanged();
   waiter.resolve(result);
 }
@@ -56,6 +58,9 @@ export function requestInput(opts: {
   signal?: AbortSignal;
 }): Promise<string | null> {
   const run = resolvedRun();
+  const key = opts.ref == null ? undefined : `${opts.target}:${opts.taskId ?? run?.taskId ?? ''}:${opts.channel ?? run?.channel ?? ''}:${opts.ref}`;
+  const existing = key && byField.get(key);
+  if (existing && waiters.has(existing)) return waiters.get(existing)!.promise;
   const id = randomUUID();
   const input: PendingInput = {
     id,
@@ -68,19 +73,20 @@ export function requestInput(opts: {
     channel: opts.channel ?? run?.channel,
     createdAt: Date.now(),
   };
-  const promise = new Promise<string | null>((resolve) => {
-    const timer = setTimeout(() => clear(id, null), TIMEOUT_MS);
-    waiters.set(id, { input, resolve, timer });
-    const signal = opts.signal ?? run?.signal;
-    if (signal) {
-      if (signal.aborted) clear(id, null);
-      else {
-        const abort = () => clear(id, null);
-        signal.addEventListener('abort', abort, { once: true });
-        waiters.get(id)!.cleanup = () => signal.removeEventListener('abort', abort);
-      }
+  let resolve!: (value: string | null) => void;
+  const promise = new Promise<string | null>((done) => { resolve = done; });
+  const timer = setTimeout(() => clear(id, null), TIMEOUT_MS);
+  waiters.set(id, { input, resolve, promise, key, timer });
+  if (key) byField.set(key, id);
+  const signal = opts.signal ?? run?.signal;
+  if (signal) {
+    if (signal.aborted) clear(id, null);
+    else {
+      const abort = () => clear(id, null);
+      signal.addEventListener('abort', abort, { once: true });
+      waiters.get(id)!.cleanup = () => signal.removeEventListener('abort', abort);
     }
-  });
+  }
   stateChanged();
   notify(tr('Duet needs your input'), input.prompt);
   return promise;

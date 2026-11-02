@@ -14,8 +14,7 @@ export function InputPrompt({ req, taskTitle, onDone }: { req: PendingInput; tas
   }, [req.id]);
 
   const secret = req.kind === 'password' || req.kind === 'otp';
-  const label =
-    req.kind === 'password' ? t('Password') : req.kind === 'otp' ? t('One-time code') : t('Your answer');
+  const label = req.kind === 'password' ? t('Password') : req.kind === 'otp' ? t('One-time code') : req.kind === 'email' ? t('Email address') : req.kind === 'username' ? t('Username') : t('Your answer');
   const onComputer = req.target === 'computer';
 
   async function submit(e: FormEvent) {
@@ -47,13 +46,13 @@ export function InputPrompt({ req, taskTitle, onDone }: { req: PendingInput; tas
     <section className="input-prompt-card" aria-label={t('Duet needs your input')}>
       <h3>{t('Duet needs your input')}</h3>
       {taskTitle && <p>{taskTitle}</p>}
-      <p className="hint">{t('For password managers, passkeys or authentication challenges, cancel this prompt and use Take over browser in the Watch panel. Saved website credentials may not autofill this chat form.')}</p>
+      <p className="hint">{onComputer ? t('Google and some sites block sign-in from automated cloud browsers. Sign in with your regular browser on this computer, then ask Duet to continue from your local browser. This app does not bypass site security checks.') : t('If a site still blocks sign-in, sign in with your regular browser, then reload sign-ins in settings.')}</p>
       <p className="hint">{req.prompt}</p>
       {req.origin && <p className="watch-where">{req.origin}</p>}
       <p className="hint">
         {onComputer
           ? t("Live view of Duet's cloud browser. Click the page if you need to focus a field; your answer below is typed into it and never enters the chat.")
-          : t("Live view of the browser on this computer (Mac, Windows or Linux). Click any site's fields, then enter your answer below — it never goes into the chat.")}
+          : t("Live view of the browser on this computer. Click any site's fields, then enter your answer below — it never goes into the chat.")}
       </p>
 
       <div className="input-prompt-live">
@@ -67,10 +66,10 @@ export function InputPrompt({ req, taskTitle, onDone }: { req: PendingInput; tas
         <input
           id={`duet-input-${req.id}`}
           ref={input}
-          type={secret ? 'password' : 'text'}
-          inputMode={req.kind === 'otp' ? 'numeric' : undefined}
+          type={secret ? 'password' : req.kind === 'email' ? 'email' : 'text'}
+          inputMode={req.kind === 'otp' ? 'numeric' : req.kind === 'email' ? 'email' : undefined}
           name="credential"
-          autoComplete={req.kind === 'password' ? 'current-password' : req.kind === 'otp' ? 'one-time-code' : 'username'}
+          autoComplete={req.kind === 'password' ? 'current-password' : req.kind === 'otp' ? 'one-time-code' : req.kind === 'email' ? 'email' : 'username'}
           placeholder={label}
           required
           disabled={busy}

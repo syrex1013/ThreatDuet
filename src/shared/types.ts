@@ -278,7 +278,7 @@ export interface ComputerScreen {
   base64?: string;
 }
 
-export type InputKind = 'password' | 'text' | 'otp';
+export type InputKind = 'password' | 'text' | 'otp' | 'email' | 'username';
 /** Secure prompt waiting for the user; the value itself never appears in state. */
 export interface PendingInput {
   id: string;
@@ -352,7 +352,7 @@ export interface MacStatus {
   browserRunning: string | null;
 }
 
-export type BrowserId = 'brave' | 'chrome' | 'firefox';
+export type BrowserId = 'brave' | 'chrome' | 'firefox' | 'edge';
 export interface BrowserChoice {
   id: BrowserId;
   name: string;

@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import PQueue from 'p-queue';
-import { chromium, type BrowserContext, type Cookie, type Page } from 'playwright-core';
+// patchright: Playwright's API without its automation tells (navigator.webdriver, --enable-automation, CDP leaks) that make Google refuse sign-in.
+import { chromium, type BrowserContext, type Cookie, type Page } from 'patchright-core';
 import type { BrowserChoice, BrowserId } from '../../shared/types.js';
 import { DATA_DIR, log } from '../config.js';
 import { db } from '../store.js';
@@ -48,6 +49,13 @@ const DEFS: BrowserDef[] = [
     exes: byOs(programs('Mozilla Firefox', 'firefox.exe'), ['/Applications/Firefox.app/Contents/MacOS/firefox'], ['/usr/bin/firefox', '/usr/lib/firefox/firefox', '/snap/bin/firefox']),
     dataDir: byOs(path.join(ROAMING, 'Mozilla', 'Firefox'), path.join(MAC_SUPPORT, 'Firefox'), path.join(HOME, '.mozilla', 'firefox')),
   },
+  {
+    id: 'edge',
+    name: 'Edge',
+    family: 'chromium',
+    exes: byOs(programs('Microsoft', 'Edge', 'Application', 'msedge.exe'), ['/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'], ['/usr/bin/microsoft-edge-stable', '/usr/bin/microsoft-edge', '/opt/microsoft/msedge/msedge']),
+    dataDir: byOs(path.join(LOCAL, 'Microsoft', 'Edge', 'User Data'), path.join(MAC_SUPPORT, 'Microsoft Edge'), path.join(CONFIG, 'microsoft-edge')),
+  },
 ];
 const def = (id: BrowserId) => DEFS.find((d) => d.id === id) as BrowserDef;
 
@@ -78,7 +86,7 @@ async function chosen(): Promise<BrowserDef> {
   const want = db.data.mac.browserApp;
   const list = await browserChoices();
   const id = want !== 'auto' && list.find((b) => b.id === want)?.installed ? want : list.find((b) => b.installed)?.id;
-  if (!id) throw new Error('No supported browser (Brave, Chrome or Firefox) is installed.');
+  if (!id) throw new Error('No supported browser (Brave, Chrome, Edge or Firefox) is installed.');
   return def(id);
 }
 
@@ -172,6 +180,29 @@ async function profileReady(): Promise<boolean> {
   }
 }
 
+/**
+ * Headless Chrome names itself "HeadlessChrome" in its user agent, which Google sign-in refuses.
+ * Launch once to get the real version string, then substitute. Cached per executable.
+ * Falls back to omitting the override if the probe launch fails (antivirus, sandbox, etc.).
+ */
+const agents = new Map<string, string>();
+async function plainAgent(exe: string): Promise<string | undefined> {
+  if (!agents.has(exe)) {
+    try {
+      const b = await chromium.launch({ executablePath: exe });
+      try {
+        agents.set(exe, (await (await b.newPage()).evaluate(() => navigator.userAgent)).replace('HeadlessChrome/', 'Chrome/'));
+      } finally {
+        await b.close();
+      }
+    } catch {
+      // shortcut: returns undefined so the caller skips the override, when it fails
+      return undefined;
+    }
+  }
+  return agents.get(exe);
+}
+
 async function context(opts: { refreshSignins?: boolean } = {}): Promise<BrowserContext> {
   if (ctx && !opts.refreshSignins) return ctx;
   if (opts.refreshSignins && ctx) {
@@ -186,9 +217,9 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
       await fs.mkdir(path.dirname(PROFILE), { recursive: true, mode: 0o700 });
       await fs.rename(LEGACY_PROFILE, PROFILE);
     }
-    // Firefox can't be driven directly, so Chrome or Brave carries its sign-ins.
+    // Firefox can't be driven directly, so Chrome, Brave or Edge carries its sign-ins.
     const engine = src.family === 'firefox' ? (await Promise.all(DEFS.filter((x) => x.family === 'chromium').map(async (x) => ((await exeOf(x)) ? x : null)))).find(Boolean) : src;
-    if (!engine) throw new Error('Firefox sign-ins need Chrome or Brave installed to browse with.');
+    if (!engine) throw new Error('Firefox sign-ins need Chrome, Brave or Edge installed to browse with.');
     const exe = (await exeOf(engine)) as string;
     // Keep the profile across launches so passwords typed in the prompt and site sessions survive.
     // Only wipe when the user asks to reload sign-ins from their own browser.
@@ -202,7 +233,15 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
     }
     // Talks to the browser over a pipe, not a network port, so no other program can attach and read the cookies.
     // The real Keychain / keyring is kept (Playwright's mock keychain and basic password store would make every cookie unreadable).
-    const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: !interactive, args: ['--restore-last-session'], ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
+    // viewport: null keeps the page size equal to the real window, as in a person's browser.
+    const c = await chromium.launchPersistentContext(PROFILE, {
+      executablePath: exe,
+      headless: !interactive,
+      viewport: null,
+      args: ['--restore-last-session', ...(interactive ? [] : ['--window-size=1280,800'])],
+      ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'],
+      ...(interactive ? {} : (ua => ua ? { userAgent: ua } : {})(await plainAgent(exe))),
+    });
     for (let i = 0; i < cookies.length; i += 200) await c.addCookies(cookies.slice(i, i + 200)).catch(() => undefined);
     c.on('page', (p) => p.on('dialog', (d) => void d.dismiss().catch(() => undefined)));
     c.on('close', () => {
@@ -335,7 +374,7 @@ async function locate(p: Page, ref: number) {
   return loc;
 }
 
-export type BrowseResult = { url: string; title: string; token?: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
+export type BrowseResult = { url: string; title: string; token?: string; kind?: 'password' | 'text' | 'otp' | 'email' | 'username'; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
 
 /** One action at a time, so Duet's steps never interleave. */
 /** Cookies from the persisted ThreatDuet browser profile (for moving a session to Instabox). Values never go to the model. */
@@ -378,16 +417,19 @@ export function browse(
     const p = action === 'signins' ? await page(true) : await page();
     if (action === 'inspect-input') {
       const el = await locate(p, Number(args.ref));
-      const token = await el.evaluate((node) => {
+      const binding = await el.evaluate((node) => {
         const w = window as Window & { __duetNonce?: string; __duetBindings?: Map<string, { node: Element; signature: string }> };
         w.__duetNonce ??= crypto.randomUUID();
         const token = crypto.randomUUID();
         w.__duetBindings ??= new Map();
         w.__duetBindings.set(token, { node, signature: [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|') });
         node.setAttribute('data-duet-input-token', token);
-        return `${w.__duetNonce}:${token}`;
+        const input = node as HTMLInputElement;
+        const hints = [node.getAttribute('name'), node.getAttribute('id'), node.getAttribute('placeholder'), node.getAttribute('aria-label'), input.autocomplete].join(' ').toLowerCase();
+        const kind = input.type === 'password' ? 'password' : input.autocomplete === 'one-time-code' || /one.?time|otp|verification code/.test(hints) ? 'otp' : input.type === 'email' || input.autocomplete === 'email' || /e.?mail/.test(hints) ? 'email' : input.autocomplete === 'username' || /user.?name|login/.test(hints) ? 'username' : undefined;
+        return { token: `${w.__duetNonce}:${token}`, kind };
       });
-      return { ...(await where(p)), token } as BrowseResult;
+      return { ...(await where(p)), ...binding } as BrowseResult;
     }
     if (action === 'fill-input') {
       const current = await where(p);
@@ -422,7 +464,7 @@ export function browse(
       case 'screenshot': {
         // The user's own live view must show what they type; only model-facing shots are masked.
         const masks = args.manual ? [] : p.frames().map((frame) => frame.locator('input,textarea,[contenteditable="true"],[data-duet-sensitive]'));
-        const buf = await p.screenshot({ type: 'jpeg', quality: 60, timeout: 15_000, mask: masks, maskColor: '#777777' });
+        const buf = await p.screenshot({ type: 'jpeg', quality: 60, scale: 'css', timeout: 15_000, mask: masks, maskColor: '#777777' });
         return { ...(await where(p)), mime: 'image/jpeg', base64: buf.toString('base64') };
       }
       case 'click':

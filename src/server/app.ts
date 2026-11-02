@@ -142,7 +142,7 @@ app.post('/api/skills/remove', json(SkillName), async (c) => {
 // This Mac: files, commands and Brave. Managed from this computer only; the phone listener never mounts it.
 app.all('/mcp/mac', (c) => handleMacMcp(c.req.raw));
 app.get('/api/mac', async (c) => c.json(await macStatus()));
-app.post('/api/mac', json(z.object({ files: z.boolean().optional(), everything: z.boolean().optional(), shell: z.boolean().optional(), browser: z.boolean().optional(), browserApp: z.enum(['auto', 'brave', 'chrome', 'firefox']).optional(), auto: z.boolean().optional() })), async (c) => {
+app.post('/api/mac', json(z.object({ files: z.boolean().optional(), everything: z.boolean().optional(), shell: z.boolean().optional(), browser: z.boolean().optional(), browserApp: z.enum(['auto', 'brave', 'chrome', 'firefox', 'edge']).optional(), auto: z.boolean().optional() })), async (c) => {
   await setMac(c.req.valid('json'));
   return c.json(await macStatus());
 });
