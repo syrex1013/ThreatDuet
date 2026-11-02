@@ -52,13 +52,15 @@ const DEFS: BrowserDef[] = [
 const def = (id: BrowserId) => DEFS.find((d) => d.id === id) as BrowserDef;
 
 // A copy of the person's sign-ins, inside the private data folder. Never in the workspace.
-const PROFILE = path.join(DATA_DIR, 'browser-profile');
+const LEGACY_PROFILE = path.join(DATA_DIR, 'browser-profile');
+let PROFILE = LEGACY_PROFILE;
 const MAX_TEXT = 40_000;
 const MAX_ELEMENTS = 150;
 
 let ctx: BrowserContext | null = null;
 let starting: Promise<BrowserContext> | null = null;
 let usingName = '';
+let interactive = false;
 const queue = new PQueue({ concurrency: 1 });
 
 const exists = (p: string) => fs.access(p).then(() => true, () => false);
@@ -179,6 +181,11 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
   }
   starting ??= (async () => {
     const src = await chosen();
+    PROFILE = path.join(DATA_DIR, 'browser-profiles', src.id);
+    if (!(await exists(PROFILE)) && await exists(LEGACY_PROFILE)) {
+      await fs.mkdir(path.dirname(PROFILE), { recursive: true, mode: 0o700 });
+      await fs.rename(LEGACY_PROFILE, PROFILE);
+    }
     // Firefox can't be driven directly, so Chrome or Brave carries its sign-ins.
     const engine = src.family === 'firefox' ? (await Promise.all(DEFS.filter((x) => x.family === 'chromium').map(async (x) => ((await exeOf(x)) ? x : null)))).find(Boolean) : src;
     if (!engine) throw new Error('Firefox sign-ins need Chrome or Brave installed to browse with.');
@@ -195,11 +202,11 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
     }
     // Talks to the browser over a pipe, not a network port, so no other program can attach and read the cookies.
     // The real Keychain / keyring is kept (Playwright's mock keychain and basic password store would make every cookie unreadable).
-    const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: true, ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
+    const c = await chromium.launchPersistentContext(PROFILE, { executablePath: exe, headless: !interactive, args: ['--restore-last-session'], ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'] });
     for (let i = 0; i < cookies.length; i += 200) await c.addCookies(cookies.slice(i, i + 200)).catch(() => undefined);
     c.on('page', (p) => p.on('dialog', (d) => void d.dismiss().catch(() => undefined)));
     c.on('close', () => {
-      if (ctx === c) ctx = null;
+      if (ctx === c) { ctx = null; interactive = false; }
     });
     usingName = src.family === 'firefox' ? `${src.name} sign-ins in ${engine.name}` : src.name;
     ctx = c;
@@ -210,16 +217,58 @@ async function context(opts: { refreshSignins?: boolean } = {}): Promise<Browser
   return starting;
 }
 
-/** Stops the browser and deletes the copied sign-ins. The next use copies them afresh. */
+/** Closing the browser preserves its complete private profile. Forgetting sessions is explicit. */
 export async function stopBrowser(): Promise<void> {
   const c = ctx;
   ctx = null;
   await c?.close().catch(() => undefined);
-  await fs.rm(PROFILE, { recursive: true, force: true });
+  interactive = false;
+}
+
+export async function forgetBrowserSessions(): Promise<void> {
+  await stopBrowser();
+  await fs.rm(path.join(DATA_DIR, 'browser-profiles'), { recursive: true, force: true });
+  await fs.rm(LEGACY_PROFILE, { recursive: true, force: true });
   await fs.rm(path.join(DATA_DIR, 'brave-profile'), { recursive: true, force: true });
 }
 
 export const browserRunning = () => (ctx ? usingName : null);
+export const browserInteractive = () => interactive;
+export async function takeoverBrowser(): Promise<void> {
+  interactive = true;
+  await queue.add(async () => {
+    const pages = ctx?.pages().map((p) => p.url()).filter((u) => u && u !== 'about:blank') ?? [];
+    const old = ctx; ctx = null;
+    await old?.close().catch(() => undefined);
+    const visible = await context();
+    // Persistent Chromium may restore extra blank tabs. Rebuild from known URLs and keep the last as active.
+    for (const tab of visible.pages().slice()) {
+      if (tab.url() === 'about:blank' && visible.pages().length > 1) await tab.close().catch(() => undefined);
+    }
+    for (const [index, url] of pages.entries()) {
+      const tab = visible.pages()[index] ?? await visible.newPage();
+      if (tab.url() !== url) await tab.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await tab.waitForLoadState('domcontentloaded', { timeout: 5_000 }).catch(() => undefined);
+    }
+    const active = visible.pages().at(-1);
+    if (active) await active.bringToFront().catch(() => undefined);
+  });
+}
+export async function finishTakeover(): Promise<void> {
+  await queue.add(async () => {
+    const pages = ctx?.pages().map((p) => p.url()).filter((u) => u && u !== 'about:blank') ?? [];
+    const old = ctx; ctx = null;
+    await old?.close().catch(() => undefined);
+    interactive = false;
+    if (!pages.length) return;
+    // Return to headless automation with the same tabs when possible.
+    const restored = await context();
+    for (const [index, url] of pages.entries()) {
+      const tab = restored.pages()[index] ?? await restored.newPage();
+      if (tab.url() !== url) await tab.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => undefined);
+    }
+  });
+}
 
 async function page(refreshSignins = false): Promise<Page> {
   const c = await context({ refreshSignins });
@@ -237,6 +286,26 @@ async function snapshot(p: Page) {
         const s = getComputedStyle(el);
         return r.width > 2 && r.height > 2 && s.visibility !== 'hidden' && s.display !== 'none' && r.bottom > 0 && r.top < innerHeight * 3;
       };
+      const textOf = (element: Element | null): string => {
+        if (!element) return '';
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const parts: string[] = [];
+        let lastBlock: Element | null = null;
+        let length = 0;
+        while (walker.nextNode() && length < maxText) {
+          const node = walker.currentNode;
+          const parent = node.parentElement;
+          if (!parent || parent.closest('input,textarea,select,[contenteditable=true],[data-duet-sensitive],script,style,[hidden]') || (!parent.getClientRects().length && getComputedStyle(parent).display !== 'contents')) continue;
+          const value = node.textContent?.trim() ?? '';
+          if (value) {
+            const block = parent.closest('p,div,li,h1,h2,h3,h4,h5,h6,tr,section,article,header,footer,nav,main,aside,form,pre,blockquote,td,th');
+            if (parts.length && block === lastBlock) parts[parts.length - 1] += ` ${value}`; else parts.push(value);
+            lastBlock = block;
+            length += value.length;
+          }
+        }
+        return parts.join('\n').slice(0, maxText);
+      };
       for (const old of document.querySelectorAll('[data-duet-ref]')) old.removeAttribute('data-duet-ref');
       const sel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=switch],[onclick],[contenteditable=true]';
       const elements: { ref: number; kind: string; label: string; href?: string; value?: string }[] = [];
@@ -245,16 +314,16 @@ async function snapshot(p: Page) {
         if (!visible(el)) continue;
         const ref = elements.length + 1;
         el.setAttribute('data-duet-ref', String(ref));
-        const label = (el.getAttribute('aria-label') || el.labels?.[0]?.innerText || el.innerText || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('name') || el.value || el.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+        const label = (el.getAttribute('aria-label') || textOf(el.labels?.[0] ?? null) || textOf(el) || (el.tagName === 'INPUT' && /^(submit|button|reset)$/.test(el.type ?? '') ? el.value : '') || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('name') || el.getAttribute('alt') || '').replace(/\s+/g, ' ').trim().slice(0, 100);
         elements.push({
           ref,
           kind: el.tagName.toLowerCase() + (el.type && el.tagName === 'INPUT' ? `:${el.type}` : ''),
           label,
           ...(el.href ? { href: el.href.slice(0, 200) } : {}),
-          ...(el.tagName === 'INPUT' && el.type === 'password' ? {} : el.value ? { value: String(el.value).slice(0, 60) } : {}),
+          // Never expose current input values: text fields can contain usernames or secrets too.
         });
       }
-      return { text: (document.body?.innerText || '').replace(/\n{3,}/g, '\n\n').slice(0, maxText), elements };
+      return { text: textOf(document.body), elements };
     },
     { maxText: MAX_TEXT, maxElements: MAX_ELEMENTS },
   );
@@ -266,7 +335,7 @@ async function locate(p: Page, ref: number) {
   return loc;
 }
 
-export type BrowseResult = { url: string; title: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
+export type BrowseResult = { url: string; title: string; token?: string; text?: string; elements?: { ref: number; kind: string; label: string; href?: string; value?: string }[]; mime?: string; base64?: string };
 
 /** One action at a time, so Duet's steps never interleave. */
 /** Cookies from the persisted ThreatDuet browser profile (for moving a session to Instabox). Values never go to the model. */
@@ -281,11 +350,12 @@ export type SessionCookie = {
   sameSite: 'Strict' | 'Lax' | 'None';
 };
 
-export async function exportCookies(): Promise<SessionCookie[]> {
+export async function exportCookies(origin?: string): Promise<SessionCookie[]> {
   return queue.add(async () => {
     const c = await context();
     const raw = await c.cookies();
-    return raw.map((k) => ({
+    const allowed = origin ? new URL(origin).hostname : null;
+    return raw.filter((k) => !allowed || k.domain.replace(/^\./, '') === allowed || allowed.endsWith(`.${k.domain.replace(/^\./, '')}`)).map((k) => ({
       name: k.name,
       value: k.value,
       domain: k.domain,
@@ -299,12 +369,49 @@ export async function exportCookies(): Promise<SessionCookie[]> {
 }
 
 export function browse(
-  action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins',
-  args: { url?: string; ref?: number; text?: string; submit?: boolean; key?: string; pixels?: number; x?: number; y?: number } = {},
+  action: 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'scroll' | 'signins' | 'inspect-input' | 'fill-input',
+  args: { url?: string; ref?: number; token?: string; text?: string; submit?: boolean; key?: string; pixels?: number; x?: number; y?: number; manual?: boolean } = {},
 ): Promise<BrowseResult> {
   return queue.add(async () => {
+    if (interactive && !args.manual) throw new Error('Browser takeover is active. Automation is paused until takeover ends.');
     // The user just signed in somewhere in their own browser: copy those sign-ins again (drops the old copy).
     const p = action === 'signins' ? await page(true) : await page();
+    if (action === 'inspect-input') {
+      const el = await locate(p, Number(args.ref));
+      const token = await el.evaluate((node) => {
+        const w = window as Window & { __duetNonce?: string; __duetBindings?: Map<string, { node: Element; signature: string }> };
+        w.__duetNonce ??= crypto.randomUUID();
+        const token = crypto.randomUUID();
+        w.__duetBindings ??= new Map();
+        w.__duetBindings.set(token, { node, signature: [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|') });
+        node.setAttribute('data-duet-input-token', token);
+        return `${w.__duetNonce}:${token}`;
+      });
+      return { ...(await where(p)), token } as BrowseResult;
+    }
+    if (action === 'fill-input') {
+      const current = await where(p);
+      const token = String(args.token ?? '');
+      if (!token || !token.includes(':') || current.url !== String(args.url ?? current.url)) throw new Error('The page changed while waiting for input.');
+      const nonce = token.split(':', 1)[0];
+      const ok = await p.evaluate((n) => (window as Window & { __duetNonce?: string }).__duetNonce === n, nonce);
+      if (!ok) throw new Error('The page changed while waiting for input.');
+      const fieldToken = token.slice(token.indexOf(':') + 1);
+      const field = p.locator(`[data-duet-input-token="${fieldToken}"]`).first();
+      const handle = await field.elementHandle();
+      if (!handle || await field.count() !== 1) throw new Error('The page changed while waiting for input.');
+      const original = await handle.evaluate((node, token) => {
+        const binding = (window as Window & { __duetBindings?: Map<string, { node: Element; signature: string }> }).__duetBindings?.get(token);
+        return binding?.node === node && binding.signature === [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|');
+      }, fieldToken);
+      if (!original) throw new Error('The field changed while waiting for input.');
+      try { await handle.fill(String(args.text), { timeout: 10_000 }); }
+      catch { throw new Error('Credential field could not be filled. Inspect the page and request fresh input.'); }
+      await p.evaluate((token) => (window as Window & { __duetBindings?: Map<string, unknown> }).__duetBindings?.delete(token), fieldToken);
+      await handle.evaluate((node) => node.setAttribute('data-duet-sensitive', 'true'));
+      if (args.submit) await p.keyboard.press('Enter');
+      return where(p);
+    }
     switch (action) {
       case 'open':
         await p.goto(String(args.url), { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -313,7 +420,9 @@ export function browse(
       case 'read':
         return { ...(await where(p)), ...(await snapshot(p)) };
       case 'screenshot': {
-        const buf = await p.screenshot({ type: 'jpeg', quality: 60, timeout: 15_000 });
+        // The user's own live view must show what they type; only model-facing shots are masked.
+        const masks = args.manual ? [] : p.frames().map((frame) => frame.locator('input,textarea,[contenteditable="true"],[data-duet-sensitive]'));
+        const buf = await p.screenshot({ type: 'jpeg', quality: 60, timeout: 15_000, mask: masks, maskColor: '#777777' });
         return { ...(await where(p)), mime: 'image/jpeg', base64: buf.toString('base64') };
       }
       case 'click':

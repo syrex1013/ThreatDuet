@@ -1,3 +1,5 @@
+import { emitRunEvent } from './activity.js';
+import { runtimeProgress } from './run-context.js';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -164,8 +166,12 @@ function watch(s: Server, sessionID: string, run: KiloRun, describe: (tool: stri
         const p = e.properties ?? {};
         if (e.type === 'message.part.updated' && p.part?.sessionID === sessionID) {
           const part = p.part as Part;
-          if (part.type === 'tool' && part.state?.status !== 'completed' && part.state?.status !== 'error') run.onProgress?.(describe(part.tool ?? '', part.state?.input ?? {}));
-          else if (part.type === 'text') run.onProgress?.('writing a reply');
+          if (part.type === 'tool') {
+            const detail = describe(part.tool ?? '', part.state?.input ?? {});
+            emitRunEvent(run.taskId, part.state?.status === 'error' ? 'failed' : part.state?.status === 'completed' ? 'verifying' : 'acting', detail, 'Runner execution event.');
+            if (part.state?.status !== 'completed' && part.state?.status !== 'error') runtimeProgress(detail, run.onProgress);
+          }
+          else if (part.type === 'text') runtimeProgress('writing a reply', run.onProgress);
         } else if ((e.type === 'permission.asked' || e.type === 'permission.updated') && p.sessionID === sessionID && (p.id ?? p.requestID)) {
           // Only a user-approved task may auto-approve; anything else is refused.
           await call(s, 'POST', `/permission/${p.id ?? p.requestID}/reply`, { reply: run.auto ? 'once' : 'reject' }).catch(() => undefined);

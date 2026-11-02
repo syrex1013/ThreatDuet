@@ -3,7 +3,7 @@
 // A single Chromium stays open on the machine's desktop (DISPLAY :1, so the person can watch it),
 // and each call attaches to it over the DevTools protocol on 127.0.0.1:9222.
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 const PORT = 9222;
@@ -13,7 +13,7 @@ const MAX_TEXT = 40_000;
 const MAX_ELEMENTS = 150;
 
 const [action, rawArgs = '{}'] = process.argv.slice(2);
-const args = JSON.parse(rawArgs);
+const args = JSON.parse(rawArgs === '-' ? readFileSync(0, 'utf8') : rawArgs);
 const out = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 
 async function up() {
@@ -35,7 +35,11 @@ async function start() {
       `--user-data-dir=${PROFILE}`,
       '--no-first-run',
       '--no-default-browser-check',
+      '--restore-last-session',
       '--disable-session-crashed-bubble',
+      '--disable-quic',
+      ...(process.env.CHROMIUM_PROXY ? [`--proxy-server=${process.env.CHROMIUM_PROXY}`, '--proxy-bypass-list=<-loopback>'] : []),
+      ...(process.env.DUET_GVISOR === '1' ? ['--no-sandbox'] : []),
       '--window-size=1280,800',
       'about:blank',
     ],
@@ -73,6 +77,26 @@ async function snapshot(page) {
         const s = getComputedStyle(el);
         return r.width > 2 && r.height > 2 && s.visibility !== 'hidden' && s.display !== 'none' && r.bottom > 0 && r.top < innerHeight * 3;
       };
+      const textOf = (element) => {
+        if (!element) return '';
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        const parts = [];
+        let lastBlock = null;
+        let length = 0;
+        while (walker.nextNode() && length < maxText) {
+          const node = walker.currentNode;
+          const parent = node.parentElement;
+          if (!parent || parent.closest('input,textarea,select,[contenteditable=true],[data-duet-sensitive],script,style,[hidden]') || (!parent.getClientRects().length && getComputedStyle(parent).display !== 'contents')) continue;
+          const value = node.textContent?.trim() || '';
+          if (value) {
+            const block = parent.closest('p,div,li,h1,h2,h3,h4,h5,h6,tr,section,article,header,footer,nav,main,aside,form,pre,blockquote,td,th');
+            if (parts.length && block === lastBlock) parts[parts.length - 1] += ` ${value}`; else parts.push(value);
+            lastBlock = block;
+            length += value.length;
+          }
+        }
+        return parts.join('\n').slice(0, maxText);
+      };
       for (const old of document.querySelectorAll('[data-duet-ref]')) old.removeAttribute('data-duet-ref');
       const sel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=tab],[role=menuitem],[role=checkbox],[role=switch],[onclick],[contenteditable=true]';
       const elements = [];
@@ -83,12 +107,12 @@ async function snapshot(page) {
         el.setAttribute('data-duet-ref', String(ref));
         const label = (
           el.getAttribute('aria-label') ||
-          el.labels?.[0]?.innerText ||
-          el.innerText ||
+          textOf(el.labels?.[0] ?? null) ||
+          textOf(el) ||
+          (el.tagName === 'INPUT' && /^(submit|button|reset)$/.test(el.type) ? el.value : '') ||
           el.getAttribute('placeholder') ||
           el.getAttribute('title') ||
           el.getAttribute('name') ||
-          el.value ||
           el.getAttribute('alt') ||
           ''
         )
@@ -100,10 +124,9 @@ async function snapshot(page) {
           kind: el.tagName.toLowerCase() + (el.type && el.tagName === 'INPUT' ? `:${el.type}` : ''),
           label,
           ...(el.href ? { href: el.href.slice(0, 200) } : {}),
-          ...(el.tagName === 'INPUT' && el.type === 'password' ? {} : el.value ? { value: String(el.value).slice(0, 60) } : {}),
         });
       }
-      return { text: (document.body?.innerText || '').replace(/\n{3,}/g, '\n\n').slice(0, maxText), elements };
+      return { text: textOf(document.body), elements };
     },
     { maxText: MAX_TEXT, maxElements: MAX_ELEMENTS },
   );
@@ -129,7 +152,9 @@ async function run() {
       return withPage(async (page) => ({ ...(await where(page)), ...(await snapshot(page)) }));
     case 'screenshot':
       return withPage(async (page) => {
-        const buf = await page.screenshot({ type: 'jpeg', quality: 60, timeout: 15_000 });
+        // The user's own live view must show what they type; only model-facing shots are masked.
+        const masks = args.manual ? [] : page.frames().map((frame) => frame.locator('input,textarea,[contenteditable="true"],[data-duet-sensitive]'));
+        const buf = await page.screenshot({ type: 'jpeg', quality: 60, timeout: 15_000, mask: masks, maskColor: '#777777' });
         return { ...(await where(page)), mime: 'image/jpeg', base64: buf.toString('base64') };
       });
     case 'click':
@@ -145,6 +170,40 @@ async function run() {
         else await page.keyboard.type(String(args.text));
         if (args.submit) await page.keyboard.press('Enter');
         await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+        return where(page);
+      });
+    case 'inspect-input':
+      return withPage(async (page) => {
+        const token = await (await locate(page, args.ref)).evaluate((node) => {
+          window.__duetNonce ||= crypto.randomUUID();
+          const token = crypto.randomUUID();
+          window.__duetBindings ||= new Map();
+          window.__duetBindings.set(token, { node, signature: [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|') });
+          node.setAttribute('data-duet-input-token', token);
+          return `${window.__duetNonce}:${token}`;
+        });
+        return { ...(await where(page)), token };
+      });
+    case 'fill-input':
+      return withPage(async (page) => {
+        const token = String(args.token || '');
+        if (page.url() !== String(args.url || page.url()) || !token.includes(':')) throw new Error('The page changed while waiting for input.');
+        const nonce = token.split(':', 1)[0];
+        if (await page.evaluate((n) => window.__duetNonce === n, nonce) === false) throw new Error('The page changed while waiting for input.');
+        const fieldToken = token.slice(token.indexOf(':') + 1);
+        const field = page.locator(`[data-duet-input-token="${fieldToken}"]`).first();
+        const handle = await field.elementHandle();
+        if (!handle || await field.count() !== 1) throw new Error('The page changed while waiting for input.');
+        const original = await handle.evaluate((node, token) => {
+          const binding = window.__duetBindings?.get(token);
+          return binding?.node === node && binding.signature === [node.tagName, node.getAttribute('name'), node.getAttribute('type'), node.getAttribute('autocomplete')].join('|');
+        }, fieldToken);
+        if (!original) throw new Error('The field changed while waiting for input.');
+        try { await handle.fill(String(args.text), { timeout: 10_000 }); }
+        catch { throw new Error('Credential field could not be filled. Inspect the page and request fresh input.'); }
+        await page.evaluate((token) => window.__duetBindings?.delete(token), fieldToken);
+        await handle.evaluate((node) => node.setAttribute('data-duet-sensitive', 'true'));
+        if (args.submit) await page.keyboard.press('Enter');
         return where(page);
       });
     case 'press':

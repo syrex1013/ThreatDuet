@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { z } from 'zod';
 import { db } from './store.js';
 import { fail, text } from './computer/mcp.js';
+import { reportProgress, updateTaskMetadata } from './run-context.js';
 
 /**
  * Meta tools that live inside ThreatDuet itself (not on a cloud computer or the Mac).
@@ -11,6 +12,8 @@ import { fail, text } from './computer/mcp.js';
  */
 export function buildDuetServer(): McpServer {
   const server = new McpServer({ name: 'duet', version: '1.0.0' });
+  server.registerTool('report_progress', { description: 'Reports concise progress for the active task. Describe planned actions or observed evidence; never include credentials. Runtime determines whether execution started or succeeded.', inputSchema: { status: z.enum(['observing', 'planning', 'acting', 'waiting_for_approval', 'waiting_for_input', 'verifying', 'completed', 'failed', 'interrupted']), title: z.string().min(1).max(120), description: z.string().min(1).max(300) } }, ({ status, title, description }) => text(reportProgress(status, title, description)));
+  server.registerTool('update_task', { description: 'Names the active task from its actual objective. Task instructions and user-edited titles remain unchanged. No task ID is accepted.', inputSchema: { title: z.string().trim().min(1).max(120) } }, ({ title }) => text(updateTaskMetadata(title)));
 
   server.registerTool(
     'search_chats',

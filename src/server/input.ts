@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { stateChanged } from './events.js';
 import { notify } from './notify.js';
 import { tr } from './i18n.js';
+import { resolvedRun } from './run-context.js';
 
 export type InputKind = 'password' | 'text' | 'otp';
 
@@ -15,31 +16,29 @@ export interface PendingInput {
   target: 'local' | 'computer';
   /** Element number from the last browser_read, when known. */
   ref?: number;
-  url?: string;
+  /** Origin only; full paths can disclose sensitive navigation state. */
+  origin?: string;
+  taskId?: string;
+  channel?: string;
   createdAt: number;
 }
 
-type Waiter = { resolve: (value: string | null) => void; timer: NodeJS.Timeout };
-
-let pending: PendingInput | null = null;
-let waiter: Waiter | null = null;
+type Waiter = { input: PendingInput; resolve: (value: string | null) => void; timer: NodeJS.Timeout; cleanup?: () => void };
+const waiters = new Map<string, Waiter>();
 
 const TIMEOUT_MS = 5 * 60_000;
 
-export const openInput = (): PendingInput | null => pending;
+export const openInputs = (): PendingInput[] => [...waiters.values()].map((w) => w.input);
+export const openInput = (): PendingInput | null => openInputs()[0] ?? null;
 
-function clear(result: string | null): void {
-  if (waiter) {
-    clearTimeout(waiter.timer);
-    const { resolve } = waiter;
-    waiter = null;
-    pending = null;
-    stateChanged();
-    resolve(result);
-  } else {
-    pending = null;
-    stateChanged();
-  }
+function clear(id: string, result: string | null): void {
+  const waiter = waiters.get(id);
+  if (!waiter) return;
+  clearTimeout(waiter.timer);
+  waiter.cleanup?.();
+  waiters.delete(id);
+  stateChanged();
+  waiter.resolve(result);
 }
 
 /**
@@ -52,40 +51,59 @@ export function requestInput(opts: {
   target: 'local' | 'computer';
   ref?: number;
   url?: string;
+  taskId?: string;
+  channel?: string;
+  signal?: AbortSignal;
 }): Promise<string | null> {
-  if (pending) clear(null);
+  const run = resolvedRun();
   const id = randomUUID();
-  pending = {
+  const input: PendingInput = {
     id,
     kind: opts.kind,
     prompt: opts.prompt.trim().slice(0, 200) || tr('Duet needs your input'),
     target: opts.target,
     ref: opts.ref,
-    url: opts.url,
+    origin: opts.url ? (() => { try { return new URL(opts.url).origin; } catch { return undefined; } })() : undefined,
+    taskId: opts.taskId ?? run?.taskId,
+    channel: opts.channel ?? run?.channel,
     createdAt: Date.now(),
   };
-  stateChanged();
-  notify(tr('Duet needs your input'), pending.prompt);
-  return new Promise((resolve) => {
-    waiter = {
-      resolve,
-      timer: setTimeout(() => clear(null), TIMEOUT_MS),
-    };
+  const promise = new Promise<string | null>((resolve) => {
+    const timer = setTimeout(() => clear(id, null), TIMEOUT_MS);
+    waiters.set(id, { input, resolve, timer });
+    const signal = opts.signal ?? run?.signal;
+    if (signal) {
+      if (signal.aborted) clear(id, null);
+      else {
+        const abort = () => clear(id, null);
+        signal.addEventListener('abort', abort, { once: true });
+        waiters.get(id)!.cleanup = () => signal.removeEventListener('abort', abort);
+      }
+    }
   });
+  stateChanged();
+  notify(tr('Duet needs your input'), input.prompt);
+  return promise;
 }
 
 /** The user submitted a value from the prompt. */
 export function respondInput(id: string, value: string): boolean {
-  if (!pending || pending.id !== id || !waiter) return false;
+  if (!waiters.has(id)) return false;
   const v = value.slice(0, 5000);
   if (!v) return false;
-  clear(v);
+  clear(id, v);
   return true;
 }
 
 /** The user dismissed the prompt, or a newer request replaced it. */
 export function cancelInput(id: string): boolean {
-  if (!pending || pending.id !== id) return false;
-  clear(null);
+  if (!waiters.has(id)) return false;
+  clear(id, null);
   return true;
+}
+
+export function cancelInputs(filter: { taskId?: string; channel?: string; target?: 'local' | 'computer' } = {}): number {
+  const ids = openInputs().filter((x) => (!filter.taskId || x.taskId === filter.taskId) && (!filter.channel || x.channel === filter.channel) && (!filter.target || x.target === filter.target)).map((x) => x.id);
+  ids.forEach((id) => clear(id, null));
+  return ids.length;
 }

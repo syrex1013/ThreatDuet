@@ -5,7 +5,7 @@ import type { BrowserId, MacStatus } from '../../shared/types.js';
 import { writeConnectorsConfig } from '../connectors.js';
 import { db, writeWorkspaceConfig } from '../store.js';
 import { tr } from '../i18n.js';
-import { browserChoices, browserRunning, stopBrowser } from './browser.js';
+import { browserChoices, browserRunning, forgetBrowserSessions, stopBrowser } from './browser.js';
 import { fullDiskAccess, OS_ID } from './os.js';
 
 export async function macStatus(): Promise<MacStatus> {
@@ -44,5 +44,5 @@ export async function removeFolder(folder: string): Promise<void> {
 
 /** Stops Brave and deletes the copy; the next browsing copies the current sign-ins again. */
 export async function resyncBrowser(): Promise<void> {
-  await stopBrowser();
+  await forgetBrowserSessions();
 }

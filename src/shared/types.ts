@@ -123,7 +123,12 @@ export interface TaskItem {
   runId?: string;
   workflowId?: string;
   device?: 'coordinator' | 'desktop';
+  titleEdited?: boolean;
+  activity?: RunEvent[];
+  modelProgress?: RunEvent;
 }
+export type RunEventStatus = 'observing' | 'planning' | 'acting' | 'waiting_for_approval' | 'waiting_for_input' | 'verifying' | 'completed' | 'failed' | 'interrupted';
+export interface RunEvent { id: string; at: number; status: RunEventStatus; title: string; description: string; elapsedMs?: number }
 
 export interface Project {
   id: string;
@@ -248,6 +253,9 @@ export interface ComputerChoice {
 }
 
 export interface ComputerStatus {
+  execution?: string;
+  queuePosition?: number;
+  browserMode?: 'automatic' | 'interactive';
   connected: boolean;
   name: string | null;
   machineId: string | null;
@@ -262,6 +270,7 @@ export interface ComputerStatus {
 }
 
 export interface ComputerScreen {
+  browserMode?: 'automatic' | 'interactive';
   asleep: boolean;
   url?: string;
   title?: string;
@@ -277,7 +286,9 @@ export interface PendingInput {
   prompt: string;
   target: 'local' | 'computer';
   ref?: number;
-  url?: string;
+  origin?: string;
+  taskId?: string;
+  channel?: string;
   createdAt: number;
 }
 
@@ -316,6 +327,7 @@ export interface StateResponse {
   recs: { at: number; tasks: TaskItem[] } | null;
   /** Password/OTP/text prompt Duet opened; null when none. */
   pendingInput: PendingInput | null;
+  pendingInputs: PendingInput[];
 }
 
 export type OsId = 'mac' | 'windows' | 'linux';

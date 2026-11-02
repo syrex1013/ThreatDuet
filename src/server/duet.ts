@@ -121,7 +121,15 @@ function setBusy(label: string | null, detail: string | null = null): void {
 }
 
 /** Progress phrases from kilo's tool stream, shown live under "Duet is working". */
-const progress = (detail: string) => { if (detail !== 'writing a reply') busyText = null; setBusy(busy, detail); };
+let lastProgress = '';
+let lastProgressAt = 0;
+const progress = (detail: string) => {
+  const now = Date.now();
+  if (detail === lastProgress && now - lastProgressAt < 1000) return;
+  lastProgress = detail; lastProgressAt = now;
+  if (detail !== 'writing a reply') busyText = null;
+  setBusy(busy, detail);
+};
 
 export function enqueue(label: string, fn: () => Promise<unknown>, priority = 0, channel?: string): void {
   void queue.add(
@@ -164,7 +172,7 @@ async function turn({ prompt, kind, session, step = 1, triage, rewrite, channel,
   if (project && project.status !== 'active') return null;
   if (task && task.status !== 'running') return task.session ?? null;
   const knowledgeVersion = db.data.knowledgeVersion;
-  const r = await runKilo({ prompt, model: task ? db.data.provider.taskModel || db.data.settings.model : db.data.provider.chatModel || db.data.settings.model, agent: 'duet', session, onProgress: progress, onText: draftProgress, signal: taskId ? controllers.get(taskId)?.signal : undefined, taskId });
+  const r = await runKilo({ prompt, model: task ? db.data.provider.taskModel || db.data.settings.model : db.data.provider.chatModel || db.data.settings.model, agent: 'duet', session, onProgress: progress, onText: draftProgress, signal: taskId ? controllers.get(taskId)?.signal : undefined, taskId, channel });
   if (task) {
     task.session = knowledgeVersion === db.data.knowledgeVersion ? r.sessionID : null;
     task.step = step;
@@ -309,7 +317,7 @@ async function addTask(t: { title: string; details: string; start: boolean }, ch
   const startedToday = db.data.tasks.filter((x) => x.startedAt && x.startedAt >= dayStart).length;
   const running = db.data.tasks.filter((x) => x.status === 'queued' || x.status === 'running').length;
   const start = mayStart && t.start && running < MAX_OPEN_TASKS && startedToday < MAX_TASKS_PER_DAY;
-  const item: TaskItem = { id: randomUUID(), title: t.title, details: t.details, status: start ? 'queued' : 'suggested', createdAt: Date.now(), startedAt: null, doneAt: null, channel, projectId: db.data.projects.find((p) => p.channel === channel)?.id };
+  const item: TaskItem = { id: randomUUID(), title: t.title, details: t.details, titleEdited: false, status: start ? 'queued' : 'suggested', createdAt: Date.now(), startedAt: null, doneAt: null, channel, projectId: db.data.projects.find((p) => p.channel === channel)?.id };
   db.data.tasks.unshift(item);
   await post({ role: 'system', kind: 'info', text: tr(start ? 'Duet started a task of its own: {title}' : 'Duet suggests a task: {title}', { title: t.title }), channel });
   if (start) runTask(item.id);
@@ -399,6 +407,7 @@ export async function controlTask(id: string, action: 'pause' | 'cancel' | 'resu
   task.reason = action === 'pause' ? 'Paused by you. Any in-flight action needs review.' : 'Cancelled by you. Completed effects were not undone.';
   task.doneAt = action === 'cancel' ? Date.now() : null;
   controllers.get(id)?.abort();
+  (await import('./input.js')).cancelInputs({ taskId: id });
   for (const m of db.data.messages) if (m.taskId === id && ['pending', 'waiting'].includes(m.proposal?.status ?? '') && m.proposal) m.proposal.status = 'rejected';
   syncRun(task);
   await db.write();
@@ -491,6 +500,7 @@ async function executeApproved(msg: Message): Promise<void> {
     agent: 'code',
     auto: true,
     taskId: msg.taskId,
+    channel: msg.channel,
     proposalId: msg.id,
     signal: msg.taskId ? controllers.get(msg.taskId)?.signal : undefined,
     onProgress: progress,

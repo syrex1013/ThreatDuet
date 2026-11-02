@@ -119,10 +119,11 @@ export function buildMacServer(): McpServer {
   server.registerTool(
     'browser_push_session',
     {
+      inputSchema: { origin: z.string().url().describe('Destination origin, such as https://example.com') },
       description:
         "Copies the current sign-in cookies from this computer's ThreatDuet browser into Duet's cloud computer browser, so the cloud browser can use the same sessions. Call when work should continue on the Instabox machine.",
     },
-    () => web(() => pushSessionToComputer(), text),
+    ({ origin }: { origin: string }) => web(() => pushSessionToComputer(origin), text),
   );
   return server;
 }

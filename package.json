@@ -1,7 +1,7 @@
 {
   "name": "threatduet",
   "productName": "ThreatDuet",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "A proactive coworker in the style of Claude Duet, running on Kilo Code free auto model",
@@ -26,7 +26,9 @@
     "smoke:daily-work": "bun run build && vitest run --config scripts/daily-work.vitest.ts",
     "smoke:task": "tsx scripts/smoke-task.mts",
     "emulate:windows": "tsx scripts/emulate-windows.mts",
-    "dist:win": "bun run build && electron-builder --win --x64"
+    "dist:win": "bun run build && electron-builder --win --x64",
+    "broker": "bun src/server/broker/index.ts",
+    "broker:admin": "bun src/server/broker/admin.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",

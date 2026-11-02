@@ -7,7 +7,8 @@ import { remoteInfo, setRemote } from './remote.js';
 import { addConnector, cancelSignIn, connectorsResponse, removeConnector, startSignIn, updateConnector } from './connectors.js';
 import { db, writeWorkspaceConfig } from './store.js';
 import { tr } from './i18n.js';
-import { computerStatus, connectComputer, disconnectComputer, listChoices, retrySetup } from './computer/machine.js';
+import { computerStatus, disconnectComputer, retrySetup, enrollComputer, attachComputer } from './computer/machine.js';
+import { forgetBrowserSessions } from './mac/browser.js';
 import { handleComputerMcp, tokenOk } from './computer/mcp.js';
 import { handleDuetMcp } from './duet-mcp.js';
 import { handleMacMcp } from './mac/mcp.js';
@@ -169,20 +170,32 @@ app.post('/api/mac/privacy', async (c) => {
 app.all('/mcp/computer', (c) => handleComputerMcp(c.req.raw));
 app.all('/mcp/duet', (c) => handleDuetMcp(c.req.raw));
 app.get('/api/computer', async (c) => c.json(await computerStatus()));
-app.post('/api/computer/machines', json(z.object({ apiKey: z.string().trim().min(8).max(500).optional() })), async (c) => {
+app.post('/api/mac/browser/forget', json(z.object({ confirmed: z.literal(true) }).strict()), async (c) => {
+  (await import('./input.js')).cancelInputs({ target: 'local' });
+  await forgetBrowserSessions();
+  return c.json(await macStatus());
+});
+app.post('/api/computer/enroll', json(z.object({ url: z.string().max(2000), code: z.string().min(20).max(200), name: z.string().trim().min(1).max(80) }).strict()), async (c) => {
+  const { url, code, name } = c.req.valid('json');
   try {
-    return c.json({ machines: await listChoices(c.req.valid('json').apiKey) });
-  } catch (e) {
-    return c.json({ error: (e as Error).message }, 400);
-  }
+    await enrollComputer(url, code, name);
+    await writeConnectorsConfig();
+    await writeWorkspaceConfig();
+    return c.json({ ok: true });
+  } catch (error) { return c.json({ error: (error as Error).message }, 409); }
 });
-app.post('/api/computer/connect', json(z.object({ apiKey: z.string().trim().min(8).max(500).optional(), machineId: z.string().min(1).max(100) })), async (c) => {
-  const r = await connectComputer(c.req.valid('json'));
-  if ('error' in r) return c.json(r, 400);
-  await writeConnectorsConfig();
-  await writeWorkspaceConfig();
-  return c.json(r);
+app.post('/api/computer/attach', json(z.object({ url: z.string().max(2000), token: z.string().min(32).max(200) }).strict()), async (c) => {
+  if (db.data.cloudBroker) return c.json({ error: 'Disconnect current private workspace first.' }, 409);
+  try {
+    const { url, token } = c.req.valid('json');
+    await attachComputer(url, token);
+    await writeConnectorsConfig();
+    await writeWorkspaceConfig();
+    return c.json({ ok: true });
+  } catch { return c.json({ error: 'Administrator installation token was not accepted.' }, 409); }
 });
+app.post('/api/computer/machines', (c) => c.json({ error: 'Direct provider access removed. Use private broker enrollment.' }, 410));
+app.post('/api/computer/connect', (c) => c.json({ error: 'Direct provider access removed. Use private broker enrollment.' }, 410));
 app.post('/api/computer/retry', async (c) => {
   const r = await retrySetup();
   return 'error' in r ? c.json(r, 409) : c.json(r);
@@ -201,9 +214,9 @@ app.post('/api/computer/disconnect', async (c) => {
   return c.json({ ok: true });
 });
 
-app.post('/api/computer/session', async (c) => {
+app.post('/api/computer/session', json(z.object({ origin: z.string().url() })), async (c) => {
   try {
-    return c.json({ ok: true, message: await pushSessionToComputer() });
+    return c.json({ ok: true, message: await pushSessionToComputer(c.req.valid('json').origin) });
   } catch (e) {
     return c.json({ error: (e as Error).message }, 400);
   }

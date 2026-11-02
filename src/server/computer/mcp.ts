@@ -159,10 +159,11 @@ export function buildComputerServer(): McpServer {
   server.registerTool(
     'browser_push_session',
     {
+      inputSchema: { origin: z.string().url().describe('Destination origin, such as https://example.com') },
       description:
         "Copies sign-in cookies from the user's local ThreatDuet browser into this cloud computer's browser. Use when a session already exists on the Mac/PC and work should continue here.",
     },
-    () => guard(() => pushSessionToComputer(), text),
+    ({ origin }: { origin: string }) => guard(() => pushSessionToComputer(origin), text),
   );
   return server;
 }

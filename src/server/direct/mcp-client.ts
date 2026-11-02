@@ -178,7 +178,7 @@ export async function openTools(): Promise<Handle> {
   const { macOn } = await import('../store.js');
   await inMemory('duet', (await import('../duet-mcp.js')).buildDuetServer).catch((e) => log.warn({ err: String(e) }, 'duet tools unavailable'));
   if (macOn()) await inMemory('local', (await import('../mac/mcp.js')).buildMacServer).catch((e) => log.warn({ err: String(e) }, 'mac tools unavailable'));
-  if (db.data.computer) await inMemory('computer', (await import('../computer/mcp.js')).buildComputerServer).catch((e) => log.warn({ err: String(e) }, 'computer tools unavailable'));
+  if (db.data.cloudBroker || db.data.computer) await inMemory('computer', (await import('../computer/mcp.js')).buildComputerServer).catch((e) => log.warn({ err: String(e) }, 'computer tools unavailable'));
   await Promise.all(
     db.data.connectors
       .filter((c) => c.enabled)

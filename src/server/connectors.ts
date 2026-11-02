@@ -45,7 +45,7 @@ export async function writeConnectorsConfig(): Promise<void> {
   );
   // Duet's cloud computer is served by this very process, behind a token that changes on every start.
   const computer = computerEndpoint();
-  if (db.data.computer && computer) Object.assign(mcp, { computer: { type: 'remote', url: computer.url, headers: computer.headers, enabled: true } });
+  if ((db.data.cloudBroker || db.data.computer) && computer) Object.assign(mcp, { computer: { type: 'remote', url: computer.url, headers: computer.headers, enabled: true } });
   const mac = macEndpoint();
   if (macOn() && mac) Object.assign(mcp, { local: { type: 'remote', url: mac.url, headers: mac.headers, enabled: true } });
   const meta = duetEndpoint();
@@ -316,14 +316,15 @@ process.once('exit', () => {
 /** What Duet is told about the apps it can reach. */
 export function connectedAppsLine(): string {
   const on = db.data.connectors.filter((c) => c.enabled);
-  const computer = db.data.computer
+  const cloudComputer = db.data.cloudBroker || db.data.computer;
+  const computer = cloudComputer
     ? db.data.computerAuto
-      ? `You have your own cloud computer ("${db.data.computer.name}") with a browser and a shell. ALLOW ALL: the user chose to let you use it without asking, so every computer_ tool (open, read, click, type, run commands, write files) works on your own: use them directly instead of proposing them as ACTIONS. Still never send, pay or delete outside it without being told to. Never use it to look at the user's files on their own machine.`
-      : `You have your own cloud computer ("${db.data.computer.name}") with a browser. On your own you may read web pages there (browser_read, browser_screenshot, read_file${db.data.settings.openWebPages ? ', browser_open' : ''}). Opening ${db.data.settings.openWebPages ? 'pages you were not told about' : 'pages (browser_open)'}, clicking, typing, running commands and writing files there change things, so propose them as ACTIONS and name the computer. Never use it to look at the user's files on their own machine.`
+      ? `You have your own cloud computer ("${cloudComputer.name}") with a browser and a shell. ALLOW ALL: the user chose to let you use it without asking, so every computer_ tool (open, read, click, type, run commands, write files) works on your own: use them directly instead of proposing them as ACTIONS. Still never send, pay or delete outside it without being told to. Never use it to look at the user's files on their own machine.`
+      : `You have your own cloud computer ("${cloudComputer.name}") with a browser. On your own you may read web pages there (browser_read, browser_screenshot, read_file${db.data.settings.openWebPages ? ', browser_open' : ''}). Opening ${db.data.settings.openWebPages ? 'pages you were not told about' : 'pages (browser_open)'}, clicking, typing, running commands and writing files there change things, so propose them as ACTIONS and name the computer. Never use it to look at the user's files on their own machine.`
     : '';
   // Both places are attached at once; Duet picks per task.
   const where =
-    db.data.computer && macOn()
+    (db.data.cloudBroker || db.data.computer) && macOn()
       ? `You can work in two places; pick the one that fits each step and say which you used. The user's own ${OS_NAME} (local_ tools): their files, their signed-in browser and accounts, their local apps. Your cloud computer (computer_ tools): installing software, long, heavy or risky jobs, trying untrusted code or downloads, and browsing that must not happen as the user.`
       : '';
   const m = db.data.mac;

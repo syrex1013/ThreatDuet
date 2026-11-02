@@ -8,18 +8,21 @@ import { stateChanged } from '../events.js';
 import { db, PROTECTED } from '../store.js';
 import { tr } from '../i18n.js';
 import { Instabox, InstaboxError } from './instabox.js';
+import { BrokerClient, brokerUrl } from './broker-client.js';
+import { cancelInputs } from '../input.js';
 
 const DRIVER_SOURCE = new URL('./vm/duet-browser.mjs', import.meta.url);
 
-let makeClient = (key: string) => new Instabox(key);
+// Direct provider access exists only as an injected test adapter, never in distributed clients.
+let makeClient = (_key: string): Instabox => { throw new Error('Direct shared-machine access is disabled. Enroll with a private broker invite.'); };
+let testAdapter = false;
+const broker = () => db.data.cloudBroker ? new BrokerClient(db.data.cloudBroker) : null;
 /** Tests swap in a fake API. */
 export function setClientFactory(f: (key: string) => Instabox): void {
   makeClient = f;
+  testAdapter = true;
   client = null;
 }
-
-// Shipped inside the app on purpose, so setup needs no key. Anyone with the app can extract it.
-const DEFAULT_API_KEY = 'ibk_kilc7pkj5j32z3rpleuo6cvipfvzrsmrfo477fzxv2qxrubyepya';
 
 let client: { key: string; api: Instabox } | null = null;
 function api(): Instabox {
@@ -39,7 +42,8 @@ const browserQueue = new PQueue({ concurrency: 1 });
 const firstLine = (s: string) => (s ?? '').trim().split('\n')[0].slice(0, 200);
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export async function listChoices(apiKey = DEFAULT_API_KEY): Promise<ComputerChoice[]> {
+export async function listChoices(apiKey = 'test-adapter-only'): Promise<ComputerChoice[]> {
+  if (!testAdapter) throw new Error('Enroll using an HTTPS broker URL and a private invite code.');
   const a = makeClient(apiKey);
   await a.me();
   return (await a.listMachines()).map((m) => ({
@@ -53,11 +57,22 @@ export async function listChoices(apiKey = DEFAULT_API_KEY): Promise<ComputerCho
 
 /** What the status panel shows: from the cache only, so reading the state never calls Instabox. */
 export function computerBrief(): { name: string; state: string | null } | null {
+  const cloud = db.data.cloudBroker;
+  if (cloud) return { name: cloud.name, state: stateCache?.state ?? null };
   const rec = db.data.computer;
   return rec ? { name: rec.name, state: stateCache?.state ?? null } : null;
 }
 
 export async function computerStatus(): Promise<ComputerStatus> {
+  const cloud = broker();
+  if (cloud) {
+    try {
+      const status = await cloud.status();
+      stateCache = { state: status.available ? 'running' : 'unavailable', at: Date.now() };
+      return { connected: true, name: status.tenant.name, machineId: null, machineState: stateCache.state, vault: false, auto: db.data.computerAuto, setup: null, error: status.reason, execution: status.execution, queuePosition: status.queuePosition, browserMode: status.browserMode };
+    } catch (error) { return { connected: true, name: db.data.cloudBroker!.name, machineId: null, machineState: 'unavailable', vault: false, auto: db.data.computerAuto, setup: null, error: errText(error) }; }
+  }
+  if (db.data.computer && !testAdapter) return { connected: false, name: null, machineId: null, machineState: 'unavailable', vault: false, auto: false, setup: null, error: 'Legacy shared-machine connection disabled. Administrator must migrate existing data and enroll this installation.' };
   const rec = db.data.computer;
   if (!rec) return { connected: false, name: null, machineId: null, machineState: null, vault: false, auto: db.data.computerAuto, setup, error: null };
   let error: string | null = null;
@@ -74,6 +89,7 @@ export async function computerStatus(): Promise<ComputerStatus> {
 
 /** Wakes the machine if it was paused or stopped. Exec also wakes an idle-paused one, but not one that was switched off. */
 export async function ensureAwake(): Promise<void> {
+  if (broker()) { const status = await broker()!.status(); if (!status.available) throw new Error(status.reason ?? 'Private cloud unavailable. Administrator must wake the machine.'); return; }
   if (Date.now() < awakeUntil) return;
   const rec = db.data.computer;
   if (!rec) throw new Error("Duet doesn't have a computer yet.");
@@ -113,6 +129,7 @@ async function driverSource() {
 }
 
 export async function installDriver(): Promise<void> {
+  if (broker()) return;
   const { source, version } = await driverSource();
   const have = await vmExec({
     cmd: 'cat "$D/VERSION" 2>/dev/null; test -d "$D/node_modules/playwright-core" && echo has-playwright',
@@ -144,11 +161,12 @@ function friendly(message: string): string {
   return /did not start|missing x server|cannot open display/i.test(message) ? DESKTOP_HINT : message;
 }
 
-export type BrowserResult = { ok: true; url?: string; title?: string; text?: string; elements?: unknown[]; mime?: string; base64?: string; status?: string };
+export type BrowserResult = { ok: true; url?: string; title?: string; token?: string; text?: string; elements?: unknown[]; mime?: string; base64?: string; status?: string };
 
 /** One browser action on the computer. Arguments travel as an argv entry, never through a shell. */
-export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'cookies', args: Record<string, unknown> = {}): Promise<BrowserResult> {
+export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'click' | 'type' | 'press' | 'cookies' | 'inspect-input' | 'fill-input', args: Record<string, unknown> = {}, manual = false): Promise<BrowserResult> {
   return browserQueue.add(async () => {
+    if (broker()) return broker()!.operation<BrowserResult>('browser', { action, args }, manual);
     if (!driverReady) await installDriver();
     const r = await vmExec({
       argv: ['node', `${VM_DRIVER_DIR}/duet-browser.mjs`, action, JSON.stringify(args)],
@@ -170,6 +188,7 @@ export function browser(action: 'start' | 'open' | 'read' | 'screenshot' | 'clic
 
 /** Duet's working folder on the computer. Reads, writes and copies never leave it. */
 export async function safeVmPath(p: string): Promise<string> {
+  if (broker()) { const target = path.posix.resolve(VM_WORK_DIR, p); if (target !== VM_WORK_DIR && !target.startsWith(`${VM_WORK_DIR}/`)) throw new Error('Path outside private workspace.'); return target; }
   const wanted = path.posix.resolve(VM_WORK_DIR, p);
   const r = await vmExec({ argv: ['realpath', '-m', '--', wanted] });
   const real = r.stdout.trim();
@@ -179,6 +198,7 @@ export async function safeVmPath(p: string): Promise<string> {
 }
 
 export async function readVmFile(p: string): Promise<string> {
+  if (broker()) { const r = await broker()!.operation<{content?: string; entries?: {name: string}[]}>('readFile', { path: p }); return r.content ?? r.entries?.map((e) => e.name).join('\n') ?? ''; }
   const real = await safeVmPath(p);
   const f = await api().readFile(db.data.computer!.machineId, real);
   if (f.entries) return `Folder ${real}:\n${(f.entries as { name?: string; type?: string }[]).map((e) => `${e.type === 'dir' || e.type === 'directory' ? '[dir] ' : ''}${e.name ?? ''}`).join('\n')}`;
@@ -187,12 +207,14 @@ export async function readVmFile(p: string): Promise<string> {
 }
 
 export async function writeVmFile(p: string, content: string): Promise<string> {
+  if (broker()) { const r = await broker()!.operation<{bytes: number}>('writeFile', { path: p, content }); return `Wrote ${r.bytes} bytes in private workspace.`; }
   const real = await safeVmPath(p);
   const bytes = await api().writeFile(db.data.computer!.machineId, real, content);
   return `Wrote ${bytes} bytes to ${real}.`;
 }
 
 export async function runVmCommand(cmd: string, timeoutSeconds = 120): Promise<string> {
+  if (broker()) { const r = await broker()!.operation<{stdout: string; stderr: string; exitCode: number; timedOut?: boolean}>('exec', { cmd, timeoutSeconds }); return `${r.stdout.slice(0,30000)}\n${r.stderr.slice(0,30000)}\nexit code ${r.exitCode}${r.timedOut ? ' (timed out; outcome uncertain)' : ''}`; }
   await vmExec({ argv: ['mkdir', '-p', VM_WORK_DIR] });
   const r = await vmExec({ cmd, cwd: VM_WORK_DIR, timeoutSeconds: Math.min(Math.max(timeoutSeconds, 1), 600) });
   const cap = (s: string) => (s.length > 30_000 ? `${s.slice(0, 30_000)}\n[output cut at 30,000 characters]` : s);
@@ -204,6 +226,7 @@ export async function copyToWorkspace(vmPath: string, name?: string): Promise<st
   const real = await safeVmPath(vmPath);
   const target = path.basename(name || real);
   if (!target || target.startsWith('.') || PROTECTED.includes(target)) throw new Error(`Can't save a file called ${target || '(empty)'} in the workspace.`);
+  if (broker()) { const r = await broker()!.operation<{base64: string}>('copyFile', { path: real }); await fs.writeFile(path.join(WORKSPACE, target), Buffer.from(r.base64, 'base64')); return `Saved ${target} in the workspace.`; }
   const r = await vmExec({ argv: ['base64', '-w0', '--', real] });
   if (r.exitCode !== 0) throw new Error(`Couldn't read ${real}: ${firstLine(r.stderr)}`);
   if (r.truncated) throw new Error('That file is too large to copy (about 700 KB at most).');
@@ -214,7 +237,7 @@ export async function copyToWorkspace(vmPath: string, name?: string): Promise<st
 
 /** Copies sign-in cookies from this computer's ThreatDuet browser into the cloud Chromium profile. */
 export async function importSessionCookies(cookies: unknown[]): Promise<{ count: number }> {
-  if (!db.data.computer) throw new Error(tr('No computer is connected.'));
+  if (!db.data.computer && !db.data.cloudBroker) throw new Error(tr('No computer is connected.'));
   const r = await browser('cookies', { cookies });
   return { count: Number((r as { count?: number }).count ?? cookies.length) };
 }
@@ -224,8 +247,8 @@ export async function screen(wake = false): Promise<ComputerScreen> {
   const st = await computerStatus();
   if (!st.connected) return { asleep: true };
   if (st.machineState !== 'running' && !wake) return { asleep: true };
-  const r = await browser('screenshot');
-  return { asleep: false, url: r.url, title: r.title, mime: r.mime, base64: r.base64 };
+  const r = await browser('screenshot', { manual: true }, true);
+  return { asleep: false, url: r.url, title: r.title, mime: r.mime, base64: r.base64, browserMode: st.browserMode };
 }
 
 // ---- setup ----
@@ -238,7 +261,8 @@ const step = (text: string) => {
 /** Connects (or re-checks) the computer in the background; progress shows in computerStatus().setup. */
 export async function connectComputer(input: { apiKey?: string; machineId: string }, auto = false): Promise<{ ok: true } | { error: string }> {
   if (setup?.running) return { error: tr('Setup is already running.') };
-  const apiKey = input.apiKey ?? DEFAULT_API_KEY;
+  if (!testAdapter) return { error: 'Direct machine access disabled. Use private broker enrollment.' };
+  const apiKey = input.apiKey ?? 'test-adapter-only';
   let machine;
   try {
     const a = makeClient(apiKey);
@@ -261,6 +285,7 @@ export async function connectComputer(input: { apiKey?: string; machineId: strin
 }
 
 export async function retrySetup(): Promise<{ ok: true } | { error: string }> {
+  if (broker()) { await broker()!.status(); return { ok: true }; }
   if (!db.data.computer) return { error: tr("Duet doesn't have a computer yet.") };
   if (setup?.running) return { error: tr('Setup is already running.') };
   void runSetup();
@@ -295,6 +320,7 @@ async function runSetup(): Promise<void> {
  * (a running one first). Skipped once the user disconnected it; failures only log and are tried again later.
  */
 export async function autoConnectComputer(): Promise<boolean> {
+  if (!testAdapter) return false;
   if (db.data.computer || db.data.computerOptOut || setup?.running) return false;
   try {
     const pick = (await listChoices())
@@ -315,6 +341,8 @@ export async function autoConnectComputer(): Promise<boolean> {
 }
 
 export async function disconnectComputer(): Promise<void> {
+  cancelInputs({ target: 'computer' });
+  db.data.cloudBroker = null;
   // The machine itself is never changed or deleted: it was the user's before and stays theirs.
   db.data.computer = null;
   db.data.computerOptOut = true;
@@ -323,5 +351,27 @@ export async function disconnectComputer(): Promise<void> {
   awakeUntil = 0;
   stateCache = null;
   setup = null;
+  await db.write();
+}
+
+/** Enrollment never imports legacy shared content into a new tenant. */
+export async function enrollComputer(url: string, code: string, name: string): Promise<void> {
+  if (db.data.cloudBroker) throw new Error('Disconnect current private workspace before enrolling another identity.');
+  db.data.cloudBroker = await BrokerClient.enroll(url, code, db.data.installationId, name);
+  db.data.computerAuto = false;
+  db.data.computerOptOut = false;
+  stateCache = null;
+  await db.write();
+}
+
+/** Attaching an administrator workspace starts from the same safe defaults as enrollment. */
+export async function attachComputer(url: string, token: string): Promise<void> {
+  if (db.data.cloudBroker) throw new Error('Disconnect current private workspace first.');
+  const identity = { url: brokerUrl(url), token, tenantId: '', name: '' };
+  const status = await new BrokerClient(identity).status();
+  db.data.cloudBroker = { ...identity, tenantId: status.tenant.id, name: status.tenant.name };
+  db.data.computerAuto = false;
+  db.data.computerOptOut = false;
+  stateCache = null;
   await db.write();
 }

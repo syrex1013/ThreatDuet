@@ -52,7 +52,7 @@ export async function finishTask(task: TaskItem): Promise<void> {
 export async function createTask(input: Pick<TaskItem, 'title' | 'details'> & Partial<Pick<TaskItem, 'projectId' | 'criteria' | 'workflowId' | 'device'>>): Promise<TaskItem> {
   const project = input.projectId ? db.data.projects.find((p) => p.id === input.projectId) : undefined;
   if (input.projectId && !project) throw new Error('Project not found.');
-  const task: TaskItem = { ...input, id: randomUUID(), channel: project?.channel, status: 'suggested', createdAt: Date.now(), startedAt: null, doneAt: null };
+  const task: TaskItem = { ...input, id: randomUUID(), titleEdited: true, channel: project?.channel, status: 'suggested', createdAt: Date.now(), startedAt: null, doneAt: null };
   db.data.tasks.unshift(task);
   await db.write();
   return task;

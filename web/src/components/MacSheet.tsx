@@ -141,7 +141,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                 <span className="hint">
                   {s.browsers.some((b) => b.installed)
                     ? t(
-                        "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. The copy stays in ThreatDuet's private folder and is deleted when you turn this off, switch browser or quit. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.",
+                        "Duet opens a browser out of sight with a copy of your sign-ins, so it can use Gmail, calendars and dashboards. Each browser keeps its complete profile in ThreatDuet's private folder across app restarts. Closing or disabling the browser preserves sign-ins. Use Forget browser sessions to remove them. Duet never sees the cookies themselves, only the pages. Reading a page is automatic; clicking, typing and submitting wait for approval, and happen as you.",
                       )
                     : t('Brave, Chrome or Firefox must be installed.')}
                 </span>
@@ -161,6 +161,7 @@ export function MacSheet({ onClose }: { onClose: () => void }) {
                   </select>
                 </div>
                 <div className="reset">
+                  <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => { if (window.confirm(t('Forget all private local browser sessions? This signs out Duet and removes its local browser profiles.'))) act.mutate(['/mac/browser/forget', { confirmed: true }]); }}>{t('Forget browser sessions')}</button>
                   <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => act.mutate(['/mac/browser/refresh', {}])}>
                     {t('Copy my sign-ins again')}
                   </button>

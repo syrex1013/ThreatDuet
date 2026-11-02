@@ -58,6 +58,15 @@ export const workApi = new Hono<{ Variables: { phone?: boolean } }>()
     return c.json({ ok: true });
   })
   .post('/tasks', json(Task), async (c) => c.json(await createTask(c.req.valid('json'))))
+  .post('/tasks/update', json(Id.extend({ title: text.max(120).optional(), details: z.string().max(20_000).optional(), criteria: z.string().max(4000).optional() })), async (c) => {
+    const { id, ...patch } = c.req.valid('json');
+    const task = db.data.tasks.find((t) => t.id === id);
+    if (!task) return c.json({ error: 'Task not found.' }, 404);
+    Object.assign(task, patch);
+    if (patch.title !== undefined) task.titleEdited = true;
+    await db.write();
+    return c.json(task);
+  })
   .post('/tasks/control', json(Id.extend({ action: z.enum(['pause', 'cancel', 'resume', 'retry']) })), async (c) => {
     const { id, action } = c.req.valid('json');
     return await controlTask(id, action) ? c.json({ ok: true }) : c.json({ error: 'Task cannot transition. Resolve pending approvals or uncertain receipts first.' }, 409);
