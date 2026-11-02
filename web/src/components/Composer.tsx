@@ -7,9 +7,10 @@ interface ComposerProps {
   setText: (t: string) => void;
   error: string | null;
   onSend: (t: string) => void;
+  disabled?: boolean;
 }
 
-export function Composer({ text, setText, error, onSend }: ComposerProps) {
+export function Composer({ text, setText, error, onSend, disabled }: ComposerProps) {
   // Chromium's speech service needs Google API keys that Electron doesn't ship, so dictation stays browser-only.
   const shell = document.documentElement.dataset.shell;
   const SpeechRecognition: any =
@@ -42,6 +43,8 @@ export function Composer({ text, setText, error, onSend }: ComposerProps) {
     setListening(true);
     r.start();
   };
+
+  if (disabled) return null;
 
   return (
     <form className="composer" onSubmit={submit}>

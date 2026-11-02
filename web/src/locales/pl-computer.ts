@@ -1,7 +1,7 @@
 export const PL_COMPUTER: Record<string, string> = {
   'Your computer': 'Twój komputer',
   'Google and some sites block sign-in from automated cloud browsers. Sign in with your regular browser on this computer, then ask Duet to continue from your local browser. This app does not bypass site security checks.': 'Google i niektóre strony blokują logowanie z automatycznych przeglądarek w chmurze. Zaloguj się w zwykłej przeglądarce na tym komputerze, a potem poproś Dueta o kontynuowanie w lokalnej przeglądarce. Aplikacja nie omija zabezpieczeń stron.',
-  'If a site still blocks sign-in, sign in with your regular browser, then reload sign-ins in settings.': 'Jeśli strona nadal blokuje logowanie, zaloguj się w zwykłej przeglądarce, a potem odśwież logowania w ustawieniach.',
+  'If a site blocks the automated sign-in (Google does this), use "Take over browser" in the Watch panel to sign in yourself, or sign in with your regular browser and reload sign-ins in settings.': 'Jeśli strona blokuje automatyczne logowanie (Google tak robi), użyj „Przejdź do przeglądarki" w panelu Podgląd, żeby zalogować się samodzielnie — albo zaloguj się w zwykłej przeglądarce i odśwież logowania w ustawieniach.',
   // ComputerSheet
   "Duet's computer": 'Komputer Dueta',
   'Checking…': 'Sprawdzam…',

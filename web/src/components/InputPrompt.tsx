@@ -46,7 +46,7 @@ export function InputPrompt({ req, taskTitle, onDone }: { req: PendingInput; tas
     <section className="input-prompt-card" aria-label={t('Duet needs your input')}>
       <h3>{t('Duet needs your input')}</h3>
       {taskTitle && <p>{taskTitle}</p>}
-      <p className="hint">{onComputer ? t('Google and some sites block sign-in from automated cloud browsers. Sign in with your regular browser on this computer, then ask Duet to continue from your local browser. This app does not bypass site security checks.') : t('If a site still blocks sign-in, sign in with your regular browser, then reload sign-ins in settings.')}</p>
+      <p className="hint">{onComputer ? t('Google and some sites block sign-in from automated cloud browsers. Sign in with your regular browser on this computer, then ask Duet to continue from your local browser. This app does not bypass site security checks.') : t('If a site blocks the automated sign-in (Google does this), use "Take over browser" in the Watch panel to sign in yourself, or sign in with your regular browser and reload sign-ins in settings.')}</p>
       <p className="hint">{req.prompt}</p>
       {req.origin && <p className="watch-where">{req.origin}</p>}
       <p className="hint">

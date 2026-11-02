@@ -1,5 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { spawn } from 'node:child_process';
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, screen, session, shell, Tray, type Rectangle } from 'electron';
 import fixPath from 'fix-path';
 
@@ -212,9 +215,9 @@ async function boot() {
   tray.setToolTip('ThreatDuet');
   tray.setContextMenu(menu());
 
-  if (app.isPackaged && Notification.isSupported()) {
-    setTimeout(() => void checkForUpdate(toasts), 20_000).unref();
-    setInterval(() => void checkForUpdate(toasts), 24 * 60 * 60 * 1000).unref();
+  if (app.isPackaged) {
+    setTimeout(() => void checkForUpdate(toasts), 2_000).unref();
+    setInterval(() => void checkForUpdate(toasts), 6 * 60 * 60 * 1000).unref();
   }
 
   // Approvals waiting: Dock badge, menu-bar count and tray menu stay in step with the thread.
@@ -336,31 +339,93 @@ function newerVersion(candidate: string, current: string): boolean {
   return false;
 }
 
+let updating = false;
+
 async function checkForUpdate(toasts: Set<Notification>): Promise<void> {
+  if (updating) return;
   try {
     const response = await fetch('https://api.github.com/repos/syrex1013/ThreatDuet/releases/latest', {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': `ThreatDuet/${app.getVersion()}` },
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return;
-    const release = (await response.json()) as { tag_name?: string; html_url?: string; draft?: boolean; prerelease?: boolean };
+    const release = (await response.json()) as {
+      tag_name?: string; html_url?: string; draft?: boolean; prerelease?: boolean;
+      assets?: Array<{ name: string; browser_download_url: string }>;
+    };
     const tag = release.tag_name;
-    const url = release.html_url ? new URL(release.html_url) : null;
-    if (!tag || release.draft || release.prerelease || !newerVersion(tag, app.getVersion()) || !url || url.origin !== 'https://github.com' || url.pathname !== `/syrex1013/ThreatDuet/releases/tag/${encodeURIComponent(tag)}`) return;
+    const releaseUrl = release.html_url ? new URL(release.html_url) : null;
+    if (!tag || release.draft || release.prerelease || !newerVersion(tag, app.getVersion()) || !releaseUrl || releaseUrl.origin !== 'https://github.com' || releaseUrl.pathname !== `/syrex1013/ThreatDuet/releases/tag/${encodeURIComponent(tag)}`) return;
     try {
-      const previous = JSON.parse(fs.readFileSync(updateStateFile(), 'utf8')) as { notified?: string };
-      if (previous.notified === tag) return;
-    } catch { /* First check, or unreadable state: still show the update once. */ }
-    const notification = new Notification({ title: 'ThreatDuet update available', body: `Version ${tag} is ready to download.` });
-    toasts.add(notification);
-    notification.on('click', () => void shell.openExternal(url.toString()));
-    notification.on('close', () => toasts.delete(notification));
-    notification.on('failed', (_event, error) => { toasts.delete(notification); console.error(`ThreatDuet update notification failed: ${error}`); });
-    notification.show();
-    const temp = `${updateStateFile()}.${process.pid}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify({ notified: tag }), { mode: 0o600 });
-    fs.renameSync(temp, updateStateFile());
+      const previous = JSON.parse(fs.readFileSync(updateStateFile(), 'utf8')) as { downloading?: string };
+      if (previous.downloading === tag) return;
+    } catch { }
+
+    const assets = release.assets ?? [];
+    const asset = isMac
+      ? assets.find((a) => a.name.endsWith('-mac.zip'))
+      : process.platform === 'win32'
+        ? assets.find((a) => a.name.startsWith('ThreatDuet-Setup-') && a.name.endsWith('.exe'))
+        : null;
+    if (!asset) return;
+
+    updating = true;
+    const tmpDir = path.join(app.getPath('temp'), `threatduet-update-${tag}`);
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const downloadPath = path.join(tmpDir, asset.name);
+
+    const stateTemp = `${updateStateFile()}.${process.pid}.tmp`;
+    fs.writeFileSync(stateTemp, JSON.stringify({ downloading: tag }), { mode: 0o600 });
+    fs.renameSync(stateTemp, updateStateFile());
+
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: 'ThreatDuet', body: `Downloading update ${tag}…` });
+      toasts.add(n);
+      n.on('close', () => toasts.delete(n));
+      n.show();
+    }
+
+    try {
+      const resp = await fetch(asset.browser_download_url, { signal: AbortSignal.timeout(300_000) });
+      if (!resp.ok || !resp.body) throw new Error(`Download ${resp.status}`);
+      await pipeline(Readable.fromWeb(resp.body as Parameters<typeof Readable.fromWeb>[0]), fs.createWriteStream(downloadPath));
+    } catch {
+      updating = false;
+      fs.rm(tmpDir, { recursive: true, force: true }, () => { /* cleanup */ });
+      return;
+    }
+
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: 'ThreatDuet', body: `Installing ${tag} and restarting…` });
+      toasts.add(n);
+      n.on('close', () => toasts.delete(n));
+      n.show();
+    }
+
+    if (isMac) {
+      const appBundle = path.dirname(path.dirname(path.dirname(app.getAppPath())));
+      const appParent = path.dirname(appBundle);
+      const appName = path.basename(appBundle);
+      const script = [
+        '#!/bin/bash',
+        `while kill -0 ${process.pid} 2>/dev/null; do sleep 0.3; done`,
+        `unzip -qo "${downloadPath}" -d "${tmpDir}/extracted"`,
+        `xattr -rd com.apple.quarantine "${tmpDir}/extracted/${appName}" 2>/dev/null || true`,
+        `rm -rf "${appBundle}"`,
+        `mv "${tmpDir}/extracted/${appName}" "${appParent}/"`,
+        `open "${appParent}/${appName}"`,
+        `rm -rf "${tmpDir}"`,
+      ].join('\n');
+      const scriptPath = path.join(tmpDir, 'install.sh');
+      fs.writeFileSync(scriptPath, script, { mode: 0o755 });
+      spawn('/bin/bash', [scriptPath], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      // Windows NSIS per-user silent install; installer relaunches the app.
+      spawn(downloadPath, ['/S'], { detached: true, stdio: 'ignore' }).unref();
+    }
+
+    app.quit();
   } catch {
-    // Update checks are best effort; offline launch must stay quiet.
+    updating = false;
   }
 }

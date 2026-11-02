@@ -305,7 +305,17 @@ const openTasks = () => db.data.tasks.filter((t) => !['done', 'failed', 'cancell
 /** Done or dismissed — kept so we refuse to recreate finished work. Newest first. */
 const finishedTasks = () =>
   db.data.tasks.filter((t) => t.status === 'done' || t.status === 'dismissed').slice(0, 40);
-const sameTitle = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const normalize = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+const sameTitle = (a: string, b: string) => {
+  const na = normalize(a), nb = normalize(b);
+  if (na === nb) return true;
+  // High word overlap (≥75%) counts as the same task — prevents recreation when the model rephrases slightly.
+  const wa = new Set(na.split(' ').filter((w) => w.length > 3));
+  const wb = new Set(nb.split(' ').filter((w) => w.length > 3));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const shared = [...wa].filter((w) => wb.has(w)).length;
+  return shared / Math.min(wa.size, wb.size) >= 0.75;
+};
 const scheduled = new Set<string>();
 
 async function addTask(t: { title: string; details: string; start: boolean }, channel: string | undefined, mayStart: boolean): Promise<void> {

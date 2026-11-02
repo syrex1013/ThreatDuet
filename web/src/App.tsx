@@ -301,7 +301,7 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
             <div className="input-prompt-list">
               {(data.pendingInputs ?? (data.pendingInput ? [data.pendingInput] : [])).map((req) => <InputPrompt key={req.id} req={req} taskTitle={data.tasks.find((task) => task.id === req.taskId)?.title} onDone={() => void qc.invalidateQueries({ queryKey: ['state'] })} />)}
             </div>
-            <Composer text={draft} setText={setDraft} error={error} onSend={(text) => send.mutate(text)} />
+            <Composer text={draft} setText={setDraft} error={error} onSend={(text) => send.mutate(text)} disabled={(data.pendingInputs ?? (data.pendingInput ? [data.pendingInput] : [])).length > 0} />
           </main>
         </div>
       )}
