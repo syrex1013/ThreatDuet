@@ -126,6 +126,11 @@ export const PL_APP: Record<string, string> = {
   'About you': 'O Tobie',
   'Your day': 'Twój dzień',
   'Connect your things': 'Połącz swoje rzeczy',
+  'Kilo API key (optional)': 'Klucz API Kilo (opcjonalnie)',
+  'NVIDIA NIM API key (optional)': 'Klucz API NVIDIA NIM (opcjonalnie)',
+  'Compatible provider API key (optional)': 'Klucz API zgodnego dostawcy (opcjonalnie)',
+  'Saved for OPENAI_API_KEY. You can configure its API endpoint later in Work.': 'Zapisany jako OPENAI_API_KEY. Adres API możesz później skonfigurować w sekcji Praca.',
+  'Keys are encrypted with your operating system credential store. Leave blank to add them later.': 'Klucze są szyfrowane przez systemowy magazyn poświadczeń. Pozostaw puste, aby dodać je później.',
   "You're ready": 'Gotowe',
   'Step {n} of {total}': 'Krok {n} z {total}',
   'Duet works next to you: it watches what matters, briefs you in the morning, and asks before it does anything that affects others.':

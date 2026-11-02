@@ -8,6 +8,7 @@ export const ROOT = path.resolve(process.env.THREATDUET_HOME ?? process.cwd());
 export const DATA_DIR = path.join(ROOT, 'data');
 export const WORKSPACE = path.join(ROOT, 'workspace');
 export const STATE_FILE = path.join(DATA_DIR, 'state.json');
+export const PROVIDER_SECRETS_FILE = path.join(DATA_DIR, 'provider-secrets.json');
 export const MEMORY_FILE = path.join(DATA_DIR, 'memory.md');
 // Kilo config holding the connected apps (and any API keys): private, outside the agent's workspace.
 export const CONNECTORS_FILE = path.join(DATA_DIR, 'kilo-connectors.json');

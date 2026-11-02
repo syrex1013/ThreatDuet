@@ -1,9 +1,9 @@
 import { db } from '../store.js';
+import { providerKey } from '../provider-secrets.js';
 /** Kilo's hosted gateway: an OpenAI-compatible chat API. Free models need no account. */
 const GATEWAY = process.env.KILO_GATEWAY_URL ?? 'https://api.kilo.ai/api/gateway';
 /** NVIDIA NIM, for models named nim/<catalog id>: the same API shape, credentials from NVIDIA_API_KEY or NIM_API_KEY. */
 const NIM = 'https://integrate.api.nvidia.com/v1';
-const nimKey = () => process.env.NVIDIA_API_KEY || process.env.NIM_API_KEY || '';
 export const isNim = (model: string) => model.startsWith('nim/');
 
 export interface ToolCall {
@@ -79,7 +79,7 @@ export async function readChatStream(response: Response, onText?: (text: string)
 export async function chat(model: string, messages: ChatMessage[], tools: ToolSpec[], signal: AbortSignal, maxTokens?: number, onText?: (text: string) => void): Promise<Reply> {
   const custom = db?.data?.provider?.baseUrl;
   const nim = !custom && isNim(model);
-  const key = custom ? process.env[db.data.provider.keyEnv] : nim ? nimKey() : process.env.KILO_API_KEY;
+  const key = await providerKey(custom ? db.data.provider.keyEnv : nim ? 'NVIDIA_API_KEY' : 'KILO_API_KEY');
   if (nim && !key) throw new Error('NVIDIA NIM requires NVIDIA_API_KEY or NIM_API_KEY.');
   const where = custom ? 'the configured provider' : nim ? 'NVIDIA NIM' : 'the Kilo gateway';
   let last = '';

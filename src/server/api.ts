@@ -9,6 +9,7 @@ export { json } from './validation.js';
 import { z } from 'zod';
 import type { StateResponse } from '../shared/types.js';
 import { WORKSPACE } from './config.js';
+import { saveProviderKeys } from './provider-secrets.js';
 import { approve, cancelFollowup, chat, completeTask, currentDraft, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, openRecs, reject, routines, setRoutine, startTask } from './duet.js';
 import { cancelInput, openInput, openInputs, respondInput } from './input.js';
 import { computerBrief } from './computer/machine.js';
@@ -191,11 +192,12 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
     (await completeTask(c.req.valid('json').id)) ? c.json({ ok: true }) : c.json({ error: tr('That task is no longer waiting.') }, 409),
   )
 
-  .post('/setup', json(SettingsPatch.omit({ memory: true, kiloMode: true, model: true }).extend({ name: z.string().trim().max(200).optional(), about: z.string().trim().max(4000).optional(), skip: z.boolean().optional() })), async (c) => {
+  .post('/setup', json(SettingsPatch.omit({ memory: true, kiloMode: true, model: true }).extend({ name: z.string().trim().max(200).optional(), about: z.string().trim().max(4000).optional(), skip: z.boolean().optional(), kiloKey: z.string().max(4000).optional(), nvidiaKey: z.string().max(4000).optional(), compatibleKey: z.string().max(4000).optional() })), async (c) => {
     // First-launch setup belongs to whoever sits at this computer, not to a paired phone.
     if (c.get('phone')) return c.json({ error: tr('Finish setup on your computer.') }, 403);
     if (db.data.setupDone) return c.json({ error: tr('Setup is already done.') }, 409);
-    const { name, about, skip, ...settings } = c.req.valid('json');
+    const { name, about, skip, kiloKey, nvidiaKey, compatibleKey, ...settings } = c.req.valid('json');
+    await saveProviderKeys({ KILO_API_KEY: kiloKey, NVIDIA_API_KEY: nvidiaKey, OPENAI_API_KEY: compatibleKey });
     Object.assign(db.data.settings, settings);
     const facts = [name && `The user's name is ${name}.`, about && `About the user and their work: ${about}`].filter(Boolean) as string[];
     if (facts.length) await appendMemory(facts, 'setup');

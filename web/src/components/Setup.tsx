@@ -33,6 +33,7 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keys, setKeys] = useState({ kilo: '', nvidia: '', compatible: '' });
   const heading = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
   const focus = form.focus ?? t(s.focus);
@@ -63,6 +64,9 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
           checkEveryHours: f.checkEveryHours === '' ? undefined : Number(f.checkEveryHours),
           quietStart: f.quietStart || undefined,
           quietEnd: f.quietEnd || undefined,
+          kiloKey: keys.kilo || undefined,
+          nvidiaKey: keys.nvidia || undefined,
+          compatibleKey: keys.compatible || undefined,
         };
     try {
       await post('/setup', body);
@@ -70,6 +74,8 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
+    } finally {
+      setKeys({ kilo: '', nvidia: '', compatible: '' });
     }
   };
 
@@ -151,6 +157,20 @@ export function Setup({ state, language, onLanguage, appsCount, onOpen, onDone }
         {step === 3 && (
           <>
             <p className="setup-text">{t('Duet is more useful when it can see your email, calendar and files. All of this is optional, and you can connect things later from the top bar.')}</p>
+            <div className="field">
+              <label htmlFor="setup-kilo-key">{t('Kilo API key (optional)')}</label>
+              <input id="setup-kilo-key" type="password" autoComplete="new-password" spellCheck={false} value={keys.kilo} onChange={(e) => setKeys({ ...keys, kilo: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="setup-nvidia-key">{t('NVIDIA NIM API key (optional)')}</label>
+              <input id="setup-nvidia-key" type="password" autoComplete="new-password" spellCheck={false} value={keys.nvidia} onChange={(e) => setKeys({ ...keys, nvidia: e.target.value })} />
+            </div>
+            <div className="field">
+              <label htmlFor="setup-compatible-key">{t('Compatible provider API key (optional)')}</label>
+              <input id="setup-compatible-key" type="password" autoComplete="new-password" spellCheck={false} value={keys.compatible} onChange={(e) => setKeys({ ...keys, compatible: e.target.value })} />
+              <p className="hint">{t('Saved for OPENAI_API_KEY. You can configure its API endpoint later in Work.')}</p>
+            </div>
+            <p className="hint">{t('Keys are encrypted with your operating system credential store. Leave blank to add them later.')}</p>
             <div className="setup-connect">
               <button type="button" className="btn btn-quiet" onClick={() => onOpen('apps')}>
                 {t('Apps')}
