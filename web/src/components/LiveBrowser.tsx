@@ -21,6 +21,7 @@ export function LiveBrowser({ source = 'computer', wake = true, compact = false,
   const [text, setText] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [takeover, setTakeover] = useState(false);
   const [woke, setWoke] = useState(wake);
   const img = useRef<HTMLImageElement>(null);
   const shot = useQuery({
@@ -35,7 +36,7 @@ export function LiveBrowser({ source = 'computer', wake = true, compact = false,
   const qc = useQueryClient();
   const actPath = local ? '/mac/act' : '/computer/act';
   const send = useMutation({
-    mutationFn: (body: object) => post(actPath, body),
+    mutationFn: (body: object) => post(actPath, { ...body, manual: true }),
     onSuccess: () => {
       setError(null);
       void qc.invalidateQueries({ queryKey: [local ? 'local-screen' : 'screen'] });
@@ -76,6 +77,7 @@ export function LiveBrowser({ source = 'computer', wake = true, compact = false,
   return (
     <section className={`watch live-browser${compact ? ' live-browser-compact' : ''}`} aria-label={t('Watch the browser')}>
       {!compact && <h3>{t('Watch')}</h3>}
+      {!compact && <button type="button" className="btn btn-quiet btn-sm" onClick={async () => { try { const enabled = d?.browserMode === 'interactive' || takeover; await post(`/browser/${local ? 'local' : 'computer'}/takeover${enabled ? '/finish' : ''}`); setTakeover(!enabled); void qc.invalidateQueries({ queryKey: [local ? 'local-screen' : 'screen'] }); } catch (error) { setError(error instanceof Error ? error.message : String(error)); } }}>{(d?.browserMode === 'interactive' || takeover) ? t('Return to automatic browsing') : t('Take over browser')}</button>}
       <div className="watch-frame">
         {d?.base64 ? (
           <img ref={img} src={`data:${d.mime ?? 'image/jpeg'};base64,${d.base64}`} alt={pageLabel} onClick={click} />

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import type { StateResponse } from '../shared/types.js';
 import { WORKSPACE } from './config.js';
 import { approve, cancelFollowup, chat, completeTask, currentDraft, currentDetail, currentWork, deleteRoutine, dismissTask, kickoff, openRecs, reject, routines, setRoutine, startTask } from './duet.js';
-import { cancelInput, openInput, respondInput } from './input.js';
+import { cancelInput, openInput, openInputs, respondInput } from './input.js';
 import { computerBrief } from './computer/machine.js';
 import { SKIP } from './direct/tools.js';
 import { OS_ID } from './mac/os.js';
@@ -81,6 +81,7 @@ export const api = new Hono<{ Variables: { phone?: boolean } }>()
       os: OS_ID,
       recs: openRecs(),
       pendingInput: openInput(),
+      pendingInputs: openInputs(),
     };
     return c.json(body);
   })

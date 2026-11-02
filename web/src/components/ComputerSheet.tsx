@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
-import type { ComputerChoice, ComputerStatus } from '../../../src/shared/types';
+import { useState } from 'react';
+import type { ComputerStatus } from '../../../src/shared/types';
 import { getComputer, post } from '../api';
 import { t } from '../i18n';
 import { LiveBrowser } from './LiveBrowser';
@@ -33,73 +33,26 @@ export function ComputerSheet({ onClose }: { onClose: () => void }) {
 
 function Connect({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
-  const [choices, setChoices] = useState<ComputerChoice[] | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
-
-  const find = useMutation({
-    mutationFn: () => post<{ machines: ComputerChoice[] }>('/computer/machines', {}),
-    onSuccess: (r) => {
-      setError(null);
-      setChoices(r.machines);
-      setPicked(r.machines.find((m) => m.hasBrowser)?.id ?? r.machines[0]?.id ?? null);
-    },
-    onError: (e) => setError(e.message),
-  });
-  const connect = useMutation({
-    mutationFn: () => post('/computer/connect', { machineId: picked }),
+  const [administrator, setAdministrator] = useState(false);
+  const enroll = useMutation({
+    mutationFn: (values: Record<string, string>) => post(administrator ? '/computer/attach' : '/computer/enroll', values),
     onSuccess: onDone,
     onError: (e) => setError(e.message),
   });
-  const chosen = choices?.find((m) => m.id === picked);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!choices) find.mutate();
-    else if (picked) connect.mutate();
-  };
-
   return (
-    <form onSubmit={submit} className="computer-connect">
-      <p className="apps-intro">
-        {t(
-          'Give Duet its own computer in the cloud, with a browser. It can look things up and work there while your laptop and phone are off. Duet reads pages on its own; clicking, typing and running commands wait for your approval.',
-        )}
-      </p>
-      {choices && (
-        <fieldset className="machines">
-          <legend>{t('Which machine should Duet use?')}</legend>
-          {choices.map((m) => (
-            <label key={m.id} className="radio machine">
-              <input type="radio" name="machine" checked={picked === m.id} onChange={() => setPicked(m.id)} />
-              <span>
-                <strong>{m.name}</strong> <span className="muted">{m.hasBrowser ? m.state : t('{state}, no browser', { state: m.state })}</span>
-              </span>
-            </label>
-          ))}
-          {choices.length === 0 && <p className="hint">{t('There are no machines on this account yet. Create one with the agent-browser template, then come back.')}</p>}
-          {chosen && !chosen.hasBrowser && <p className="warning">{t('This machine has no desktop browser. Duet needs one made from the agent-browser template.')}</p>}
-          {chosen?.vault && (
-            <p className="warning">
-              <AlertTriangle size={14} aria-hidden="true" />{' '}
-              {t(
-                'This machine can read your Instabox Vault secrets. Anything Duet opens or runs there could reach them. Turn Vault off for this machine in the Instabox dashboard before connecting, or pick a machine that has it off.',
-              )}
-            </p>
-          )}
-          <p className="hint">{t('Duet works in its own folder on the machine and never deletes the machine.')}</p>
-        </fieldset>
-      )}
-
-      {error && (
-        <p className="is-error apps-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="reset">
-        <button type="submit" className="btn btn-send" disabled={find.isPending || connect.isPending || (Boolean(choices) && !picked)}>
-          {!choices ? (find.isPending ? t('Looking…') : t('Find my machines')) : connect.isPending ? t('Connecting…') : t('Connect this machine')}
-        </button>
-      </div>
+    <form className="computer-connect" onSubmit={(event) => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+      enroll.mutate(values);
+      (event.currentTarget.elements.namedItem(administrator ? 'token' : 'code') as HTMLInputElement).value = '';
+    }}>
+      <p>{t('Connect your private cloud workspace using an invite from your administrator.')}</p>
+      <label>{t('Broker URL')}<input type="url" name="url" placeholder="https://work.example.com" required autoComplete="url" /></label>
+      {!administrator && <label>{t('Your name')}<input name="name" maxLength={80} required autoComplete="name" /></label>}
+      <label>{t(administrator ? 'Administrator installation token' : 'Private invite code')}<input type="password" name={administrator ? 'token' : 'code'} required autoComplete="off" /></label>
+      <label className="check"><input type="checkbox" checked={administrator} onChange={(event) => setAdministrator(event.target.checked)} />{t('Attach administrator workspace')}</label>
+      {error && <p className="is-error" role="alert">{error}</p>}
+      <button className="btn btn-send" type="submit" disabled={enroll.isPending}>{t(enroll.isPending ? 'Connecting…' : 'Connect private workspace')}</button>
     </form>
   );
 }
@@ -145,6 +98,7 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
         </div>
       )}
       {s.error && <p className="is-error apps-error">{s.error}</p>}
+      {s.execution === 'queued' && <p role="status">{t('Cloud execution queued')} · {s.queuePosition}</p>}
       {s.vault && (
         <p className="warning">
           <AlertTriangle size={14} aria-hidden="true" /> {t('This machine can read your Instabox Vault secrets. Turn Vault off for it in the Instabox dashboard.')}
@@ -189,10 +143,11 @@ function Connected({ s, onChange }: { s: ComputerStatus; onChange: () => void })
 
 function SessionPush() {
   const [msg, setMsg] = useState<string | null>(null);
+  const [origin, setOrigin] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const act = useMutation({
     mutationFn: async () => {
-      const r = (await post('/computer/session', {})) as { message?: string };
+      const r = (await post('/computer/session', { origin })) as { message?: string };
       return r;
     },
     onSuccess: (r) => {
@@ -206,10 +161,12 @@ function SessionPush() {
   });
   return (
     <div className="session-push">
-      <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending} onClick={() => act.mutate()}>
+      <label>{t('Website origin for cookie transfer')}<input type="url" value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="https://example.com" /></label>
+      <p className="hint">{t('Copies cookies only. Some sites require a fresh login or additional browser storage.')}</p>
+      <button type="button" className="btn btn-quiet btn-sm" disabled={act.isPending || !origin} onClick={() => act.mutate()}>
         {act.isPending ? t('Copying…') : t("Copy sign-ins to Duet's computer")}
       </button>
-      <p className="hint">{t('Moves the ThreatDuet browser session from this Mac/PC into the cloud browser so Duet stays signed in there.')}</p>
+      <p className="hint">{t('Copies cookies for this website only. Browser storage, passkeys and device keys are not transferred.')}</p>
       {msg && <p className="hint">{msg}</p>}
       {err && (
         <p className="is-error" role="alert">

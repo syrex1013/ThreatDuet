@@ -3,11 +3,9 @@ import type { PendingInput } from '../../../src/shared/types';
 import { post } from '../api';
 import { t } from '../i18n';
 import { LiveBrowser } from './LiveBrowser';
-import { Sheet } from './Sheet';
 
 /** Secure prompt for passwords / OTP / short text. Shows the live browser so you can see and drive any site. */
-export function InputPrompt({ req, onDone }: { req: PendingInput; onDone: () => void }) {
-  const [value, setValue] = useState('');
+export function InputPrompt({ req, taskTitle, onDone }: { req: PendingInput; taskTitle?: string; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -22,12 +20,12 @@ export function InputPrompt({ req, onDone }: { req: PendingInput; onDone: () => 
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!value || busy) return;
+    const submitted = new FormData(e.currentTarget as HTMLFormElement).get('credential');
+    if (typeof submitted !== 'string' || !submitted || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await post('/input', { id: req.id, value });
-      setValue('');
+      await post('/input', { id: req.id, value: submitted });
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -46,9 +44,12 @@ export function InputPrompt({ req, onDone }: { req: PendingInput; onDone: () => 
   }
 
   return (
-    <Sheet title={t('Duet needs your input')} wide onClose={() => void cancel()}>
+    <section className="input-prompt-card" aria-label={t('Duet needs your input')}>
+      <h3>{t('Duet needs your input')}</h3>
+      {taskTitle && <p>{taskTitle}</p>}
+      <p className="hint">{t('For password managers, passkeys or authentication challenges, cancel this prompt and use Take over browser in the Watch panel. Saved website credentials may not autofill this chat form.')}</p>
       <p className="hint">{req.prompt}</p>
-      {req.url && <p className="watch-where">{req.url}</p>}
+      {req.origin && <p className="watch-where">{req.origin}</p>}
       <p className="hint">
         {onComputer
           ? t("Live view of Duet's cloud browser. Click the page if you need to focus a field; your answer below is typed into it and never enters the chat.")
@@ -60,21 +61,21 @@ export function InputPrompt({ req, onDone }: { req: PendingInput; onDone: () => 
       </div>
 
       <form className="watch-type watch-password input-prompt-form" onSubmit={submit}>
-        <label htmlFor="duet-input" className="sr-only">
+        <label htmlFor={`duet-input-${req.id}`} className="sr-only">
           {label}
         </label>
         <input
-          id="duet-input"
+          id={`duet-input-${req.id}`}
           ref={input}
           type={secret ? 'password' : 'text'}
           inputMode={req.kind === 'otp' ? 'numeric' : undefined}
-          autoComplete={req.kind === 'password' ? 'current-password' : 'off'}
-          value={value}
+          name="credential"
+          autoComplete={req.kind === 'password' ? 'current-password' : req.kind === 'otp' ? 'one-time-code' : 'username'}
           placeholder={label}
-          onChange={(e) => setValue(e.target.value)}
+          required
           disabled={busy}
         />
-        <button type="submit" className="btn btn-send btn-sm" disabled={!value || busy}>
+        <button type="submit" className="btn btn-send btn-sm" disabled={busy}>
           {busy ? t('Sending…') : t('Fill and continue')}
         </button>
         <button type="button" className="btn btn-text btn-sm" disabled={busy} onClick={() => void cancel()}>
@@ -86,6 +87,6 @@ export function InputPrompt({ req, onDone }: { req: PendingInput; onDone: () => 
           {error}
         </p>
       )}
-    </Sheet>
+    </section>
   );
 }

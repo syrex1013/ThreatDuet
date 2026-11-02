@@ -8,6 +8,32 @@ await vi.hoisted(async () => {
 vi.mock('./direct/gateway.js', async (orig) => ({ ...(await orig<typeof import('./direct/gateway.js')>()), chat: vi.fn() }));
 
 describe("built-in agent rules and gateway", () => {
+  it('resumes owned complete tool pairs and rejects cross-task or damaged sessions', async () => {
+    const store = await import('./store.js');
+    if (!store.db) await store.openStore();
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const { DATA_DIR } = await import('./config.js');
+    const { chat } = await import('./direct/gateway.js');
+    const { runDirect } = await import('./direct/runtime.js');
+    const mock = vi.mocked(chat).mockReset().mockResolvedValue({ content: 'done' });
+    const run = { prompt: 'original', model: 'test', agent: 'duet' as const, taskId: 'owner-task', channel: 'owner-channel' };
+    const first = await runDirect(run, () => '');
+    const file = path.join(DATA_DIR, 'direct', `${first.sessionID}.json`);
+    const original = JSON.parse(await fs.readFile(file, 'utf8'));
+    const call = (id: string) => ({ id, type: 'function', function: { name: 'read', arguments: '{"path":"x"}' } });
+    original.history = [{ role: 'user', content: 'owned-marker' }, { role: 'assistant', content: null, tool_calls: [call('a'), call('b')] }, { role: 'tool', tool_call_id: 'a', content: 'one' }, { role: 'tool', tool_call_id: 'b', content: 'two' }];
+    await fs.writeFile(file, JSON.stringify(original));
+    expect((await runDirect({ ...run, session: first.sessionID }, () => '')).sessionID).toBe(first.sessionID);
+    expect(JSON.stringify(mock.mock.calls.at(-1)![1])).toContain('owned-marker');
+    expect((await runDirect({ ...run, taskId: 'another-task', session: first.sessionID }, () => '')).sessionID).not.toBe(first.sessionID);
+    expect(JSON.stringify(mock.mock.calls.at(-1)![1])).not.toContain('owned-marker');
+    original.history.pop();
+    await fs.writeFile(file, JSON.stringify(original));
+    expect((await runDirect({ ...run, session: first.sessionID }, () => '')).sessionID).not.toBe(first.sessionID);
+    expect((await fs.readdir(path.dirname(file))).some((name) => name.endsWith('.tmp'))).toBe(false);
+    mock.mockReset();
+  });
   it('obeys the same permission file as Kilo', async () => {
     const store = await import('./store.js');
     await store.openStore();

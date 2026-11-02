@@ -298,6 +298,9 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
               onOpenFile={(path) => setSheet({ kind: 'file', path })}
               onSuggest={setDraft}
             />
+            <div className="input-prompt-list">
+              {(data.pendingInputs ?? (data.pendingInput ? [data.pendingInput] : [])).map((req) => <InputPrompt key={req.id} req={req} taskTitle={data.tasks.find((task) => task.id === req.taskId)?.title} onDone={() => void qc.invalidateQueries({ queryKey: ['state'] })} />)}
+            </div>
             <Composer text={draft} setText={setDraft} error={error} onSend={(text) => send.mutate(text)} />
           </main>
         </div>
@@ -316,15 +319,6 @@ function Workspace({ onUnpair }: { onUnpair: () => void }) {
           onClose={() => {
             setSheet(null);
             void qc.invalidateQueries({ queryKey: ['connectors'] });
-          }}
-        />
-      )}
-      {!sheet && data?.pendingInput && (
-        <InputPrompt
-          key={data.pendingInput.id}
-          req={data.pendingInput}
-          onDone={() => {
-            void qc.invalidateQueries({ queryKey: ['state'] });
           }}
         />
       )}

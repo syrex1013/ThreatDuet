@@ -10,6 +10,15 @@ beforeAll(() => store.openStore());
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); store.db.data.provider.baseUrl = ''; });
 
 describe('streamed providers', () => {
+  it('preserves ordered reasoning metadata privately across streaming chunks', async () => {
+    const details = [{ type: 'reasoning.text', index: 0, text: 'private reasoning', signature: 'signed' }, { type: 'reasoning.encrypted', index: 1, data: 'encrypted-block' }];
+    const stream = details.map((detail) => `data: ${JSON.stringify({ choices: [{ delta: { reasoning_details: [detail] } }] })}\n\n`).join('') + 'data: {"choices":[{"delta":{"content":"Visible summary"}}]}\n\ndata: [DONE]\n\n';
+    const visible = vi.fn();
+    const reply = await readChatStream(new Response(stream), visible);
+    expect(reply.reasoning_details).toEqual(details);
+    expect(visible).toHaveBeenCalledExactlyOnceWith('Visible summary');
+    expect(reply.content).not.toContain('private reasoning');
+  });
   it('assembles fragmented tool arguments, text and provider-reported usage', async () => {
     const packets = [
       { choices: [{ delta: { content: 'Hello ', tool_calls: [{ index: 0, id: 'c1', function: { name: 'mail_send', arguments: '{"to":' } }] } }] },

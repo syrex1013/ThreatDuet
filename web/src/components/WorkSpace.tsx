@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { Knowledge, Message, PermissionRule, Project, StateResponse } from '../../../src/shared/types';
 import { post, request } from '../api';
 import { isPhone } from '../connection';
@@ -23,6 +23,13 @@ export function WorkSpace({ state, channel, onSelect, onClose }: { state: StateR
   const project = state.projects?.find((p) => p.id === projectId);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const running = state.tasks.some((task) => task.status === 'running');
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
   const [name, setName] = useState('');
   const [objective, setObjective] = useState('');
   const [criteria, setCriteria] = useState('');
@@ -96,6 +103,10 @@ export function WorkSpace({ state, channel, onSelect, onClose }: { state: StateR
       </form>
       {state.tasks.filter((task) => !projectId || task.projectId === projectId).map((task) => <section className="work-card" key={task.id}>
         <h3>{task.title} · {t(task.status)}</h3><p>{task.details}</p><p>{task.criteria}</p><p className="muted">{task.reason}</p>
+        {(task.modelProgress || task.activity?.at(-1)) && (() => {
+          const activity = task.modelProgress || task.activity!.at(-1)!;
+          return <p className="muted" aria-live="polite">{activity.title}: {activity.description} · {Math.floor(Math.max(0, task.status === 'running' ? now - activity.at : activity.elapsedMs ?? 0) / 1000)}s</p>;
+        })()}
         {task.deliverables?.map((file) => <p key={file}>{file}</p>)}
         <div className="work-actions">
           {['suggested', 'paused', 'interrupted', 'failed', 'waiting'].includes(task.status) && button(task.status === 'failed' ? 'Retry' : 'Resume', () => act('/tasks/control', { id: task.id, action: task.status === 'failed' ? 'retry' : 'resume' }))}

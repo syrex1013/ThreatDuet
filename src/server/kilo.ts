@@ -9,8 +9,11 @@ import { runDirect } from './direct/runtime.js';
 import { KiloServerError, runKiloApi } from './kilo-api.js';
 import { db, resetSandbox } from './store.js';
 import { tr } from './i18n.js';
+import { runtimeProgress, withActiveRun } from './run-context.js';
+import { emitRunEvent } from './activity.js';
 
 export interface KiloRun {
+  channel?: string;
   signal?: AbortSignal;
   taskId?: string;
   approvedCalls?: import('../shared/types.js').ExactCall[];
@@ -116,9 +119,22 @@ export function describeTool(tool: string, input: Record<string, unknown> = {}):
  * only when the session survived, so nothing already done is done twice.
  */
 export async function runKilo(run: KiloRun): Promise<KiloResult> {
-  const first = await runOnce(run).catch((e: Error) => ({ sessionID: run.session ?? null, text: '', finalText: '', tools: [], errors: [e.message] }) as KiloResult);
+  run = { ...run, signal: run.signal ? AbortSignal.any([run.signal, AbortSignal.timeout(RUN_TIMEOUT_MS)]) : AbortSignal.timeout(RUN_TIMEOUT_MS) };
+  return withActiveRun({ runId: run.session ?? undefined, taskId: run.taskId, channel: run.channel, signal: run.signal, onProgress: run.onProgress }, () => runKiloInContext(run));
+}
+
+async function runKiloInContext(run: KiloRun): Promise<KiloResult> {
+  const task = run.taskId ? db.data.tasks.find((task) => task.id === run.taskId) : undefined;
+  if (task) delete task.modelProgress;
+  const startedAt = Date.now(); emitRunEvent(run.taskId, 'observing', 'Run started', 'Collecting latest observation.', startedAt);
+  const first = await runOnce(run).catch((e: Error) => { emitRunEvent(run.taskId, 'failed', 'Run failed', e.message, startedAt); return ({ sessionID: run.session ?? null, text: '', finalText: '', tools: [], errors: [e.message] }) as KiloResult; });
   if (run.agent === 'code' && !first.text && first.errors.length && !first.sessionID) throw new Error(first.errors.join('; '));
-  if (run.signal?.aborted || run.agent === 'code' || first.text || !first.errors.length) return first;
+  if (run.signal?.aborted || run.agent === 'code' || first.text || !first.errors.length || first.tools.length || first.pendingCalls?.length) {
+    const status = run.signal?.aborted ? 'interrupted' : first.pendingCalls?.length ? 'waiting_for_approval' : first.errors.length ? 'failed' : 'completed';
+    emitRunEvent(run.taskId, status, status === 'completed' ? 'Run finished' : 'Run stopped', first.errors[0] ?? (first.pendingCalls?.length ? 'Exact approval required before execution.' : 'Completed.'), startedAt);
+    await db.write();
+    return first;
+  }
   // The gateway itself failing (unreachable, rate-limited, 5xx) is not something another prompt can fix.
   if (first.errors.every((e) => /Kilo gateway|NVIDIA NIM|configured provider|rate-limited/i.test(e))) return first;
   const session = first.sessionID ?? run.session ?? null;
@@ -145,7 +161,7 @@ async function runOnce(run: KiloRun): Promise<KiloResult> {
   return runKiloCli(run);
 }
 
-async function runKiloCli({ prompt, model, agent, session, auto, onProgress, signal }: KiloRun): Promise<KiloResult> {
+async function runKiloCli({ prompt, model, agent, session, auto, onProgress, signal, taskId }: KiloRun): Promise<KiloResult> {
   // The prompt goes in on stdin: Windows refuses line breaks in the arguments of a .cmd program.
   const args = ['run', '--format', 'json', '--dir', WORKSPACE, '-m', model, '--agent', agent];
   if (session) args.push('-s', session);
@@ -168,13 +184,15 @@ async function runKiloCli({ prompt, model, agent, session, auto, onProgress, sig
   const lines: string[] = [];
   for await (const line of proc.iterable({ from: 'stdout' })) {
     lines.push(line);
-    if (!onProgress || !line.startsWith('{')) continue;
+    if (!line.startsWith('{')) continue;
     try {
       const e = JSON.parse(line);
       const p = e.part ?? {};
-      if (p.type === 'tool' && p.state?.status !== 'completed' && p.state?.status !== 'error')
-        onProgress(describeTool(p.tool, p.state?.input ?? {}));
-      else if (p.type === 'text') onProgress('writing a reply');
+      if (p.type === 'tool') {
+        const detail = describeTool(p.tool, p.state?.input ?? {});
+        emitRunEvent(taskId, p.state?.status === 'error' ? 'failed' : p.state?.status === 'completed' ? 'verifying' : 'acting', detail, 'Runner execution event.');
+        if (p.state?.status !== 'completed' && p.state?.status !== 'error') runtimeProgress(detail, onProgress);
+      } else if (p.type === 'text') runtimeProgress('writing a reply', onProgress);
     } catch {
       /* partial or non-JSON line */
     }

@@ -12,6 +12,8 @@ import type { SkillRecord } from './skills.js';
 import { DATA_DIR, DEFAULT_SETTINGS, MEMORY_FILE, REMOTE_PORT, STATE_FILE, WORKSPACE } from './config.js';
 
 export interface Data {
+  installationId: string;
+  cloudBroker: import('./computer/broker-client.js').BrokerIdentity | null;
   knowledgeMigrated: boolean;
   knowledgeVersion: number;
   projects: Project[];
@@ -71,8 +73,10 @@ export async function openStore(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true, mode: 0o700 });
   // Connector credentials live here: only this user may read the folder.
   await fs.chmod(DATA_DIR, 0o700);
-  await fs.mkdir(WORKSPACE, { recursive: true });
+  await fs.mkdir(WORKSPACE, { recursive: true, mode: 0o700 });
+  await fs.chmod(WORKSPACE, 0o700);
   db = await JSONFilePreset<Data>(STATE_FILE, {
+    installationId: randomUUID(), cloudBroker: null,
     knowledgeMigrated: false, knowledgeVersion: 0,
     projects: [], runs: [], knowledge: [], permissions: [], receipts: [], watches: [], workflows: initialWorkflows(), revisions: [], usage: [],
     provider: { baseUrl: '', keyEnv: 'OPENAI_API_KEY', chatModel: '', taskModel: '', maxRequests: 40, maxTokens: 0 },
@@ -98,6 +102,8 @@ export async function openStore(): Promise<void> {
     recs: { at: 0, ids: [], seenAt: 0, nextAt: 0 },
   });
   db.data.knowledgeVersion ??= 0;
+  db.data.installationId ??= randomUUID();
+  db.data.cloudBroker ??= null;
   db.data.projects ??= [];
   db.data.runs ??= [];
   db.data.knowledge ??= [];
@@ -132,6 +138,7 @@ export async function openStore(): Promise<void> {
   db.data.followups ??= [];
   db.data.routines ??= [];
   db.data.tasks ??= [];
+  for (const task of db.data.tasks) task.titleEdited ??= true;
   // Someone who already used ThreatDuet before setup existed doesn't need it.
   db.data.setupDone ??= db.data.messages.length > 0;
   // A crash can leave external effects uncertain. Resume only after explicit review.
@@ -311,17 +318,17 @@ export async function writeWorkspaceConfig(): Promise<void> {
   const apps = db.data.connectors.filter((c) => c.enabled);
   // With accounts (or a computer that may hold logins) connected, a fetched page could carry their
   // content out: pages then go through approval.
-  const webOnItsOwn = (apps.length === 0 && !db.data.computer && !macOn()) || db.data.settings.openWebPages;
+  const webOnItsOwn = (apps.length === 0 && !(db.data.cloudBroker || db.data.computer) && !macOn()) || db.data.settings.openWebPages;
   const edit: Record<string, string> = { '*': 'allow' };
   for (const f of PROTECTED) Object.assign(edit, { [f]: 'deny', [`${f}/*`]: 'deny', [`*/${f}`]: 'deny' });
 
   const duet: Record<string, unknown> = { '*': 'deny' };
-  for (const tool of ['invalid', 'read', 'glob', 'grep', 'list', 'websearch', 'codesearch', 'todowrite', 'todoread', 'skill', 'duet_search_chats'])
+  for (const tool of ['invalid', 'read', 'glob', 'grep', 'list', 'websearch', 'codesearch', 'todowrite', 'todoread', 'skill', 'duet_search_chats', 'duet_report_progress', 'duet_update_task'])
     duet[tool] = 'allow';
   duet.webfetch = webOnItsOwn ? 'allow' : 'deny';
   Object.assign(duet, connectorRules(apps.filter((c) => c.autoRead).map((c) => c.id)));
   // Duet's cloud computer: exact names, placed last so they win over the word rules above.
-  if (db.data.computer) Object.assign(duet, computerRules(db.data.settings.openWebPages, db.data.computerAuto));
+  if (db.data.cloudBroker || db.data.computer) Object.assign(duet, computerRules(db.data.settings.openWebPages, db.data.computerAuto));
   if (macOn()) Object.assign(duet, macRules(db.data.settings.openWebPages, db.data.mac.auto));
   for (const tool of ['bash', 'background_process', 'schedule_wakeup', 'cancel_wakeup', 'cron_*', 'agent_manager_*', 'link_pr', 'board_*', 'goal*', 'plan_*', 'doom_loop'])
     duet[tool] = 'deny';

@@ -41,6 +41,7 @@ export async function readChatStream(response: Response, onText?: (text: string)
   let content = '';
   let done = false;
   let usage: Reply['usage'];
+  const reasoning: unknown[] = [];
   const calls = new Map<number, ToolCall>();
   try {
     while (!done) {
@@ -58,6 +59,7 @@ export async function readChatStream(response: Response, onText?: (text: string)
         if (value.error) throw new Error('Provider stream failed.');
         if (value.usage) usage = value.usage;
         const delta = value.choices?.[0]?.delta;
+        if (delta?.reasoning_details !== undefined) reasoning.push(...(Array.isArray(delta.reasoning_details) ? delta.reasoning_details : [delta.reasoning_details]));
         if (typeof delta?.content === 'string') { content += delta.content; onText?.(content); }
         for (const part of delta?.tool_calls ?? []) {
           const index = part.index ?? 0;
@@ -70,7 +72,7 @@ export async function readChatStream(response: Response, onText?: (text: string)
       }
     }
     if (!done) throw new Error('Provider stream ended before completion.');
-    return { content: content || null, tool_calls: calls.size ? [...calls.values()] : undefined, usage };
+    return { content: content || null, tool_calls: calls.size ? [...calls.values()] : undefined, usage, reasoning_details: reasoning.length ? reasoning : undefined };
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
 }
 
